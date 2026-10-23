@@ -7,6 +7,12 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** The look of the whole app. Each style has light and dark versions. More styles come in phase 3. */
+enum class AppStyle(val label: String) {
+    GLASS("شیشه‌ای نئونی"),
+    PEACH("کوهستان هلویی"),
+}
+
 /** Accent colors of the glass theme (taken from the sample designs). */
 enum class Accent(val label: String, val color: Long, val second: Long) {
     NEON_BLUE("آبی نئونی", 0xFF3D7BFF, 0xFF5CF2FF),
@@ -23,6 +29,7 @@ data class Settings(
     val hideAds: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.NEON_BLUE,
+    val style: AppStyle = AppStyle.GLASS,
     val animations: Boolean = true,
     /** Hide every new notification from the status bar right away; it lives on inside the app. */
     val hideAll: Boolean = true,
@@ -67,6 +74,7 @@ class Prefs(context: Context) {
         hideAds = sp.getBoolean("hideAds", true),
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
+        style = runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.GLASS),
         animations = sp.getBoolean("animations", true),
         hideAll = sp.getBoolean("hideAll", true),
         keepOtp = sp.getBoolean("keepOtp", true),
@@ -89,6 +97,7 @@ class Prefs(context: Context) {
             .putBoolean("hideAds", s.hideAds)
             .putString("themeMode", s.themeMode.name)
             .putString("accent", s.accent.name)
+            .putString("style", s.style.name)
             .putBoolean("animations", s.animations)
             .putBoolean("hideAll", s.hideAll)
             .putBoolean("keepOtp", s.keepOtp)

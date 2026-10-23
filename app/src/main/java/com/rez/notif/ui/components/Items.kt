@@ -1,5 +1,8 @@
 package com.rez.notif.ui.components
 
+import com.rez.notif.notif.CodeNotifier
+import com.rez.notif.classify.Classifier
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -135,6 +138,7 @@ fun ItemRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (selected == null) CopyCodeChip(item, Modifier.padding(top = 8.dp))
             }
         }
     }
@@ -264,7 +268,7 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheet,
-        containerColor = if (g.isDark) Color(0xFF161B2B) else Color(0xFFF8FAFC),
+        containerColor = MaterialTheme.colorScheme.surface,
     ) {
         Column(
             Modifier
@@ -308,8 +312,18 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 }
             }
             Spacer(Modifier.height(16.dp))
+            codeOf(item)?.let { code ->
+                GlassButton(
+                    text = "کپی کد " + fa(code),
+                    icon = Icons.Rounded.ContentCopy,
+                    onClick = { CodeNotifier.copy(context, code) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+            }
             GlassButton(
                 text = if (item.source == Source.SMS) "باز کردن گفتگو و جواب" else "باز کردن در " + item.appName,
+                primary = codeOf(item) == null,
                 icon = Icons.AutoMirrored.Rounded.Reply,
                 onClick = { openFailed = !repo.openSource(context, item) },
                 modifier = Modifier.fillMaxWidth(),
@@ -391,5 +405,19 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
             },
             dismissButton = { TextButton(onClick = { confirmSenderDelete = false }) { Text("نه") } },
         )
+    }
+}
+
+/** The login code / one-time password in an item, if it is one. */
+fun codeOf(item: Item): String? =
+    if (item.category == Category.OTP.id) Classifier.extractCode(item.title + "\n" + item.body) else null
+
+/** Small "copy code" pill shown right on the list row of a code message. */
+@Composable
+private fun CopyCodeChip(item: Item, modifier: Modifier = Modifier) {
+    val code = remember(item.id) { codeOf(item) } ?: return
+    val context = LocalContext.current
+    Box(modifier) {
+        GlassChip("کپی " + fa(code), selected = true, color = Category.OTP.tint, icon = Icons.Rounded.ContentCopy, onClick = { CodeNotifier.copy(context, code) })
     }
 }

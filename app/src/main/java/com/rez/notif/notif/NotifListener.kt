@@ -94,8 +94,9 @@ class NotifListener : NotificationListenerService() {
             contentIntent = n.contentIntent,
             isSmsApp = pkg in SMS_APPS,
         )
-        val shouldCancel = NotifApp.repo(this).addNotification(input)
-        if (shouldCancel) {
+        val decision = NotifApp.repo(this).addNotification(input)
+        decision.code?.let { CodeNotifier.show(this, it, if (input.isSmsApp) title else input.appName) }
+        if (decision.hide) {
             try { cancelNotification(sbn.key) } catch (_: Exception) { }
             SummaryNotifier.update(this)
         }

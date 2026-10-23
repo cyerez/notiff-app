@@ -114,3 +114,17 @@ class VipMatcherTest {
 
     @Test fun noFalseMatch() = assertEquals(null, VipMatcher.match(people, false, "", "Reza", "hello Sarah?")?.id)
 }
+
+class CodeExtractTest {
+    @Test fun bankDynamicPassword() =
+        assertEquals("482913", Classifier.extractCode("بانک ملت\nرمز پویا: ۴۸۲۹۱۳\nمبلغ: 1,250,000 ریال\nزمان اعتبار: 2 دقیقه"))
+
+    @Test fun amountBeforeCodeIsSkipped() =
+        assertEquals("5531", Classifier.extractCode("خرید 3,400,000 ریال. کد تایید شما 5531 است"))
+
+    @Test fun englishCode() = assertEquals("774120", Classifier.extractCode("Your verification code is 774120"))
+
+    @Test fun codeBeforeWord() = assertEquals("90817", Classifier.extractCode("90817 is your Telegram code"))
+
+    @Test fun notOtp() = assertEquals(null, Classifier.extractCode("سلام فردا ساعت 1830 میام"))
+}

@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rez.notif.ui.theme.LocalGlass
+import com.rez.notif.ui.theme.peachMountains
+import com.rez.notif.ui.theme.soft
 
 val GlassShape = RoundedCornerShape(28.dp)
 val PillShape = RoundedCornerShape(50)
@@ -74,7 +76,10 @@ fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(g.bgTop, g.bgBottom))),
     ) {
-        Canvas(Modifier.fillMaxSize().blur(90.dp)) {
+        val scene = g.scene
+        if (scene != null) {
+            Canvas(Modifier.fillMaxSize()) { peachMountains(scene, drift) }
+        } else Canvas(Modifier.fillMaxSize().blur(90.dp)) {
             val w = size.width
             val h = size.height
             drawCircle(g.blobs[0], radius = w * 0.55f, center = Offset(w * (0.15f + 0.2f * drift), h * (0.12f + 0.06f * drift)))
@@ -92,7 +97,7 @@ fun Modifier.glassSurface(shape: Shape = GlassShape, glow: Color? = null, elevat
     return this
         .softShadow(
             shape,
-            color = glow?.copy(alpha = 0.55f) ?: g.shadow,
+            color = glow?.let { g.soft(it).copy(alpha = 0.55f * g.glow) } ?: g.shadow,
             blur = elevation,
             offsetY = if (glow == null) elevation / 3 else 0.dp,
         )
@@ -138,11 +143,13 @@ fun GlassCard(
 
 /** Raised colored square with a number, like the "Inbox / To-Do / Notifications" tiles. */
 @Composable
-fun NeonNumber(value: String, color: Color, size: Dp = 64.dp, modifier: Modifier = Modifier) {
+fun NeonNumber(value: String, neon: Color, size: Dp = 64.dp, modifier: Modifier = Modifier) {
+    val g = LocalGlass.current
+    val color = g.soft(neon)
     Box(
         modifier
             .size(size)
-            .softShadow(RoundedCornerShape(size / 3.2f), color.copy(alpha = 0.6f), 14.dp, 4.dp)
+            .softShadow(RoundedCornerShape(size / 3.2f), color.copy(alpha = 0.6f * g.glow), 14.dp, 4.dp)
             .background(
                 Brush.linearGradient(listOf(color.copy(alpha = 0.85f), color)),
                 RoundedCornerShape(size / 3.2f),
@@ -161,11 +168,13 @@ fun NeonNumber(value: String, color: Color, size: Dp = 64.dp, modifier: Modifier
 
 /** Round glowing icon bubble used for categories. */
 @Composable
-fun NeonIcon(icon: ImageVector, color: Color, size: Dp = 44.dp, modifier: Modifier = Modifier) {
+fun NeonIcon(icon: ImageVector, neon: Color, size: Dp = 44.dp, modifier: Modifier = Modifier) {
+    val g = LocalGlass.current
+    val color = g.soft(neon)
     Box(
         modifier
             .size(size)
-            .softShadow(CircleShape, color.copy(alpha = 0.55f), 10.dp, 2.dp)
+            .softShadow(CircleShape, color.copy(alpha = 0.55f * g.glow), 10.dp, 2.dp)
             .background(Brush.radialGradient(listOf(color, color.copy(alpha = 0.75f))), CircleShape)
             .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
         contentAlignment = Alignment.Center,
@@ -176,11 +185,13 @@ fun NeonIcon(icon: ImageVector, color: Color, size: Dp = 44.dp, modifier: Modifi
 
 /** Small glowing count badge. */
 @Composable
-fun Badge(count: Int, color: Color, modifier: Modifier = Modifier) {
+fun Badge(count: Int, neon: Color, modifier: Modifier = Modifier) {
     if (count <= 0) return
+    val g = LocalGlass.current
+    val color = g.soft(neon)
     Box(
         modifier
-            .softShadow(PillShape, color.copy(alpha = 0.5f), 6.dp)
+            .softShadow(PillShape, color.copy(alpha = 0.5f * g.glow), 6.dp)
             .background(color, PillShape)
             .padding(horizontal = 8.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
@@ -202,7 +213,7 @@ fun GlassButton(
     val g = LocalGlass.current
     val base = if (primary) {
         Modifier
-            .softShadow(PillShape, g.accent.copy(alpha = 0.55f), 14.dp, 3.dp)
+            .softShadow(PillShape, g.accent.copy(alpha = 0.55f * g.glow), 14.dp, 3.dp)
             .background(Brush.horizontalGradient(listOf(g.accent, g.accent2.copy(alpha = 0.9f))), PillShape)
             .border(1.dp, Color.White.copy(alpha = 0.4f), PillShape)
     } else {
@@ -306,10 +317,10 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: @Composa
 @Composable
 fun GlassChip(text: String, selected: Boolean, onClick: () -> Unit, color: Color? = null, icon: ImageVector? = null) {
     val g = LocalGlass.current
-    val c = color ?: g.accent
+    val c = g.soft(color ?: g.accent)
     val m = if (selected) {
         Modifier
-            .softShadow(PillShape, c.copy(alpha = 0.5f), 8.dp)
+            .softShadow(PillShape, c.copy(alpha = 0.5f * g.glow), 8.dp)
             .background(c.copy(alpha = 0.9f), PillShape)
             .border(1.dp, Color.White.copy(alpha = 0.45f), PillShape)
     } else {

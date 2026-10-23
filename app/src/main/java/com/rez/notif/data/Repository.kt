@@ -86,12 +86,16 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     /** Stores a notification. Returns true when the listener should remove it from the status bar (an ad). */
-    fun addNotification(n: NotificationIn): Boolean {
+    /** What the listener should do with a notification: hide it, and maybe show the code with a copy button. */
+    data class Decision(val hide: Boolean, val code: String?)
+
+    fun addNotification(n: NotificationIn): Decision {
         if (n.isSmsApp) {
             // The SMS itself is stored by SmsReceiver. Here we only decide whether to hide its notification.
             val vip = VipMatcher.match(vipPeople(), true, n.title, "", n.text)
             val r = vipSafe(Classifier.classify(Classifier.Input(true, n.title, "", n.text), overrides()), vip)
-            return hideNow(r.category, vip, n.postTime)
+            val code = codeFor(r.category, n.text)
+            return Decision(hideNow(r.category, vip, n.postTime, code != null), code)
         }
         val vip = VipMatcher.match(vipPeople(), false, n.title, n.title, n.text)
         val r = vipSafe(
@@ -120,15 +124,24 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             ),
         )
         if (inserted) changed()
-        return hideNow(r.category, vip, n.postTime)
+        val code = codeFor(r.category, n.title + "\n" + n.text)
+        return Decision(hideNow(r.category, vip, n.postTime, code != null), code)
+    }
+
+    /** A code to show with a copy button, only when we are hiding notifications and replacing codes. */
+    private fun codeFor(category: Category, text: String): String? {
+        val s = prefs.current
+        if (category != Category.OTP || !s.hideAll || !s.keepOtp) return null
+        return Classifier.extractCode(text)
     }
 
     /** Should this notification leave the status bar right away? */
-    private fun hideNow(category: Category, vip: VipPerson?, postTime: Long): Boolean {
+    private fun hideNow(category: Category, vip: VipPerson?, postTime: Long, replacedByOurCode: Boolean = false): Boolean {
         val s = prefs.current
         if (!s.hideAll) return s.hideAds && category == Category.ADS
         if (s.keepVip && vip != null) return false
-        if (s.keepOtp && category == Category.OTP && System.currentTimeMillis() - postTime < 10 * 60_000L) return false
+        // A fresh code stays visible: either as our own copy-button notification, or the original.
+        if (s.keepOtp && category == Category.OTP && System.currentTimeMillis() - postTime < 10 * 60_000L) return replacedByOurCode
         return true
     }
 

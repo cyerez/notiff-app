@@ -93,6 +93,20 @@ object Classifier {
             !t.contains("تخفیف") && !t.contains("لغو11") && !t.contains("promo")
     }
 
+    private val CODE_AFTER_WORD = Regex(
+        "(?:کد|رمز|code|otp|pin|password)[^0-9]{0,30}?(?<![0-9,./])([0-9]{4,8})(?![0-9,./])",
+        RegexOption.IGNORE_CASE,
+    )
+    private val LONE_CODE = Regex("(?<![0-9,./])[0-9]{4,8}(?![0-9,./])")
+
+    /** The login code or bank one-time password in an OTP message ("رمز پویا: ۱۲۳۴۵۶"), or null. */
+    fun extractCode(text: String): String? {
+        if (!isOtp(text)) return null
+        val t = normalize(text)
+        CODE_AFTER_WORD.find(t)?.let { return it.groupValues[1] }
+        return LONE_CODE.find(t)?.value
+    }
+
     private val BANK_SENDERS = listOf(
         "bank", "بانک", "melli", "mellat", "saman", "pasargad", "tejarat", "sepah", "refah", "keshavarzi",
         "ayandeh", "parsian", "resalat", "maskan", "sina", "eghtesad", "blu", "saderat", "post bank", "shahr",

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.rez.notif.NotifApp
 import com.rez.notif.classify.Category
 import com.rez.notif.data.Accent
+import com.rez.notif.data.AppStyle
 import com.rez.notif.data.ThemeMode
 import com.rez.notif.security.AppLock
 import com.rez.notif.ui.Navigator
@@ -76,17 +77,25 @@ fun SettingsScreen(nav: Navigator) {
             item { SectionTitle("ظاهر") }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                    Text("سبک", style = MaterialTheme.typography.titleSmall, color = g.text)
+                    FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppStyle.entries.forEach { st ->
+                            GlassChip(st.label, s.style == st, { repo.prefs.update { it.copy(style = st) } })
+                        }
+                    }
                     Text("حالت", style = MaterialTheme.typography.titleSmall, color = g.text)
                     Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         GlassChip("خودکار", s.themeMode == ThemeMode.SYSTEM, { repo.prefs.update { it.copy(themeMode = ThemeMode.SYSTEM) } })
                         GlassChip("روشن", s.themeMode == ThemeMode.LIGHT, { repo.prefs.update { it.copy(themeMode = ThemeMode.LIGHT) } })
                         GlassChip("تیره", s.themeMode == ThemeMode.DARK, { repo.prefs.update { it.copy(themeMode = ThemeMode.DARK) } })
                     }
-                    Text("رنگ نئون", style = MaterialTheme.typography.titleSmall, color = g.text)
-                    Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Accent.entries.forEach { a -> AccentDot(a, a == s.accent) { repo.prefs.update { it.copy(accent = a) } } }
+                    if (s.style == AppStyle.GLASS) {
+                        Text("رنگ نئون", style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Accent.entries.forEach { a -> AccentDot(a, a == s.accent) { repo.prefs.update { it.copy(accent = a) } } }
+                        }
+                        Text(s.accent.label, style = MaterialTheme.typography.bodySmall, color = g.textDim)
                     }
-                    Text(s.accent.label, style = MaterialTheme.typography.bodySmall, color = g.textDim)
                     ToggleRow("انیمیشن‌ها", "پس‌زمینه متحرک و حرکت‌های کوچک", s.animations) { v ->
                         repo.prefs.update { it.copy(animations = v) }
                     }
@@ -105,7 +114,7 @@ fun SettingsScreen(nav: Navigator) {
                     }
                     if (s.hideAll) {
                         Spacer(Modifier.height(10.dp))
-                        ToggleRow("کد تأیید روی گوشی بمونه", "کدهای ورود و رمز پویا تا ۱۰ دقیقه روی نوار گوشی می‌مونن.", s.keepOtp) { v ->
+                        ToggleRow("کد تأیید روی گوشی بمونه", "کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه.", s.keepOtp) { v ->
                             repo.prefs.update { it.copy(keepOtp = v) }
                         }
                         Spacer(Modifier.height(10.dp))

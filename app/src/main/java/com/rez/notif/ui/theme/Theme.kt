@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import com.rez.notif.R
 import com.rez.notif.data.Accent
+import com.rez.notif.data.AppStyle
 import com.rez.notif.data.Settings
 import com.rez.notif.data.ThemeMode
 
@@ -42,7 +44,47 @@ data class GlassColors(
     val textDim: Color,
     val shadow: Color,
     val animations: Boolean,
+    val style: AppStyle = AppStyle.GLASS,
+    /** How strong neon glows are (1 = glass, lower = calm flat styles). */
+    val glow: Float = 1f,
+    /** How much bright category colors are softened toward [paper] (0 = not at all). */
+    val pastel: Float = 0f,
+    val paper: Color = Color.White,
+    /** Vector landscape drawn behind everything, or null for the glowing color spots. */
+    val scene: ScenePalette? = null,
 )
+
+/** Softens a bright color for calm styles. */
+fun GlassColors.soft(c: Color): Color = if (pastel > 0f) lerp(c, paper, pastel) else c
+
+fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings.style) {
+    AppStyle.GLASS -> glassColors(dark, settings.accent, settings.animations)
+    AppStyle.PEACH -> peachColors(dark, settings.animations)
+}
+
+private fun peachColors(dark: Boolean, animations: Boolean): GlassColors = if (dark) {
+    GlassColors(
+        isDark = true, accent = Color(0xFFF2A07E), accent2 = Color(0xFFC98BB0),
+        bgTop = PeachNight.skyTop, bgBottom = PeachNight.groundFront, blobs = emptyList(),
+        glassTop = Color(0xFF2E2640).copy(alpha = 0.84f), glassBottom = Color(0xFF2A2236).copy(alpha = 0.76f),
+        edge = Color.White.copy(alpha = 0.16f),
+        text = Color(0xFFF8ECE4), textDim = Color(0xFFC2AAB5),
+        shadow = Color.Black.copy(alpha = 0.4f),
+        animations = animations, style = AppStyle.PEACH,
+        glow = 0.45f, pastel = 0.15f, paper = Color(0xFFF3D9CF), scene = PeachNight,
+    )
+} else {
+    GlassColors(
+        isDark = false, accent = Color(0xFFEE8466), accent2 = Color(0xFFF5B38C),
+        bgTop = PeachDay.skyTop, bgBottom = PeachDay.groundFront, blobs = emptyList(),
+        glassTop = Color(0xFFFFF8F3).copy(alpha = 0.88f), glassBottom = Color(0xFFFFF1E8).copy(alpha = 0.8f),
+        edge = Color.White.copy(alpha = 0.9f),
+        text = Color(0xFF4A3634), textDim = Color(0xFF8E716B),
+        shadow = Color(0xFF7A4B3E).copy(alpha = 0.16f),
+        animations = animations, style = AppStyle.PEACH,
+        glow = 0.35f, pastel = 0.3f, paper = Color(0xFFFFF4EC), scene = PeachDay,
+    )
+}
 
 val LocalGlass = staticCompositionLocalOf { glassColors(true, Accent.NEON_BLUE, true) }
 
@@ -110,17 +152,20 @@ fun NotifTheme(settings: Settings, content: @Composable () -> Unit) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val glass = glassColors(dark, settings.accent, settings.animations)
+    val glass = themeColors(dark, settings)
     val scheme = if (dark) {
         darkColorScheme(
             primary = glass.accent, secondary = glass.accent2, background = glass.bgTop,
-            surface = Color(0xFF1B2133), onSurface = glass.text, onBackground = glass.text,
-            surfaceContainerLow = Color(0xFF1B2133), surfaceContainer = Color(0xFF20273B),
+            surface = if (glass.scene != null) Color(0xFF2E2640) else Color(0xFF1B2133), onSurface = glass.text, onBackground = glass.text,
+            surfaceContainerLow = if (glass.scene != null) Color(0xFF2E2640) else Color(0xFF1B2133),
+            surfaceContainer = if (glass.scene != null) Color(0xFF362D4A) else Color(0xFF20273B),
+            surfaceContainerHigh = if (glass.scene != null) Color(0xFF3B3150) else Color(0xFF262E45),
         )
     } else {
         lightColorScheme(
             primary = glass.accent, secondary = glass.accent2, background = glass.bgTop,
-            surface = Color(0xFFF8FAFC), onSurface = glass.text, onBackground = glass.text,
+            surface = if (glass.scene != null) Color(0xFFFFF6F0) else Color(0xFFF8FAFC), onSurface = glass.text, onBackground = glass.text,
+            surfaceContainerHigh = if (glass.scene != null) Color(0xFFFFEFE6) else Color(0xFFF1F5F9),
         )
     }
     MaterialTheme(colorScheme = scheme, typography = typography()) {
