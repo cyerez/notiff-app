@@ -15,7 +15,9 @@ android {
         targetSdk = 35
         // CI passes its run number so each build has a higher version.
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.4." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        versionName = "0.5." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        // Only the S25 Ultra's CPU type: keeps the encrypted-database library small.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     // One fixed debug key in the repo, so every new build installs over the old one
@@ -58,6 +60,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
+    implementation(libs.sqlcipher)
+    implementation(libs.androidx.sqlite)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
 }

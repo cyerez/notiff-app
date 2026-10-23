@@ -3,14 +3,106 @@ package com.rez.notif.data
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
+import com.rez.notif.security.DbKey
+import net.zetetic.database.sqlcipher.SQLiteDatabase
+import net.zetetic.database.sqlcipher.SQLiteOpenHelper
+import java.io.File
 
 /**
- * Plain SQLite storage on the phone. No internet, nothing leaves the device.
- * The file sits in the app's private storage, which Android encrypts with the phone lock.
+ * Encrypted SQLite storage on the phone (SQLCipher, AES-256). No internet, nothing leaves the device.
+ * The key is random, made on this phone and wrapped by the hardware keystore (see DbKey).
+ * Use [Db.open]; it also moves data from the old unencrypted file (v0.1 to v0.4) once.
  */
-class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 2) {
+class Db private constructor(
+    context: Context,
+    private val file: File,
+    /** Hex key, or "" when running unencrypted because the move failed (data is never thrown away for this). */
+    private val key: String,
+) : SQLiteOpenHelper(context, file.name, key.toByteArray(Charsets.US_ASCII), null, VERSION, 0, null, null, false) {
+
+    val encrypted: Boolean get() = key.isNotEmpty()
+
+    companion object {
+        const val VERSION = 2
+        private const val PLAIN = "notif.db"
+        private const val SECURE = "notif-secure.db"
+
+        fun open(context: Context): Db {
+            System.loadLibrary("sqlcipher")
+            val plain = context.getDatabasePath(PLAIN)
+            val secure = context.getDatabasePath(SECURE)
+            val key = DbKey.get(context)
+            if (key == null) {
+                // The phone lost the wrapping key (very rare). Keep the old file aside and start fresh.
+                if (secure.exists()) secure.renameTo(File(secure.path + ".locked-" + System.currentTimeMillis()))
+                return if (plain.exists()) Db(context, plain, "") else Db(context, secure, DbKey.get(context) ?: "")
+            }
+            if (plain.exists() && !secure.exists()) {
+                val moved = runCatching { encryptFile(plain, secure, key) }.isSuccess
+                if (!moved) {
+                    secure.delete()
+                    return Db(context, plain, "")
+                }
+                deleteWithSidecars(plain)
+            }
+            return Db(context, secure, key)
+        }
+
+        /** Copies an unencrypted database into a new encrypted one and checks nothing was lost. */
+        private fun encryptFile(source: File, target: File, key: String) {
+            val tmp = File(target.path + ".tmp")
+            deleteWithSidecars(tmp)
+            SQLiteDatabase.openDatabase(source.path, "", null, SQLiteDatabase.OPEN_READWRITE, null, null).use { db ->
+                val version = db.version
+                db.execSQL("ATTACH DATABASE ? AS enc KEY ?", arrayOf<Any>(tmp.path, key))
+                db.rawQuery("SELECT sqlcipher_export('enc')", null).use { it.moveToFirst() }
+                db.execSQL("PRAGMA enc.user_version = $version")
+                db.execSQL("DETACH DATABASE enc")
+            }
+            val before = countItems(source, "")
+            val after = countItems(tmp, key)
+            check(before == after) { "row count changed: $before -> $after" }
+            deleteWithSidecars(target)
+            check(tmp.renameTo(target)) { "rename failed" }
+        }
+
+        private fun countItems(f: File, key: String): Long =
+            SQLiteDatabase.openDatabase(f.path, key, null, SQLiteDatabase.OPEN_READONLY, null, null).use { db ->
+                db.rawQuery("SELECT COUNT(*) FROM items", null).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+            }
+
+        private fun deleteWithSidecars(f: File) {
+            listOf("", "-wal", "-shm", "-journal").forEach { File(f.path + it).delete() }
+        }
+    }
+
+    /** Writes an unencrypted copy of the whole database to [target] (it is locked with the backup password right after). */
+    fun snapshotTo(target: File) {
+        deleteWithSidecars(target)
+        val db = writableDatabase
+        if (!encrypted) {
+            db.execSQL("VACUUM INTO ?", arrayOf<Any>(target.absolutePath))
+            return
+        }
+        db.execSQL("ATTACH DATABASE ? AS plain KEY ''", arrayOf<Any>(target.absolutePath))
+        try {
+            db.rawQuery("SELECT sqlcipher_export('plain')", null).use { it.moveToFirst() }
+            db.execSQL("PRAGMA plain.user_version = ${db.version}")
+        } finally {
+            db.execSQL("DETACH DATABASE plain")
+        }
+    }
+
+    /** Replaces everything with the unencrypted database in [source] (from a backup). */
+    fun restoreFrom(source: File) {
+        close()
+        if (encrypted) {
+            encryptFile(source, file, key)
+        } else {
+            deleteWithSidecars(file)
+            source.copyTo(file, overwrite = true)
+        }
+    }
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -202,12 +294,6 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 2) {
 
     fun removeOverride(senderKey: String) {
         writableDatabase.delete("sender_overrides", "sender_key = ?", arrayOf(senderKey))
-    }
-
-    /** Writes a consistent copy of the whole database to [target] without closing it. */
-    fun snapshotTo(target: java.io.File) {
-        target.delete()
-        writableDatabase.execSQL("VACUUM INTO ?", arrayOf(target.absolutePath))
     }
 
     fun overrides(): Map<String, String> {

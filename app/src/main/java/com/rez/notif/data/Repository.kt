@@ -377,11 +377,11 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         android.database.sqlite.SQLiteDatabase.openDatabase(tmp.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { d ->
             d.rawQuery("SELECT COUNT(*) FROM items", null).use { it.moveToFirst() }
         }
-        val path = context.getDatabasePath("notif.db")
-        db.close()
-        listOf("", "-wal", "-shm", "-journal").forEach { java.io.File(path.path + it).delete() }
-        tmp.copyTo(path, overwrite = true)
-        tmp.delete()
+        try {
+            db.restoreFrom(tmp)
+        } finally {
+            tmp.delete()
+        }
         overrides = null
         vipCache = null
         changed()
