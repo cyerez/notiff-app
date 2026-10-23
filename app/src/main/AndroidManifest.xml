@@ -4,6 +4,7 @@
 
     <!-- SMS: read the inbox history and receive new messages -->
     <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <!-- Which SIM a message came in on -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -57,6 +58,16 @@
             </intent-filter>
         </service>
 
+        <receiver
+            android:name=".widget.NotifWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
         <receiver
             android:name=".notif.CopyCodeReceiver"
             android:exported="false" />

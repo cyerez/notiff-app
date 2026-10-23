@@ -73,9 +73,25 @@ fun StatsScreen(nav: Navigator) {
             }
             item { SectionTitle(t("هفت روز اخیر")) }
             item { WeekChart(s) }
+            item { SectionTitle(t("۳۰ روز اخیر")) }
+            item { MonthChart(s.last30Days) }
+            item { SectionTitle(t("ساعت‌های شلوغ")) }
+            item { HourChart(s.byHour) }
+            if (s.sim1 > 0 && s.sim2 > 0) {
+                item { SectionTitle(t("پیامک هر سیم‌کارت")) }
+                item {
+                    GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                        val max = maxOf(s.sim1, s.sim2)
+                        BarRow(t("سیم ۱"), s.sim1, max, g.accent)
+                        BarRow(t("سیم ۲"), s.sim2, max, g.accent2)
+                    }
+                }
+            }
             item { SectionTitle(t("سهم دسته‌ها")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                    Donut(s)
+                    Spacer(Modifier.height(12.dp))
                     val max = s.byCategory.maxOfOrNull { it.total }?.coerceAtLeast(1) ?: 1
                     s.byCategory.forEach { cc ->
                         val c = Category.of(cc.category)
@@ -205,6 +221,100 @@ private fun RankCard(list: List<AppCount>) {
                     .clip(RoundedCornerShape(2.dp))
                     .background(Brush.horizontalGradient(listOf(g.accent, g.accent2))),
             )
+        }
+    }
+}
+
+/** Smooth filled line of the last 30 days. */
+@Composable
+private fun MonthChart(days: List<Int>) {
+    val g = LocalGlass.current
+    if (days.isEmpty()) return
+    val grow = remember { Animatable(if (g.animations) 0f else 1f) }
+    LaunchedEffect(Unit) { grow.animateTo(1f, tween(800)) }
+    val max = days.max().coerceAtLeast(1)
+    GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+        Canvas(Modifier.fillMaxWidth().height(120.dp)) {
+            val step = size.width / (days.size - 1).coerceAtLeast(1)
+            fun y(v: Int) = size.height - size.height * 0.9f * v / max * grow.value
+            val line = androidx.compose.ui.graphics.Path()
+            days.forEachIndexed { i, v ->
+                val x = i * step
+                if (i == 0) line.moveTo(x, y(v)) else {
+                    val px = (i - 1) * step
+                    line.cubicTo(px + step / 2, y(days[i - 1]), x - step / 2, y(v), x, y(v))
+                }
+            }
+            val area = androidx.compose.ui.graphics.Path().apply {
+                addPath(line); lineTo(size.width, size.height); lineTo(0f, size.height); close()
+            }
+            drawPath(area, Brush.verticalGradient(listOf(g.accent.copy(alpha = 0.35f), Color.Transparent)))
+            drawPath(line, Brush.horizontalGradient(listOf(g.accent2, g.accent)), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f))
+        }
+        Row(Modifier.fillMaxWidth()) {
+            Text(t("۳۰ روز پیش"), style = MaterialTheme.typography.labelSmall, color = g.textDim, modifier = Modifier.weight(1f))
+            Text(t("امروز"), style = MaterialTheme.typography.labelSmall, color = g.textDim)
+        }
+    }
+}
+
+/** 24 thin bars: when in the day messages come. */
+@Composable
+private fun HourChart(hours: List<Int>) {
+    val g = LocalGlass.current
+    val max = hours.maxOrNull()?.coerceAtLeast(1) ?: 1
+    GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+        // Always morning on the left, like a clock line, in both languages.
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            Column {
+                Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+                    val w = size.width / 24f
+                    hours.forEachIndexed { h, v ->
+                        val bh = size.height * v / max
+                        drawRoundRect(
+                            if (h in 0..5 || h >= 23) g.accent2.copy(alpha = 0.6f) else g.accent,
+                            topLeft = Offset(h * w + w * 0.2f, size.height - bh),
+                            size = Size(w * 0.6f, bh),
+                            cornerRadius = CornerRadius(w * 0.3f),
+                        )
+                    }
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    listOf(0, 6, 12, 18).forEach { h ->
+                        Text(fa(h) + ":۰۰".let { if (com.rez.notif.i18n.I18n.isFa) it else ":00" }, style = MaterialTheme.typography.labelSmall, color = g.textDim, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Ring of category shares, biggest first; the total in the middle. */
+@Composable
+private fun Donut(s: Stats) {
+    val g = LocalGlass.current
+    val total = s.byCategory.sumOf { it.total }.coerceAtLeast(1)
+    val grow = remember { Animatable(if (g.animations) 0f else 1f) }
+    LaunchedEffect(Unit) { grow.animateTo(1f, tween(900)) }
+    Box(Modifier.fillMaxWidth().height(170.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(160.dp)) {
+            var start = -90f
+            val stroke = 26f
+            s.byCategory.forEach { cc ->
+                val sweep = 360f * cc.total / total * grow.value
+                drawArc(
+                    Category.of(cc.category).tint,
+                    start, (sweep - 1.5f).coerceAtLeast(0f), false,
+                    topLeft = Offset(stroke, stroke),
+                    size = Size(size.width - 2 * stroke, size.height - 2 * stroke),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Butt),
+                )
+                start += sweep
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(compact(total), style = MaterialTheme.typography.headlineSmall, color = g.text)
+            Text(t(" مورد").trim(), style = MaterialTheme.typography.labelSmall, color = g.textDim)
         }
     }
 }

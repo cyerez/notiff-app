@@ -1,5 +1,9 @@
 package com.rez.notif.ui.components
 
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.automirrored.rounded.Send
 import com.rez.notif.i18n.t
 import com.rez.notif.notif.CodeNotifier
 import com.rez.notif.classify.Classifier
@@ -329,6 +333,10 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 onClick = { openFailed = !repo.openSource(context, item) },
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (repo.canReply(item)) {
+                Spacer(Modifier.height(12.dp))
+                QuickReply(item)
+            }
             if (openFailed) {
                 Text(t("این اپ باز نشد."), color = Category.ADS.tint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
             }
@@ -421,4 +429,39 @@ private fun CopyCodeChip(item: Item, modifier: Modifier = Modifier) {
     Box(modifier) {
         GlassChip(t("کپی ") + fa(code), selected = true, color = Category.OTP.tint, icon = Icons.Rounded.ContentCopy, onClick = { CodeNotifier.copy(context, code) })
     }
+}
+
+/** Answer right here: SMS goes out from the same SIM, chats through the app's own reply button. */
+@Composable
+private fun QuickReply(item: Item) {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    var text by remember(item.id) { mutableStateOf("") }
+    var status by remember(item.id) { mutableStateOf<String?>(null) }
+    fun send() {
+        val ok = repo.reply(item, text.trim())
+        status = if (ok) t("فرستاده شد.") else t("فرستادن نشد. از «باز کردن» جواب بده.")
+        if (ok) text = ""
+    }
+    val askSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        if (r.values.all { it }) send() else status = t("اجازه فرستادن پیامک داده نشد.")
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            text,
+            { text = it },
+            modifier = Modifier.weight(1f),
+            placeholder = { Text(t("جواب سریع…")) },
+            maxLines = 4,
+        )
+        Spacer(Modifier.size(8.dp))
+        IconBubble(Icons.AutoMirrored.Rounded.Send, {
+            if (text.isBlank()) return@IconBubble
+            val needsSms = item.source == Source.SMS &&
+                context.checkSelfPermission(android.Manifest.permission.SEND_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (needsSms) askSms.launch(arrayOf(android.Manifest.permission.SEND_SMS)) else send()
+        }, tint = g.accent)
+    }
+    status?.let { Text(it, color = g.textDim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp)) }
 }

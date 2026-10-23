@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">نوتیف</string>
+    <string name="widget_description">خونده‌نشده‌ها و دسته‌های اصلی</string>
 </resources>

@@ -93,6 +93,11 @@ class NotifListener : NotificationListenerService() {
             postTime = sbn.postTime,
             contentIntent = n.contentIntent,
             isSmsApp = pkg in SMS_APPS,
+            // The app's own "reply" button (Telegram, WhatsApp...), so we can answer from inside Notif.
+            reply = n.actions?.firstOrNull { a ->
+                !a.remoteInputs.isNullOrEmpty() &&
+                    (a.semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY || a.remoteInputs.any { it.allowFreeFormInput })
+            },
         )
         val decision = NotifApp.repo(this).addNotification(input)
         decision.code?.let { CodeNotifier.show(this, it, if (input.isSmsApp) title else input.appName) }

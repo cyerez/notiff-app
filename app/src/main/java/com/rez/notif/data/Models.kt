@@ -45,6 +45,12 @@ data class Stats(
     val topApps: List<AppCount>,
     val topSenders: List<AppCount>,
     val last7Days: List<DayCount>,
+    /** Items per hour of day (0..23) over the last 30 days. */
+    val byHour: List<Int> = List(24) { 0 },
+    /** Items per day for the last 30 days, oldest first. */
+    val last30Days: List<Int> = emptyList(),
+    val sim1: Int = 0,
+    val sim2: Int = 0,
 )
 
 /** Filters for list and search screens. */

@@ -33,6 +33,7 @@ data class NotificationIn(
     val postTime: Long,
     val contentIntent: PendingIntent?,
     val isSmsApp: Boolean,
+    val reply: android.app.Notification.Action? = null,
 )
 
 /** Everything the screens and the background parts need, in one place. */
@@ -41,10 +42,30 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     /** Goes up by one on every change, so screens know when to reload. */
     private val _version = MutableStateFlow(0L)
     val version: StateFlow<Long> = _version.asStateFlow()
-    private fun changed() = _version.update { it + 1 }
+    private fun changed() {
+        _version.update { it + 1 }
+        com.rez.notif.widget.NotifWidget.refreshSoon(context)
+    }
+
+    data class WidgetData(val unread: Int, val today: Int, val counts: List<CategoryCount>)
+
+    /** Numbers for the home-screen widget (called on a background thread). */
+    fun widgetData(): WidgetData {
+        val counts = db.categoryCounts()
+        val dayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        return WidgetData(
+            unread = counts.filter { it.category != Category.ADS.id }.sumOf { it.unread },
+            today = db.count(ItemQuery(sinceMillis = dayStart)),
+            counts = counts,
+        )
+    }
 
     /** Tap actions of live notifications, to open the exact chat/email. Lost when the app process dies. */
     private val contentIntents = ConcurrentHashMap<String, PendingIntent>()
+    /** Reply buttons of live notifications (kept in memory only, like the content intents). */
+    private val replyActions = ConcurrentHashMap<String, android.app.Notification.Action>()
 
     @Volatile private var overrides: Map<String, String>? = null
     private fun overrides(): Map<String, String> = overrides ?: db.overrides().also { overrides = it }
@@ -107,6 +128,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         )
         val key = "n:" + n.packageName + ":" + (n.title + "|" + n.text).hashCode() + ":" + n.postTime / 600_000L
         n.contentIntent?.let { contentIntents[key] = it }
+        n.reply?.let { replyActions[key] = it }
         val inserted = db.insert(
             Item(
                 source = Source.NOTIFICATION,
@@ -448,6 +470,43 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             }
         } catch (e: Exception) {
             false
+        }
+    }
+
+    // ---------- quick reply ----------
+
+    /** SMS can always be answered (sent from the same SIM); a notification only while its reply button is known. */
+    fun canReply(item: Item): Boolean =
+        item.source == Source.SMS && item.sender.any { it.isDigit() } || replyActions.containsKey(item.sourceKey)
+
+    /** Sends [text] as an answer. Returns false if it could not be sent. */
+    fun reply(item: Item, text: String): Boolean = try {
+        if (item.source == Source.SMS) {
+            val sm = smsManagerFor(item.simSlot)
+            sm.sendMultipartTextMessage(item.sender, null, sm.divideMessage(text), null, null)
+            true
+        } else {
+            val a = replyActions[item.sourceKey] ?: return false
+            val inputs = a.remoteInputs ?: return false
+            val results = android.os.Bundle().apply { inputs.forEach { putCharSequence(it.resultKey, text) } }
+            val fill = Intent()
+            android.app.RemoteInput.addResultsToIntent(inputs, fill, results)
+            a.actionIntent.send(context, 0, fill)
+            true
+        }
+    } catch (e: Exception) {
+        false
+    }
+
+    private fun smsManagerFor(simSlot: Int): android.telephony.SmsManager {
+        val base = checkNotNull(context.getSystemService(android.telephony.SmsManager::class.java)) { "no SMS on this device" }
+        if (simSlot <= 0) return base
+        return try {
+            val subs = context.getSystemService(android.telephony.SubscriptionManager::class.java) ?: return base
+            val sub = subs.activeSubscriptionInfoList?.firstOrNull { it.simSlotIndex == simSlot - 1 } ?: return base
+            base.createForSubscriptionId(sub.subscriptionId)
+        } catch (e: SecurityException) {
+            base
         }
     }
 

@@ -398,7 +398,25 @@ class Db private constructor(
                 ads = count("timestamp >= ? AND timestamp < ? AND is_ad = 1", args),
             )
         }
+        // Hours and the 30-day trend are counted here from timestamps (local time zone).
+        val monthStart = dayStarts.first() - 23 * 86_400_000L
+        val byHour = IntArray(24)
+        val perDay = IntArray(30)
+        val cal = java.util.Calendar.getInstance()
+        db.rawQuery("SELECT timestamp FROM live_items WHERE timestamp >= ?", arrayOf(monthStart.toString())).use { c ->
+            while (c.moveToNext()) {
+                val ts = c.getLong(0)
+                cal.timeInMillis = ts
+                byHour[cal.get(java.util.Calendar.HOUR_OF_DAY)]++
+                val day = ((ts - monthStart) / 86_400_000L).toInt()
+                if (day in 0..29) perDay[day]++
+            }
+        }
         return Stats(
+            byHour = byHour.toList(),
+            last30Days = perDay.toList(),
+            sim1 = count("source = 'SMS' AND sim_slot = 1"),
+            sim2 = count("source = 'SMS' AND sim_slot = 2"),
             total = count(),
             sms = count("source = 'SMS'"),
             notifications = count("source = 'NOTIFICATION'"),

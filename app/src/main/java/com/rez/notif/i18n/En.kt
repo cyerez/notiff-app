@@ -3,6 +3,15 @@ package com.rez.notif.i18n
 /** English for every Persian text in the app. Keys are the Persian text exactly as written in the code. */
 internal object En {
     val map: Map<String, String> = hashMapOf(
+        "۳۰ روز اخیر" to "Last 30 days",
+        "ساعت‌های شلوغ" to "Busy hours",
+        "پیامک هر سیم‌کارت" to "SMS per SIM card",
+        "۳۰ روز پیش" to "30 days ago",
+        " خونده‌نشده" to " unread",
+        "فرستاده شد." to "Sent.",
+        "فرستادن نشد. از «باز کردن» جواب بده." to "Could not send. Reply with \"Open\" instead.",
+        "اجازه فرستادن پیامک داده نشد." to "Permission to send SMS was not given.",
+        "جواب سریع…" to "Quick reply…",
         "فقط وقتی اپ رو کامل ببندی" to "Only when you fully close the app",
         "وقتی صفحه گوشی خاموش بشه" to "When the phone screen turns off",
         "۳۰ ثانیه بعد از بیرون رفتن" to "30 seconds after leaving",
