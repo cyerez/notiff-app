@@ -54,6 +54,7 @@ app/src/main/java/com/rez/notif/
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
+    theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
     screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr

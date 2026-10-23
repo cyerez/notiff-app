@@ -14,6 +14,10 @@ enum class AppStyle(val label: String) {
     GLASS("شیشه‌ای نئونی"),
     PEACH("کوهستان هلویی"),
     SEASONS("چهار فصل"),
+    CYBER("سایبرپانک"),
+    STEAM("استیم‌پانک"),
+    RETRO("رترو پیکسلی"),
+    MEADOW("دشت جیبلی"),
 }
 
 /** Which season the "four seasons" style shows. AUTO follows the Persian calendar (Farvardin = spring). */

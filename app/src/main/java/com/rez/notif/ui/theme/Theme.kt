@@ -54,7 +54,16 @@ data class GlassColors(
     val paper: Color = Color.White,
     /** Vector landscape drawn behind everything, or null for the glowing color spots. */
     val scene: ScenePalette? = null,
+    /** How panels are cut and outlined (rounded glass, cyber cut corners, brass, pixel, cartoon). */
+    val frame: Frame = Frame.ROUND,
+    /** What is drawn behind everything when there is no [scene]. */
+    val backdrop: Backdrop = Backdrop.BLOBS,
+    /** Solid color for dialogs and sheets. */
+    val surface: Color? = null,
 )
+
+enum class Frame { ROUND, CUT, BRASS, PIXEL, CARTOON }
+enum class Backdrop { BLOBS, CYBER, STEAM, PIXEL, MEADOW }
 
 /** Softens a bright color for calm styles. */
 fun GlassColors.soft(c: Color): Color = if (pastel > 0f) lerp(c, paper, pastel) else c
@@ -63,6 +72,88 @@ fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings
     AppStyle.GLASS -> glassColors(dark, settings.accent, settings.animations)
     AppStyle.PEACH -> peachColors(dark, settings.animations)
     AppStyle.SEASONS -> seasonColors(dark, settings.season, settings.animations)
+    AppStyle.CYBER -> cyberColors(settings.animations)
+    AppStyle.STEAM -> steamColors(dark, settings.animations)
+    AppStyle.RETRO -> retroColors(settings.animations)
+    AppStyle.MEADOW -> meadowColors(dark, settings.animations)
+}
+
+/** Cyberpunk HUD: dark red-black, salmon red and cyan, cut corners, thin lit outlines. Always dark. */
+private fun cyberColors(animations: Boolean) = GlassColors(
+    isDark = true, accent = Color(0xFFFF5C5C), accent2 = Color(0xFF5CE1E6),
+    bgTop = Color(0xFF2A0F14), bgBottom = Color(0xFF0B1418), blobs = emptyList(),
+    glassTop = Color(0xFF1A2226).copy(alpha = 0.92f), glassBottom = Color(0xFF141B1F).copy(alpha = 0.92f),
+    edge = Color(0xFFFF5C5C).copy(alpha = 0.75f),
+    text = Color(0xFFF2E6E6), textDim = Color(0xFFB07A7A),
+    shadow = Color.Transparent,
+    animations = animations, style = AppStyle.CYBER,
+    glow = 0.8f, frame = Frame.CUT, backdrop = Backdrop.CYBER, surface = Color(0xFF1A2226),
+)
+
+/** Steampunk: dark leather and brass outside, parchment cards with brown ink. */
+private fun steamColors(dark: Boolean, animations: Boolean) = if (dark) {
+    GlassColors(
+        isDark = true, accent = Color(0xFFD4A24C), accent2 = Color(0xFFB8452F),
+        bgTop = Color(0xFF2B1D14), bgBottom = Color(0xFF120C08), blobs = emptyList(),
+        glassTop = Color(0xFF3A2A1E).copy(alpha = 0.95f), glassBottom = Color(0xFF2E2118).copy(alpha = 0.95f),
+        edge = Color(0xFFC9963F),
+        text = Color(0xFFF3E3C3), textDim = Color(0xFFC2A57A),
+        shadow = Color.Black.copy(alpha = 0.5f),
+        animations = animations, style = AppStyle.STEAM,
+        glow = 0.35f, pastel = 0.2f, paper = Color(0xFFE9D5AE), frame = Frame.BRASS, backdrop = Backdrop.STEAM,
+        surface = Color(0xFF3A2A1E),
+    )
+} else {
+    GlassColors(
+        isDark = false, accent = Color(0xFFA0522D), accent2 = Color(0xFFB8862B),
+        bgTop = Color(0xFF6B4A2E), bgBottom = Color(0xFF2E1F14), blobs = emptyList(),
+        glassTop = Color(0xFFF6EBD3).copy(alpha = 0.97f), glassBottom = Color(0xFFEBDCBC).copy(alpha = 0.97f),
+        edge = Color(0xFFB8862B),
+        text = Color(0xFF3B2416), textDim = Color(0xFF7A5A3E),
+        shadow = Color.Black.copy(alpha = 0.45f),
+        animations = animations, style = AppStyle.STEAM,
+        glow = 0.25f, pastel = 0.35f, paper = Color(0xFFF6EBD3), frame = Frame.BRASS, backdrop = Backdrop.STEAM,
+        surface = Color(0xFFF6EBD3),
+    )
+}
+
+/** Retro pixel: black screen, lime green, square panels with thick outlines. Always dark. */
+private fun retroColors(animations: Boolean) = GlassColors(
+    isDark = true, accent = Color(0xFFB6F23C), accent2 = Color(0xFF7DD3FC),
+    bgTop = Color(0xFF0C0D0E), bgBottom = Color(0xFF151719), blobs = emptyList(),
+    glassTop = Color(0xFF1C1F21), glassBottom = Color(0xFF1C1F21),
+    edge = Color(0xFF4A5056),
+    text = Color(0xFFE8ECEF), textDim = Color(0xFF8A939A),
+    shadow = Color.Black.copy(alpha = 0.9f),
+    animations = animations, style = AppStyle.RETRO,
+    glow = 0.6f, frame = Frame.PIXEL, backdrop = Backdrop.PIXEL, surface = Color(0xFF1C1F21),
+)
+
+/** A calm meadow in the style of hand-drawn animated films (original art): sky, clouds, hills, a big tree. */
+private fun meadowColors(dark: Boolean, animations: Boolean) = if (dark) {
+    GlassColors(
+        isDark = true, accent = Color(0xFF9BD4A0), accent2 = Color(0xFFF6D56B),
+        bgTop = Color(0xFF14203F), bgBottom = Color(0xFF1C3A2E), blobs = emptyList(),
+        glassTop = Color(0xFF1F2B45).copy(alpha = 0.9f), glassBottom = Color(0xFF1B2A3A).copy(alpha = 0.9f),
+        edge = Color(0xFF0B1120),
+        text = Color(0xFFEAF2F8), textDim = Color(0xFFA7B8C9),
+        shadow = Color.Black.copy(alpha = 0.35f),
+        animations = animations, style = AppStyle.MEADOW,
+        glow = 0.3f, pastel = 0.2f, paper = Color(0xFFDCE7F0), frame = Frame.CARTOON, backdrop = Backdrop.MEADOW,
+        surface = Color(0xFF1F2B45),
+    )
+} else {
+    GlassColors(
+        isDark = false, accent = Color(0xFF3E8E5A), accent2 = Color(0xFFE77B5C),
+        bgTop = Color(0xFF9FD3EE), bgBottom = Color(0xFF8CCB7E), blobs = emptyList(),
+        glassTop = Color(0xFFFFFEF8).copy(alpha = 0.95f), glassBottom = Color(0xFFF8F6EC).copy(alpha = 0.95f),
+        edge = Color(0xFF3D4B52),
+        text = Color(0xFF2C3A40), textDim = Color(0xFF6A7B82),
+        shadow = Color(0xFF2C3A40).copy(alpha = 0.18f),
+        animations = animations, style = AppStyle.MEADOW,
+        glow = 0.25f, pastel = 0.3f, paper = Color(0xFFFFFEF8), frame = Frame.CARTOON, backdrop = Backdrop.MEADOW,
+        surface = Color(0xFFFFFEF8),
+    )
 }
 
 /** 0 spring, 1 summer, 2 autumn, 3 winter, by the Persian calendar (Farvardin = spring). */
@@ -179,25 +270,28 @@ private fun typography(): Typography {
 
 @Composable
 fun NotifTheme(settings: Settings, content: @Composable () -> Unit) {
-    val dark = when (settings.themeMode) {
+    val wantDark = when (settings.themeMode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val glass = themeColors(dark, settings)
+    val glass = themeColors(wantDark, settings)
+    val dark = glass.isDark
     val scheme = if (dark) {
         darkColorScheme(
             primary = glass.accent, secondary = glass.accent2, background = glass.bgTop,
-            surface = if (glass.scene != null) Color(0xFF2E2640) else Color(0xFF1B2133), onSurface = glass.text, onBackground = glass.text,
-            surfaceContainerLow = if (glass.scene != null) Color(0xFF2E2640) else Color(0xFF1B2133),
-            surfaceContainer = if (glass.scene != null) Color(0xFF362D4A) else Color(0xFF20273B),
-            surfaceContainerHigh = if (glass.scene != null) Color(0xFF3B3150) else Color(0xFF262E45),
+            surface = glass.surface ?: if (glass.scene != null) Color(0xFF2E2640) else Color(0xFF1B2133), onSurface = glass.text, onBackground = glass.text,
+            surfaceContainerLow = glass.surface ?: if (glass.scene != null) Color(0xFF2E2640) else Color(0xFF1B2133),
+            surfaceContainer = glass.surface ?: if (glass.scene != null) Color(0xFF362D4A) else Color(0xFF20273B),
+            surfaceContainerHigh = glass.surface ?: if (glass.scene != null) Color(0xFF3B3150) else Color(0xFF262E45),
         )
     } else {
         lightColorScheme(
             primary = glass.accent, secondary = glass.accent2, background = glass.bgTop,
-            surface = if (glass.scene != null) Color(0xFFFFF6F0) else Color(0xFFF8FAFC), onSurface = glass.text, onBackground = glass.text,
-            surfaceContainerHigh = if (glass.scene != null) Color(0xFFFFEFE6) else Color(0xFFF1F5F9),
+            surface = glass.surface ?: if (glass.scene != null) Color(0xFFFFF6F0) else Color(0xFFF8FAFC), onSurface = glass.text, onBackground = glass.text,
+            surfaceContainerHigh = glass.surface ?: if (glass.scene != null) Color(0xFFFFEFE6) else Color(0xFFF1F5F9),
+            surfaceContainerLow = glass.surface ?: Color(0xFFF8FAFC),
+            surfaceContainer = glass.surface ?: Color(0xFFF1F5F9),
         )
     }
     MaterialTheme(colorScheme = scheme, typography = typography()) {

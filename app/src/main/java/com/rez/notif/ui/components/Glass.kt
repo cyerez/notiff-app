@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -45,12 +46,17 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rez.notif.ui.theme.Backdrop
+import com.rez.notif.ui.theme.Frame
 import com.rez.notif.ui.theme.LocalGlass
+import com.rez.notif.ui.theme.drawBackdrop
 import com.rez.notif.ui.theme.peachMountains
 import com.rez.notif.ui.theme.soft
 
@@ -79,6 +85,8 @@ fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
         val scene = g.scene
         if (scene != null) {
             Canvas(Modifier.fillMaxSize()) { peachMountains(scene, drift) }
+        } else if (g.backdrop != Backdrop.BLOBS) {
+            Canvas(Modifier.fillMaxSize()) { drawBackdrop(g.backdrop, g, drift) }
         } else Canvas(Modifier.fillMaxSize().blur(90.dp)) {
             val w = size.width
             val h = size.height
@@ -90,23 +98,63 @@ fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
     }
 }
 
+/** The shape a panel really gets in the current style (cut corners for cyber, square-ish for pixel…). */
+@Composable
+fun styledShape(requested: Shape): Shape {
+    val g = LocalGlass.current
+    val round = requested == CircleShape || requested == PillShape
+    return when (g.frame) {
+        Frame.ROUND, Frame.CARTOON -> requested
+        Frame.CUT -> if (round) CutCornerShape(topStart = 0.dp, topEnd = 10.dp, bottomEnd = 0.dp, bottomStart = 10.dp)
+        else CutCornerShape(topStart = 0.dp, topEnd = 18.dp, bottomEnd = 0.dp, bottomStart = 18.dp)
+        Frame.BRASS -> if (requested == CircleShape) CircleShape else RoundedCornerShape(if (round) 10.dp else 12.dp)
+        Frame.PIXEL -> CutCornerShape(if (round) 5.dp else 7.dp)
+    }
+}
+
 /** Frosted glass panel: translucent fill, bright thin edge, soft shadow (or neon glow when [glow] is set). */
 @Composable
 fun Modifier.glassSurface(shape: Shape = GlassShape, glow: Color? = null, elevation: Dp = 14.dp): Modifier {
     val g = LocalGlass.current
-    return this
-        .softShadow(
-            shape,
-            color = glow?.let { g.soft(it).copy(alpha = 0.55f * g.glow) } ?: g.shadow,
-            blur = elevation,
-            offsetY = if (glow == null) elevation / 3 else 0.dp,
-        )
-        .background(Brush.verticalGradient(listOf(g.glassTop, g.glassBottom)), shape)
-        .border(
-            1.dp,
-            Brush.linearGradient(listOf(g.edge, g.edge.copy(alpha = g.edge.alpha * 0.25f), (glow ?: g.edge).copy(alpha = 0.5f))),
-            shape,
-        )
+    val sh = styledShape(shape)
+    val fill = Brush.verticalGradient(listOf(g.glassTop, g.glassBottom))
+    return when (g.frame) {
+        Frame.ROUND -> this
+            .softShadow(
+                sh,
+                color = glow?.let { g.soft(it).copy(alpha = 0.55f * g.glow) } ?: g.shadow,
+                blur = elevation,
+                offsetY = if (glow == null) elevation / 3 else 0.dp,
+            )
+            .background(fill, sh)
+            .border(
+                1.dp,
+                Brush.linearGradient(listOf(g.edge, g.edge.copy(alpha = g.edge.alpha * 0.25f), (glow ?: g.edge).copy(alpha = 0.5f))),
+                sh,
+            )
+        // Thin lit outline, glow only when asked.
+        Frame.CUT -> this
+            .softShadow(sh, color = (glow ?: Color.Transparent).copy(alpha = if (glow != null) 0.4f else 0f), blur = elevation)
+            .background(fill, sh)
+            .border(1.2.dp, glow ?: g.edge, sh)
+        // Brass frame: a thick gold-to-bronze rim with a thin inner line.
+        Frame.BRASS -> this
+            .softShadow(sh, color = g.shadow, blur = elevation, offsetY = elevation / 3)
+            .background(fill, sh)
+            .border(2.5.dp, Brush.linearGradient(listOf(Color(0xFFE8C77A), Color(0xFF9A6A2A), Color(0xFFD9AE5C), Color(0xFF7A5222))), sh)
+            .padding(3.5.dp)
+            .border(0.8.dp, (glow ?: g.edge).copy(alpha = 0.55f), sh)
+        // Pixel: hard, unblurred drop shadow and a thick flat outline.
+        Frame.PIXEL -> this
+            .softShadow(sh, color = Color.Black, blur = 1.dp, offsetY = 4.dp)
+            .background(fill, sh)
+            .border(2.5.dp, glow ?: g.edge, sh)
+        // Cartoon: clean paper, dark ink outline, a small offset shadow.
+        Frame.CARTOON -> this
+            .softShadow(sh, color = g.shadow, blur = 2.dp, offsetY = 3.dp)
+            .background(fill, sh)
+            .border(1.8.dp, if (glow != null) lerp(glow, g.edge, 0.4f) else g.edge, sh)
+    }
 }
 
 /** Squeezes a little when pressed (the "tactile" feel of the sample designs). */
@@ -171,15 +219,16 @@ fun NeonNumber(value: String, neon: Color, size: Dp = 64.dp, modifier: Modifier 
 fun NeonIcon(icon: ImageVector, neon: Color, size: Dp = 44.dp, modifier: Modifier = Modifier) {
     val g = LocalGlass.current
     val color = g.soft(neon)
+    val sh = styledShape(CircleShape)
     Box(
         modifier
             .size(size)
-            .softShadow(CircleShape, color.copy(alpha = 0.55f * g.glow), 10.dp, 2.dp)
-            .background(Brush.radialGradient(listOf(color, color.copy(alpha = 0.75f))), CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+            .softShadow(sh, color.copy(alpha = 0.55f * g.glow), 10.dp, 2.dp)
+            .background(Brush.radialGradient(listOf(color, color.copy(alpha = 0.75f))), sh)
+            .border(1.dp, Color.White.copy(alpha = 0.5f), sh),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(size * 0.52f))
+        Icon(icon, contentDescription = null, tint = onColor(color), modifier = Modifier.size(size * 0.52f))
     }
 }
 
@@ -189,14 +238,15 @@ fun Badge(count: Int, neon: Color, modifier: Modifier = Modifier) {
     if (count <= 0) return
     val g = LocalGlass.current
     val color = g.soft(neon)
+    val sh = styledShape(PillShape)
     Box(
         modifier
-            .softShadow(PillShape, color.copy(alpha = 0.5f * g.glow), 6.dp)
-            .background(color, PillShape)
+            .softShadow(sh, color.copy(alpha = 0.5f * g.glow), 6.dp)
+            .background(color, sh)
             .padding(horizontal = 8.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(fa(if (count > 999) "999+" else count.toString()), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(fa(if (count > 999) "999+" else count.toString()), color = onColor(color), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -211,11 +261,16 @@ fun GlassButton(
     enabled: Boolean = true,
 ) {
     val g = LocalGlass.current
+    val sh = styledShape(PillShape)
     val base = if (primary) {
         Modifier
-            .softShadow(PillShape, g.accent.copy(alpha = 0.55f * g.glow), 14.dp, 3.dp)
-            .background(Brush.horizontalGradient(listOf(g.accent, g.accent2.copy(alpha = 0.9f))), PillShape)
-            .border(1.dp, Color.White.copy(alpha = 0.4f), PillShape)
+            .softShadow(sh, g.accent.copy(alpha = 0.55f * g.glow), 14.dp, 3.dp)
+            .background(
+                if (g.frame == Frame.ROUND) Brush.horizontalGradient(listOf(g.accent, g.accent2.copy(alpha = 0.9f)))
+                else Brush.horizontalGradient(listOf(g.accent, g.accent)),
+                sh,
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.4f), sh)
     } else {
         Modifier.glassSurface(PillShape, elevation = 8.dp)
     }
@@ -228,7 +283,7 @@ fun GlassButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        val color = if (primary) Color.White else g.text
+        val color = if (primary) onColor(g.accent) else g.text
         if (icon != null) {
             Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
             Box(Modifier.size(8.dp))
@@ -318,11 +373,12 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: @Composa
 fun GlassChip(text: String, selected: Boolean, onClick: () -> Unit, color: Color? = null, icon: ImageVector? = null) {
     val g = LocalGlass.current
     val c = g.soft(color ?: g.accent)
+    val sh = styledShape(PillShape)
     val m = if (selected) {
         Modifier
-            .softShadow(PillShape, c.copy(alpha = 0.5f * g.glow), 8.dp)
-            .background(c.copy(alpha = 0.9f), PillShape)
-            .border(1.dp, Color.White.copy(alpha = 0.45f), PillShape)
+            .softShadow(sh, c.copy(alpha = 0.5f * g.glow), 8.dp)
+            .background(c.copy(alpha = 0.9f), sh)
+            .border(1.dp, Color.White.copy(alpha = 0.45f), sh)
     } else {
         Modifier.glassSurface(PillShape, elevation = 2.dp)
     }
@@ -331,9 +387,12 @@ fun GlassChip(text: String, selected: Boolean, onClick: () -> Unit, color: Color
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, null, tint = if (selected) Color.White else c, modifier = Modifier.size(16.dp))
+            Icon(icon, null, tint = if (selected) onColor(c) else c, modifier = Modifier.size(16.dp))
             Box(Modifier.size(6.dp))
         }
-        Text(text, color = if (selected) Color.White else g.text, style = MaterialTheme.typography.labelMedium)
+        Text(text, color = if (selected) onColor(c) else g.text, style = MaterialTheme.typography.labelMedium)
     }
 }
+
+/** White on dark colors, near-black on bright ones (lime, gold). */
+fun onColor(c: Color): Color = if (c.luminance() > 0.62f) Color(0xFF111315) else Color.White

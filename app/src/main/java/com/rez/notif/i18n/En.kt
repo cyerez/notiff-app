@@ -338,5 +338,9 @@ internal object En {
         "پیام‌ها" to "Messages",
         "چیز مهمی منتظرت نیست." to "Nothing important is waiting for you.",
         "کد تازه" to "New code",
+        "سایبرپانک" to "Cyberpunk",
+        "استیم‌پانک" to "Steampunk",
+        "رترو پیکسلی" to "Retro pixel",
+        "دشت جیبلی" to "Ghibli meadow",
     )
 }
