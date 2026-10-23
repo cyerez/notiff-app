@@ -3,7 +3,7 @@ package com.rez.notif.i18n
 /** English for every Persian text in the app. Keys are the Persian text exactly as written in the code. */
 internal object En {
     val map: Map<String, String> = hashMapOf(
-        "فصل‌ها (خودکار)" to "Seasons (automatic)",
+        "چهار فصل" to "Four seasons",
         "مهم‌ها" to "Important",
         "وقتی نبودی" to "While you were away",
         " ساعت" to " h",
@@ -276,5 +276,12 @@ internal object En {
         "کیف پسورد قفله" to "Password wallet is locked",
         "یادداشت" to "Note",
         "یادداشت امن" to "Secure note",
+        "کمتر" to "Less",
+        "فصل" to "Season",
+        "خودکار از تقویم" to "Auto (calendar)",
+        "بهار" to "Spring",
+        "تابستون" to "Summer",
+        "پاییز" to "Autumn",
+        "زمستون" to "Winter",
     )
 }

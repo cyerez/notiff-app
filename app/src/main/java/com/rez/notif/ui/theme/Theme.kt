@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.rez.notif.R
 import com.rez.notif.data.Accent
 import com.rez.notif.data.AppStyle
+import com.rez.notif.data.Season
 import com.rez.notif.data.Settings
 import com.rez.notif.i18n.Lang
 import com.rez.notif.data.ThemeMode
@@ -61,21 +62,29 @@ fun GlassColors.soft(c: Color): Color = if (pastel > 0f) lerp(c, paper, pastel) 
 fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings.style) {
     AppStyle.GLASS -> glassColors(dark, settings.accent, settings.animations)
     AppStyle.PEACH -> peachColors(dark, settings.animations)
-    AppStyle.SEASONS -> if (dark) peachColors(true, settings.animations).copy(style = AppStyle.SEASONS) else seasonColors(settings.animations)
+    AppStyle.SEASONS -> seasonColors(dark, settings.season, settings.animations)
 }
 
-/** 0 spring, 1 summer, 2 autumn, 3 winter, by the Persian calendar. */
+/** 0 spring, 1 summer, 2 autumn, 3 winter, by the Persian calendar (Farvardin = spring). */
 fun persianSeason(): Int {
     val cal = android.icu.util.Calendar.getInstance(android.icu.util.ULocale("fa_IR@calendar=persian"))
     return cal.get(android.icu.util.Calendar.MONTH) / 3
 }
 
-private fun seasonColors(animations: Boolean): GlassColors {
-    val (scene, accent, accent2) = when (persianSeason()) {
+private fun seasonColors(dark: Boolean, choice: Season, animations: Boolean): GlassColors {
+    val index = if (choice == Season.AUTO) persianSeason() else choice.ordinal - 1
+    val (scene, accent, accent2) = when (index) {
         0 -> Triple(Spring, Color(0xFF3FA06D), Color(0xFFF08DB0))
         1 -> Triple(Summer, Color(0xFFF08A24), Color(0xFF2FB3C9))
         2 -> Triple(Autumn, Color(0xFFD2603A), Color(0xFFE3A23C))
         else -> Triple(Winter, Color(0xFF5B84C4), Color(0xFF8FB3E0))
+    }
+    if (dark) {
+        val night = scene.atNight()
+        return peachColors(true, animations).copy(
+            accent = lerp(accent, Color.White, 0.2f), accent2 = lerp(accent2, Color.White, 0.2f),
+            scene = night, style = AppStyle.SEASONS, bgTop = night.skyTop, bgBottom = night.groundFront,
+        )
     }
     return peachColors(false, animations).copy(
         accent = accent, accent2 = accent2, scene = scene, style = AppStyle.SEASONS,

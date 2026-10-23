@@ -107,6 +107,7 @@ fun HomeScreen(nav: Navigator) {
     val others = Category.entries.filter { it.id !in settings.mainCategories && it != Category.ADS && (counts[it.id]?.total ?: 0) > 0 }
     val adCount = counts[Category.ADS.id]?.total ?: 0
     var edit by remember { mutableStateOf(false) }
+    var showAllImportant by remember { mutableStateOf(false) }
 
     Column {
         GlassTopBar(title = t("نوتیف"), subtitle = today()) {
@@ -127,11 +128,6 @@ fun HomeScreen(nav: Navigator) {
         ) { openItem ->
             away?.let { a ->
                 item { AwayCard(a) { repo.prefs.update { it.copy(awaySince = 0) } } }
-            }
-            val top = important.orEmpty()
-            if (top.isNotEmpty()) {
-                item { SectionTitle(t("مهم‌ها")) }
-                top.forEach { i -> item { ItemRow(i, onClick = { openItem(i) }) } }
             }
             item {
                 // Three big tiles, like the "Inbox / To-Do / Notifications" sample.
@@ -222,6 +218,22 @@ fun HomeScreen(nav: Navigator) {
                         Text(fa(adCount), style = MaterialTheme.typography.titleMedium, color = Category.ADS.tint)
                     }
                 }
+            }
+            // Important items sit under the menu, so the tiles never get pushed down. Two are shown; the rest on tap.
+            val top = important.orEmpty()
+            if (top.isNotEmpty()) {
+                item {
+                    SectionTitle(t("مهم‌ها")) {
+                        if (top.size > 2) {
+                            GlassChip(
+                                if (showAllImportant) t("کمتر") else t("همه") + " " + fa(top.size),
+                                selected = showAllImportant,
+                                onClick = { showAllImportant = !showAllImportant },
+                            )
+                        }
+                    }
+                }
+                (if (showAllImportant) top else top.take(2)).forEach { i -> item { ItemRow(i, onClick = { openItem(i) }) } }
             }
             item { SectionTitle(t("تازه‌ها")) }
         }

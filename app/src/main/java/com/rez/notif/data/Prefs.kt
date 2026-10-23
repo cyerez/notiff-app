@@ -13,7 +13,16 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class AppStyle(val label: String) {
     GLASS("شیشه‌ای نئونی"),
     PEACH("کوهستان هلویی"),
-    SEASONS("فصل‌ها (خودکار)"),
+    SEASONS("چهار فصل"),
+}
+
+/** Which season the "four seasons" style shows. AUTO follows the Persian calendar (Farvardin = spring). */
+enum class Season(val label: String) {
+    AUTO("خودکار از تقویم"),
+    SPRING("بهار"),
+    SUMMER("تابستون"),
+    AUTUMN("پاییز"),
+    WINTER("زمستون"),
 }
 
 /** Accent colors of the glass theme (taken from the sample designs). */
@@ -33,6 +42,7 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.NEON_BLUE,
     val style: AppStyle = AppStyle.GLASS,
+    val season: Season = Season.AUTO,
     val language: Lang = Lang.FA,
     val animations: Boolean = true,
     /** Hide every new notification from the status bar right away; it lives on inside the app. */
@@ -89,6 +99,7 @@ class Prefs(context: Context) {
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
         style = runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.GLASS),
+        season = runCatching { Season.valueOf(sp.getString("season", null)!!) }.getOrDefault(Season.AUTO),
         language = runCatching { Lang.valueOf(sp.getString("language", null)!!) }.getOrDefault(Lang.FA),
         animations = sp.getBoolean("animations", true),
         hideAll = sp.getBoolean("hideAll", true),
@@ -115,6 +126,7 @@ class Prefs(context: Context) {
             .putString("themeMode", s.themeMode.name)
             .putString("accent", s.accent.name)
             .putString("style", s.style.name)
+            .putString("season", s.season.name)
             .putString("language", s.language.name)
             .putBoolean("animations", s.animations)
             .putBoolean("hideAll", s.hideAll)

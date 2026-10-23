@@ -44,6 +44,7 @@ import com.rez.notif.NotifApp
 import com.rez.notif.classify.Category
 import com.rez.notif.data.Accent
 import com.rez.notif.data.AppStyle
+import com.rez.notif.data.Season
 import com.rez.notif.data.RelockMode
 import com.rez.notif.data.ThemeMode
 import com.rez.notif.i18n.Lang
@@ -88,6 +89,14 @@ fun SettingsScreen(nav: Navigator) {
                     FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         AppStyle.entries.forEach { st ->
                             GlassChip(t(st.label), s.style == st, { repo.prefs.update { it.copy(style = st) } })
+                        }
+                    }
+                    if (s.style == AppStyle.SEASONS) {
+                        Text(t("فصل"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Season.entries.forEach { se ->
+                                GlassChip(t(se.label), s.season == se, { repo.prefs.update { it.copy(season = se) } })
+                            }
                         }
                     }
                     Text(t("حالت"), style = MaterialTheme.typography.titleSmall, color = g.text)
