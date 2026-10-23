@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Tesseract (offline picture-to-text)
+        maven("https://jitpack.io") { content { includeGroup("cz.adaptech.tesseract4android") } }
     }
 }
 rootProject.name = "NotifApp"

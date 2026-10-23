@@ -27,6 +27,7 @@ import com.rez.notif.security.AppLock
 import com.rez.notif.ui.components.GlassBackground
 import com.rez.notif.ui.screens.CategoryScreen
 import com.rez.notif.ui.screens.ConversationScreen
+import com.rez.notif.ui.screens.OcrScreen
 import com.rez.notif.ui.screens.BackupScreen
 import com.rez.notif.ui.screens.CleanupScreen
 import com.rez.notif.ui.screens.LearnedScreen
@@ -61,6 +62,7 @@ sealed interface Screen {
     data object Vip : Screen
     data class VipPerson(val id: Long, val name: String) : Screen
     data class Conversation(val address: String, val draft: String = "") : Screen
+    data class Ocr(val uri: String? = null) : Screen
 }
 
 /** Screens asked for from outside the UI tree: a tapped SMS notification, "send message" from another app. */
@@ -138,6 +140,7 @@ fun AppRoot() {
                         Screen.Vip -> VipScreen(nav)
                         is Screen.VipPerson -> VipPersonScreen(screen.id, screen.name, nav)
                         is Screen.Conversation -> ConversationScreen(screen.address, screen.draft, nav)
+                        is Screen.Ocr -> OcrScreen(screen.uri, nav)
                     }
                 }
             }

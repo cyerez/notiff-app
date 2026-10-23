@@ -95,6 +95,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- Share a picture to Notif ("Picture to text"), e.g. from S Pen Smart select -->
+        <activity-alias
+            android:name=".OcrShare"
+            android:exported="true"
+            android:label="@string/ocr_share"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Phase 5: default SMS app parts -->
         <receiver
             android:name=".sms.SmsDeliverReceiver"

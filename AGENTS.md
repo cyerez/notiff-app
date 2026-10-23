@@ -42,6 +42,8 @@ app/src/main/java/com/rez/notif/
   security/ AppLock.kt (system BiometricPrompt; relocks after 30 s away), DbKey.kt (DB key wrapped by Keystore),
           WalletVault.kt (password wallet key: Keystore AES-GCM, needs fingerprint/PIN every 60 s; clipboard wipe)
   wallet/ WalletModel.kt (WalletKind, WalletEntry, WalletCodec, PasswordGen; pure Kotlin, tested; keep Android out)
+  ocr/   Ocr.kt (offline picture-to-text with Tesseract4Android from JitPack; fas+eng language files are
+         downloaded by CI into assets/tessdata, not kept in git). Share target: activity-alias .OcrShare
   widget/ NotifWidget.kt (RemoteViews home-screen widget; refreshed 2 s after data changes)
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast; skipped when we are default)
          Phase 5 (default SMS app): DefaultSms.kt (role, send, write/delete in the phone's SMS store, threads),
@@ -52,7 +54,7 @@ app/src/main/java/com/rez/notif/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5)
+    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

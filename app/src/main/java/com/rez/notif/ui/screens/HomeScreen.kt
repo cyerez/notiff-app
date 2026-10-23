@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Key
 import com.rez.notif.ui.components.ItemRow
 import com.rez.notif.data.Repository
@@ -154,11 +155,15 @@ fun HomeScreen(nav: Navigator) {
                 }
             }
             item {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ActionTile(
                         Icons.Rounded.Key, ValuableColor, t("کیف پسورد"), t("رمزهای ضروری، آفلاین"),
                         Modifier.weight(1f),
                     ) { nav.go(Screen.Wallet) }
+                    ActionTile(
+                        Icons.Rounded.DocumentScanner, g.accent2, t("متن از عکس"), t("با قلم یا هر عکسی"),
+                        Modifier.weight(1f),
+                    ) { nav.go(Screen.Ocr()) }
                 }
             }
             if (main.isNotEmpty()) {

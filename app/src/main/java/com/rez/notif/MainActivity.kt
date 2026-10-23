@@ -39,6 +39,13 @@ class MainActivity : ComponentActivity() {
             OpenRequests.open(Screen.Conversation(it))
             return
         }
+        // A shared picture (S Pen Smart select → Share → "Picture to text").
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
+            @Suppress("DEPRECATION")
+            val uri = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM) ?: intent.clipData?.getItemAt(0)?.uri ?: return
+            OpenRequests.open(Screen.Ocr(uri.toString()))
+            return
+        }
         if (intent.action == Intent.ACTION_SENDTO || intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_VIEW) {
             val to = HeadlessSmsSendService.recipients(intent.data).firstOrNull() ?: return
             val draft = intent.getStringExtra("sms_body") ?: intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
