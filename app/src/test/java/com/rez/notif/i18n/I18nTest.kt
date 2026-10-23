@@ -16,6 +16,11 @@ class I18nTest {
         assertTrue("No English for: $missing", missing.isEmpty())
     }
 
+    @Test fun walletLabelsHaveEnglish() {
+        val labels = com.rez.notif.wallet.WalletKind.entries.flatMap { listOf(it.label, it.userLabel, it.secretLabel) }
+        assertTrue(labels.filter { it !in En.map }.toString(), labels.all { it in En.map })
+    }
+
     @Test fun switchesLanguage() {
         I18n.lang = Lang.EN
         assertEquals("Settings", t("تنظیمات"))

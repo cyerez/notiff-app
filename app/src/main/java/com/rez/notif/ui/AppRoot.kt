@@ -31,6 +31,7 @@ import com.rez.notif.ui.screens.LearnedScreen
 import com.rez.notif.ui.screens.LockScreen
 import com.rez.notif.ui.screens.VipPersonScreen
 import com.rez.notif.ui.screens.VipScreen
+import com.rez.notif.ui.screens.WalletScreen
 import com.rez.notif.ui.screens.HomeScreen
 import com.rez.notif.ui.screens.OnboardingScreen
 import com.rez.notif.ui.screens.ScanScreen
@@ -54,6 +55,7 @@ sealed interface Screen {
     data object Cleanup : Screen
     data object Learned : Screen
     data object Backup : Screen
+    data object Wallet : Screen
     data object Vip : Screen
     data class VipPerson(val id: Long, val name: String) : Screen
 }
@@ -115,6 +117,7 @@ fun AppRoot() {
                         Screen.Cleanup -> CleanupScreen(nav)
                         Screen.Learned -> LearnedScreen(nav)
                         Screen.Backup -> BackupScreen(nav)
+                        Screen.Wallet -> WalletScreen(nav)
                         Screen.Vip -> VipScreen(nav)
                         is Screen.VipPerson -> VipPersonScreen(screen.id, screen.name, nav)
                     }

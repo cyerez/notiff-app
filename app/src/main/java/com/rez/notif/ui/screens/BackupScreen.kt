@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.rez.notif.NotifApp
 import com.rez.notif.backup.BackupCrypto
 import com.rez.notif.classify.Category
+import com.rez.notif.security.WalletVault
 import com.rez.notif.ui.Navigator
 import com.rez.notif.ui.components.GlassButton
 import com.rez.notif.ui.components.GlassCard
@@ -132,22 +133,34 @@ fun BackupScreen(nav: Navigator) {
                     pending = null
                     busy = true
                     message = t("صبر کن…")
-                    scope.launch {
-                        message = try {
-                            if (step == BackupStep.EXPORT) {
-                                repo.exportBackup(uri, pass.toCharArray()); t("فایل پشتیبان ساخته شد.")
-                            } else {
-                                repo.importBackup(uri, pass.toCharArray()); t("بازگردانی انجام شد.")
+                    val chars = pass.toCharArray()
+                    fun run(askedWallet: Boolean) {
+                        scope.launch {
+                            message = try {
+                                if (step == BackupStep.EXPORT) {
+                                    repo.exportBackup(uri, chars); t("فایل پشتیبان ساخته شد.")
+                                } else {
+                                    repo.importBackup(uri, chars); t("بازگردانی انجام شد.")
+                                }
+                            } catch (e: WalletVault.Locked) {
+                                // The password wallet is inside the backup, so it needs its own fingerprint.
+                                val activity = context as? Activity
+                                if (!askedWallet && activity != null) {
+                                    WalletVault.unlock(activity) { ok -> if (ok) run(true) else { message = t("کیف پسورد قفله"); busy = false } }
+                                    return@launch
+                                }
+                                t("کیف پسورد قفله")
+                            } catch (e: BackupCrypto.WrongPassword) {
+                                t("رمز اشتباهه (یا فایل خراب شده).")
+                            } catch (e: BackupCrypto.NotABackup) {
+                                t("این فایل پشتیبان نوتیف نیست.")
+                            } catch (e: Exception) {
+                                t("خطا: ") + (e.message ?: t("نامشخص"))
                             }
-                        } catch (e: BackupCrypto.WrongPassword) {
-                            t("رمز اشتباهه (یا فایل خراب شده).")
-                        } catch (e: BackupCrypto.NotABackup) {
-                            t("این فایل پشتیبان نوتیف نیست.")
-                        } catch (e: Exception) {
-                            t("خطا: ") + (e.message ?: t("نامشخص"))
+                            busy = false
                         }
-                        busy = false
                     }
+                    run(false)
                 }) { Text(if (step == BackupStep.EXPORT) t("ذخیره") else t("بازگردانی")) }
             },
             dismissButton = { TextButton(onClick = { pending = null }) { Text(t("لغو")) } },

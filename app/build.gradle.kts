@@ -15,7 +15,7 @@ android {
         targetSdk = 35
         // CI passes its run number so each build has a higher version.
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.6." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        versionName = "0.7." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
         // Only the S25 Ultra's CPU type: keeps the encrypted-database library small.
         ndk { abiFilters += "arm64-v8a" }
     }

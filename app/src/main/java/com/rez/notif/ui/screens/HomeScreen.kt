@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import androidx.compose.material.icons.rounded.Key
 import com.rez.notif.ui.components.ItemRow
 import com.rez.notif.data.Repository
 import androidx.compose.material.icons.rounded.Close
@@ -154,6 +155,14 @@ fun HomeScreen(nav: Navigator) {
                         if ((data?.clutter ?: 0) == 0) t("همه چی مرتبه") else fa(data?.clutter ?: 0) + t(" مورد اضافه"),
                         Modifier.weight(1f),
                     ) { nav.go(Screen.Cleanup) }
+                }
+            }
+            item {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    ActionTile(
+                        Icons.Rounded.Key, ValuableColor, t("کیف پسورد"), t("رمزهای ضروری، آفلاین"),
+                        Modifier.weight(1f),
+                    ) { nav.go(Screen.Wallet) }
                 }
             }
             if (main.isNotEmpty()) {

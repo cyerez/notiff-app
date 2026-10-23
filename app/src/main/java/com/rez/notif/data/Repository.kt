@@ -8,6 +8,10 @@ import android.net.Uri
 import android.os.Build
 import com.rez.notif.backup.BackupCrypto
 import com.rez.notif.classify.Analyzer
+import com.rez.notif.security.WalletVault
+import com.rez.notif.wallet.WalletCodec
+import com.rez.notif.wallet.WalletEntry
+import com.rez.notif.wallet.WalletKind
 import com.rez.notif.classify.Category
 import com.rez.notif.classify.Classifier
 import com.rez.notif.classify.Learner
@@ -438,13 +442,44 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         changed()
     }
 
+    // ---------- password wallet ----------
+
+    fun walletCount(): Int = db.walletCount()
+
+    /** All wallet entries, unlocked. Needs [WalletVault] to be open (throws WalletVault.Locked otherwise). */
+    suspend fun walletEntries(): List<WalletEntry> = withContext(Dispatchers.IO) {
+        db.walletRows().map { (base, data) -> WalletCodec.decode(base, WalletVault.decrypt(data)) }
+    }
+
+    suspend fun walletSave(e: WalletEntry): Long = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        db.walletPut(e.id, e.title.trim(), e.kind.name, WalletVault.encrypt(WalletCodec.encode(e)), now)
+    }
+
+    suspend fun walletDelete(id: Long) = withContext(Dispatchers.IO) { db.walletDelete(id) }
+
     // ---------- backup ----------
 
     /** Writes a password-locked copy of everything in the app to [uri]. */
     suspend fun exportBackup(uri: Uri, password: CharArray) = withContext(Dispatchers.IO) {
         val tmp = java.io.File(context.cacheDir, "backup.db")
         try {
+            // Wallet secrets only open on this phone, so they go into the backup unlocked
+            // (the whole backup file is locked with the backup password right after).
+            val wallet = if (db.walletCount() > 0) {
+                db.walletRows().map { (base, data) -> base to WalletVault.decrypt(data) }
+            } else emptyList()
             db.snapshotTo(tmp)
+            android.database.sqlite.SQLiteDatabase.openDatabase(tmp.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE).use { d ->
+                runCatching { d.execSQL("DELETE FROM wallet") }
+                d.execSQL("CREATE TABLE wallet_export (title TEXT, kind TEXT, data TEXT, updated INTEGER)")
+                for ((base, plainData) in wallet) {
+                    d.execSQL(
+                        "INSERT INTO wallet_export VALUES (?, ?, ?, ?)",
+                        arrayOf<Any>(base.title, base.kind.name, plainData, base.updated),
+                    )
+                }
+            }
             val locked = BackupCrypto.encrypt(tmp.readBytes(), password)
             context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(locked) } ?: error("cannot write file")
         } finally {
@@ -459,12 +494,26 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (!plain.copyOfRange(0, 15).contentEquals("SQLite format 3".toByteArray())) throw BackupCrypto.NotABackup()
         val tmp = java.io.File(context.cacheDir, "restore.db")
         tmp.writeBytes(plain)
-        // Make sure it really is our database before touching the current one.
-        android.database.sqlite.SQLiteDatabase.openDatabase(tmp.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { d ->
-            d.rawQuery("SELECT COUNT(*) FROM items", null).use { it.moveToFirst() }
-        }
         try {
+            // Make sure it really is our database before touching the current one, and take the wallet out.
+            val walletPlain = ArrayList<Pair<WalletEntry, String>>()
+            android.database.sqlite.SQLiteDatabase.openDatabase(tmp.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE).use { d ->
+                d.rawQuery("SELECT COUNT(*) FROM items", null).use { it.moveToFirst() }
+                runCatching {
+                    d.rawQuery("SELECT title, kind, data, updated FROM wallet_export", null).use { c ->
+                        while (c.moveToNext()) {
+                            val kind = runCatching { WalletKind.valueOf(c.getString(1)) }.getOrDefault(WalletKind.LOGIN)
+                            walletPlain += WalletEntry(title = c.getString(0), kind = kind, updated = c.getLong(3)) to c.getString(2)
+                        }
+                    }
+                }
+                runCatching { d.execSQL("DROP TABLE IF EXISTS wallet_export") }
+                runCatching { d.execSQL("DELETE FROM wallet") }
+            }
+            // Lock the wallet entries with this phone's key before replacing anything (needs the finger).
+            val walletLocked = walletPlain.map { (base, plainData) -> base to WalletVault.encrypt(plainData) }
             db.restoreFrom(tmp)
+            for ((base, data) in walletLocked) db.walletPut(0, base.title, base.kind.name, data, base.updated)
         } finally {
             tmp.delete()
         }

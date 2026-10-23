@@ -8,6 +8,7 @@ import androidx.lifecycle.lifecycleScope
 import com.rez.notif.notif.NotifListener
 import com.rez.notif.notif.SummaryNotifier
 import com.rez.notif.security.AppLock
+import com.rez.notif.security.WalletVault
 import com.rez.notif.ui.AppRoot
 import kotlinx.coroutines.launch
 
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         AppLock.onLeave()
+        WalletVault.lock()
         // Time away (and the summary notification) counts from when the user left the app.
         NotifApp.repo(this).let { r -> if (r.prefs.current.firstScanDone) r.prefs.update { it.copy(lastSeen = System.currentTimeMillis()) } }
         super.onStop()

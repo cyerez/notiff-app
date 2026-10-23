@@ -182,6 +182,7 @@ fun SettingsScreen(nav: Navigator) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         GlassButton(t("پشتیبان رمزدار"), onClick = { nav.go(Screen.Backup) }, primary = false)
                         GlassButton(t("یادگرفته‌ها"), onClick = { nav.go(Screen.Learned) }, primary = false)
+                        GlassButton(t("کیف پسورد"), onClick = { nav.go(Screen.Wallet) }, primary = false)
                     }
                 }
             }

@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 2
+        const val VERSION = 3
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -127,6 +127,7 @@ class Db private constructor(
             """.trimIndent(),
         )
         createV2(db)
+        createV3(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -144,6 +145,11 @@ class Db private constructor(
         db.execSQL("CREATE TABLE vip (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, numbers TEXT NOT NULL, created INTEGER NOT NULL)")
     }
 
+    /** Version 3: offline password wallet. `data` is locked by the wallet's hardware key (WalletVault). */
+    private fun createV3(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE wallet (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, kind TEXT NOT NULL, data BLOB NOT NULL, updated INTEGER NOT NULL)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -151,6 +157,35 @@ class Db private constructor(
             // v0.1 marked every old SMS as unread; anything older than a day counts as read.
             db.execSQL("UPDATE items SET is_read = 1 WHERE timestamp < ?", arrayOf<Any>(System.currentTimeMillis() - 86_400_000L))
         }
+        if (oldVersion < 3) createV3(db)
+    }
+
+    // ---------- password wallet ----------
+
+    /** Wallet rows: the readable part and the still-locked secret data. */
+    fun walletRows(): List<Pair<com.rez.notif.wallet.WalletEntry, ByteArray>> =
+        readableDatabase.rawQuery("SELECT id, title, kind, data, updated FROM wallet ORDER BY title COLLATE NOCASE", null).use { c ->
+            val l = ArrayList<Pair<com.rez.notif.wallet.WalletEntry, ByteArray>>()
+            while (c.moveToNext()) {
+                val kind = runCatching { com.rez.notif.wallet.WalletKind.valueOf(c.getString(2)) }.getOrDefault(com.rez.notif.wallet.WalletKind.LOGIN)
+                l += com.rez.notif.wallet.WalletEntry(id = c.getLong(0), title = c.getString(1), kind = kind, updated = c.getLong(4)) to c.getBlob(3)
+            }
+            l
+        }
+
+    fun walletCount(): Int = count("1=1", null, table = "wallet")
+
+    /** Inserts (id 0) or replaces a wallet row. Returns its id. */
+    fun walletPut(id: Long, title: String, kind: String, data: ByteArray, updated: Long): Long {
+        val v = ContentValues().apply {
+            if (id > 0) put("id", id)
+            put("title", title); put("kind", kind); put("data", data); put("updated", updated)
+        }
+        return writableDatabase.insertWithOnConflict("wallet", null, v, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun walletDelete(id: Long) {
+        writableDatabase.delete("wallet", "id = ?", arrayOf(id.toString()))
     }
 
     // ---------- writes ----------
@@ -388,8 +423,8 @@ class Db private constructor(
             list
         }
 
-    fun count(where: String = "1=1", args: Array<String>? = null): Int =
-        readableDatabase.rawQuery("SELECT COUNT(*) FROM live_items WHERE $where", args).use { c ->
+    fun count(where: String = "1=1", args: Array<String>? = null, table: String = "live_items"): Int =
+        readableDatabase.rawQuery("SELECT COUNT(*) FROM $table WHERE $where", args).use { c ->
             if (c.moveToFirst()) c.getInt(0) else 0
         }
 
