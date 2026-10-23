@@ -12,7 +12,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -85,22 +85,17 @@ fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
     }
 }
 
-/** Frosted glass panel: translucent fill, bright thin edge, soft shadow. */
-fun Modifier.glass(
-    shape: Shape = GlassShape,
-    glow: Color? = null,
-    elevation: Dp = 14.dp,
-): Modifier = this.then(
-    Modifier
-        // Neon glow when a color is given, otherwise a soft neutral shadow.
-        .shadow(elevation, shape, clip = false, ambientColor = glow ?: Color.Black, spotColor = glow ?: Color.Black),
-)
-
+/** Frosted glass panel: translucent fill, bright thin edge, soft shadow (or neon glow when [glow] is set). */
 @Composable
 fun Modifier.glassSurface(shape: Shape = GlassShape, glow: Color? = null, elevation: Dp = 14.dp): Modifier {
     val g = LocalGlass.current
     return this
-        .glass(shape, glow, elevation)
+        .softShadow(
+            shape,
+            color = glow?.copy(alpha = 0.55f) ?: g.shadow,
+            blur = elevation,
+            offsetY = if (glow == null) elevation / 3 else 0.dp,
+        )
         .background(Brush.verticalGradient(listOf(g.glassTop, g.glassBottom)), shape)
         .border(
             1.dp,
@@ -111,7 +106,8 @@ fun Modifier.glassSurface(shape: Shape = GlassShape, glow: Color? = null, elevat
 
 /** Squeezes a little when pressed (the "tactile" feel of the sample designs). */
 @Composable
-fun Modifier.pressable(onClick: () -> Unit): Modifier {
+@OptIn(ExperimentalFoundationApi::class)
+fun Modifier.pressable(onClick: () -> Unit, onLongClick: (() -> Unit)? = null): Modifier {
     val g = LocalGlass.current
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
@@ -122,7 +118,7 @@ fun Modifier.pressable(onClick: () -> Unit): Modifier {
     )
     return this
         .graphicsLayer { scaleX = scale; scaleY = scale }
-        .clickable(interactionSource = source, indication = null, onClick = onClick)
+        .combinedClickable(interactionSource = source, indication = null, onLongClick = onLongClick, onClick = onClick)
 }
 
 @Composable
@@ -131,14 +127,13 @@ fun GlassCard(
     shape: Shape = GlassShape,
     glow: Color? = null,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     contentPadding: Dp = 18.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val m = modifier.glassSurface(shape, glow)
-    Column(
-        (if (onClick != null) m.pressable(onClick) else m).padding(contentPadding),
-        content = content,
-    )
+    // Press effect first, so the whole glass panel squeezes together.
+    val base = if (onClick != null) modifier.pressable(onClick, onLongClick) else modifier
+    Column(base.glassSurface(shape, glow).padding(contentPadding), content = content)
 }
 
 /** Raised colored square with a number, like the "Inbox / To-Do / Notifications" tiles. */
@@ -147,7 +142,7 @@ fun NeonNumber(value: String, color: Color, size: Dp = 64.dp, modifier: Modifier
     Box(
         modifier
             .size(size)
-            .shadow(18.dp, RoundedCornerShape(size / 3.2f), ambientColor = color, spotColor = color)
+            .softShadow(RoundedCornerShape(size / 3.2f), color.copy(alpha = 0.6f), 14.dp, 4.dp)
             .background(
                 Brush.linearGradient(listOf(color.copy(alpha = 0.85f), color)),
                 RoundedCornerShape(size / 3.2f),
@@ -170,7 +165,7 @@ fun NeonIcon(icon: ImageVector, color: Color, size: Dp = 44.dp, modifier: Modifi
     Box(
         modifier
             .size(size)
-            .shadow(12.dp, CircleShape, ambientColor = color, spotColor = color)
+            .softShadow(CircleShape, color.copy(alpha = 0.55f), 10.dp, 2.dp)
             .background(Brush.radialGradient(listOf(color, color.copy(alpha = 0.75f))), CircleShape)
             .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
         contentAlignment = Alignment.Center,
@@ -185,7 +180,7 @@ fun Badge(count: Int, color: Color, modifier: Modifier = Modifier) {
     if (count <= 0) return
     Box(
         modifier
-            .shadow(8.dp, PillShape, ambientColor = color, spotColor = color)
+            .softShadow(PillShape, color.copy(alpha = 0.5f), 6.dp)
             .background(color, PillShape)
             .padding(horizontal = 8.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
@@ -207,7 +202,7 @@ fun GlassButton(
     val g = LocalGlass.current
     val base = if (primary) {
         Modifier
-            .shadow(16.dp, PillShape, ambientColor = g.accent, spotColor = g.accent)
+            .softShadow(PillShape, g.accent.copy(alpha = 0.55f), 14.dp, 3.dp)
             .background(Brush.horizontalGradient(listOf(g.accent, g.accent2.copy(alpha = 0.9f))), PillShape)
             .border(1.dp, Color.White.copy(alpha = 0.4f), PillShape)
     } else {
@@ -314,7 +309,7 @@ fun GlassChip(text: String, selected: Boolean, onClick: () -> Unit, color: Color
     val c = color ?: g.accent
     val m = if (selected) {
         Modifier
-            .shadow(10.dp, PillShape, ambientColor = c, spotColor = c)
+            .softShadow(PillShape, c.copy(alpha = 0.5f), 8.dp)
             .background(c.copy(alpha = 0.9f), PillShape)
             .border(1.dp, Color.White.copy(alpha = 0.45f), PillShape)
     } else {

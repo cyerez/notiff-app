@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
+import com.rez.notif.notif.NotifListener
 import com.rez.notif.ui.AppRoot
 import kotlinx.coroutines.launch
 
@@ -19,9 +20,13 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Catch SMS that arrived while the app was not running (for example right after a reboot).
         val repo = NotifApp.repo(this)
-        if (repo.prefs.current.firstScanDone && hasSmsPermission()) {
-            lifecycleScope.launch { runCatching { repo.syncSms() } }
+        if (!repo.prefs.current.firstScanDone) return
+        lifecycleScope.launch {
+            if (hasSmsPermission()) runCatching { repo.syncSms() }
+            runCatching { repo.autoCleanIfDue() }
         }
+        // Opening the app tidies the status bar: only main categories and chosen people stay.
+        if (repo.prefs.current.clearOnOpen) NotifListener.instance?.clearNonEssential()
     }
 
     private fun hasSmsPermission() =

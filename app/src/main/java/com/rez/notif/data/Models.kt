@@ -25,6 +25,8 @@ data class Item(
     val isValuable: Boolean = false,
     val isStarred: Boolean = false,
     val isRead: Boolean = false,
+    /** Id of the chosen person this belongs to, 0 when none. */
+    val vipId: Long = 0,
 )
 
 data class CategoryCount(val category: String, val total: Int, val unread: Int)
@@ -56,5 +58,12 @@ data class ItemQuery(
     /** When false, ads are left out (unless onlyAds). */
     val includeAds: Boolean = false,
     val sinceMillis: Long? = null,
+    val beforeMillis: Long? = null,
+    val vipId: Long? = null,
+    val onlyVip: Boolean = false,
+    val sender: String? = null,
+    val packageName: String? = null,
+    /** Leave out what must never be auto-deleted: chosen people, starred, valuable. */
+    val excludeKept: Boolean = false,
     val limit: Int = 300,
 )

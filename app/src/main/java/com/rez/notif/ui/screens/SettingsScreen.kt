@@ -34,7 +34,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -53,6 +52,7 @@ import com.rez.notif.ui.components.SectionTitle
 import com.rez.notif.ui.components.fa
 import com.rez.notif.ui.components.icon
 import com.rez.notif.ui.components.pressable
+import com.rez.notif.ui.components.softShadow
 import com.rez.notif.ui.components.tint
 import com.rez.notif.ui.theme.LocalGlass
 import kotlinx.coroutines.launch
@@ -96,6 +96,15 @@ fun SettingsScreen(nav: Navigator) {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
                     ToggleRow("مخفی کردن تبلیغ‌ها", "نوتیف تبلیغی (و نوتیف پیامک تبلیغی) فوراً پاک میشه و فقط در «تبلیغات مخفی‌شده» می‌مونه.", s.hideAds) { v ->
                         repo.prefs.update { it.copy(hideAds = v) }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    ToggleRow("مرتب کردن نوتیف‌ها موقع ورود", "با باز کردن اپ، نوتیف‌های اضافه از نوار بالای گوشی پاک میشن. دسته‌های اصلی، افراد منتخب و کدهای تازه می‌مونن.", s.clearOnOpen) { v ->
+                        repo.prefs.update { it.copy(clearOnOpen = v) }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassButton("افراد منتخب", onClick = { nav.go(Screen.Vip) }, primary = false)
+                        GlassButton("پاک‌سازی هوشمند", onClick = { nav.go(Screen.Cleanup) }, primary = false)
                     }
                     Spacer(Modifier.height(10.dp))
                     Text("دسته‌های اصلی صفحه خانه", style = MaterialTheme.typography.titleSmall, color = g.text)
@@ -189,7 +198,7 @@ private fun AccentDot(a: Accent, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .size(36.dp)
-            .shadow(if (selected) 14.dp else 4.dp, CircleShape, ambientColor = c, spotColor = c)
+            .softShadow(CircleShape, c.copy(alpha = if (selected) 0.6f else 0.25f), if (selected) 12.dp else 4.dp)
             .background(Brush.linearGradient(listOf(c, Color(a.second))), CircleShape)
             .border(if (selected) 3.dp else 1.dp, Color.White.copy(alpha = if (selected) 0.9f else 0.4f), CircleShape)
             .pressable(onClick),

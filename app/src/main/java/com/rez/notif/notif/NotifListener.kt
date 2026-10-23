@@ -18,6 +18,7 @@ class NotifListener : NotificationListenerService() {
     private val worker = Executors.newSingleThreadExecutor()
 
     override fun onListenerConnected() {
+        instance = this
         // Pick up what is already on screen right now (the "first scan" for notifications).
         val active = try { activeNotifications } catch (e: Exception) { null } ?: return
         worker.execute { active.forEach { safeHandle(it) } }
@@ -27,7 +28,37 @@ class NotifListener : NotificationListenerService() {
         worker.execute { safeHandle(sbn) }
     }
 
+    override fun onListenerDisconnected() {
+        if (instance === this) instance = null
+    }
+
+    /**
+     * Clears the status bar except what the user cares about (see Repository.keepInShade).
+     * Everything cleared is already saved in the app, so nothing is lost.
+     */
+    fun clearNonEssential() {
+        worker.execute {
+            try {
+                val repo = NotifApp.repo(this)
+                val keys = activeNotifications.orEmpty().filter { sbn ->
+                    val n = sbn.notification
+                    sbn.packageName != packageName && sbn.isClearable && !sbn.isOngoing && n != null &&
+                        n.flags and Notification.FLAG_GROUP_SUMMARY == 0 &&
+                        !repo.keepInShade(
+                            sbn.packageName,
+                            sbn.packageName in SMS_APPS,
+                            n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
+                            (n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: n.extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty(),
+                            sbn.postTime,
+                        )
+                }.map { it.key }
+                if (keys.isNotEmpty()) cancelNotifications(keys.toTypedArray())
+            } catch (_: Exception) { }
+        }
+    }
+
     override fun onDestroy() {
+        if (instance === this) instance = null
         worker.shutdown()
         super.onDestroy()
     }
@@ -81,6 +112,9 @@ class NotifListener : NotificationListenerService() {
     }
 
     companion object {
+        /** The running listener, when notification access is on. */
+        @Volatile var instance: NotifListener? = null
+
         /** Notifications from these apps are SMS we already store through SmsReceiver. */
         val SMS_APPS = setOf(
             "com.samsung.android.messaging",

@@ -80,3 +80,37 @@ class AnalyzerTest {
         assertFalse(s.first { it.category == Category.ADS }.recommended)
     }
 }
+
+class MissedCallTest {
+    @Test fun operatorMissedCallSms() {
+        val r = Classifier.classify(Classifier.Input(true, "MCI", "", "شما یک تماس از دست رفته از 09121234567 دارید"))
+        assertEquals(Category.MISSED, r.category)
+    }
+
+    @Test fun dialerMissedCallNotification() {
+        val r = Classifier.classify(Classifier.Input(false, "", "Missed call", "Ali", "com.samsung.android.dialer"))
+        assertEquals(Category.MISSED, r.category)
+    }
+}
+
+class VipMatcherTest {
+    private val people = listOf(
+        VipPerson(1, "مامان", listOf("9121234567")),
+        VipPerson(2, "Sara", emptyList()),
+    )
+
+    @Test fun keyNormalizesFormats() {
+        assertEquals("9121234567", VipMatcher.key("+98 912 123 4567"))
+        assertEquals("9121234567", VipMatcher.key("۰۹۱۲۱۲۳۴۵۶۷"))
+        assertEquals(null, VipMatcher.key("MCI"))
+    }
+
+    @Test fun matchesSmsSender() = assertEquals(1L, VipMatcher.match(people, true, "+989121234567", "", "سلام")?.id)
+
+    @Test fun matchesNumberInsideText() =
+        assertEquals(1L, VipMatcher.match(people, true, "MCI", "", "تماس از دست رفته از ۰۹۱۲ ۱۲۳ ۴۵۶۷")?.id)
+
+    @Test fun matchesNotificationTitleName() = assertEquals(2L, VipMatcher.match(people, false, "", "Sara", "hi")?.id)
+
+    @Test fun noFalseMatch() = assertEquals(null, VipMatcher.match(people, false, "", "Reza", "hello Sarah?")?.id)
+}

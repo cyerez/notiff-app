@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.PhoneMissed
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.SimCard
@@ -61,6 +62,7 @@ private fun sameDay(a: Long, b: Long): Boolean {
 val Category.icon: ImageVector
     get() = when (this) {
         Category.OTP -> Icons.Rounded.Key
+        Category.MISSED -> Icons.Rounded.PhoneMissed
         Category.BANK -> Icons.Rounded.AccountBalance
         Category.PERSONAL -> Icons.Rounded.Person
         Category.SOCIAL -> Icons.Rounded.Forum
@@ -75,6 +77,9 @@ val Category.icon: ImageVector
     }
 
 val Category.tint: Color get() = Color(color)
+
+/** Pink-red used for chosen people. */
+val VipColor = Color(0xFFFF4D8D)
 
 /** Gold used for the "valuable" flag. */
 val ValuableColor = Color(0xFFFFC23D)

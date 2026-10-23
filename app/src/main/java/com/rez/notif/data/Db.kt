@@ -10,7 +10,7 @@ import android.database.sqlite.SQLiteOpenHelper
  * Plain SQLite storage on the phone. No internet, nothing leaves the device.
  * (Phase 2 plan: encrypt this file with SQLCipher + Android Keystore.)
  */
-class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
+class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -34,6 +34,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
             )
             """.trimIndent(),
         )
+        createV2(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -41,8 +42,23 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
         db.execSQL("CREATE TABLE sender_overrides (sender_key TEXT PRIMARY KEY, category TEXT NOT NULL)")
     }
 
+    /** Version 2: chosen people, soft delete. */
+    private fun createV2(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN vip_id INTEGER NOT NULL DEFAULT 0")
+        // Deleted items stay as a hidden row, so a later SMS sync does not bring them back.
+        db.execSQL("ALTER TABLE items ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("CREATE INDEX idx_items_vip ON items(vip_id, timestamp DESC)")
+        db.execSQL("CREATE VIEW live_items AS SELECT * FROM items WHERE is_deleted = 0")
+        db.execSQL("CREATE TABLE vip (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, numbers TEXT NOT NULL, created INTEGER NOT NULL)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version 1 only. Future migrations go here; never drop user data.
+        // Never drop user data here; only add.
+        if (oldVersion < 2) {
+            createV2(db)
+            // v0.1 marked every old SMS as unread; anything older than a day counts as read.
+            db.execSQL("UPDATE items SET is_read = 1 WHERE timestamp < ?", arrayOf<Any>(System.currentTimeMillis() - 86_400_000L))
+        }
     }
 
     // ---------- writes ----------
@@ -104,6 +120,74 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
         writableDatabase.update("items", v, "category = ?", arrayOf(category))
     }
 
+    /** Soft delete: hidden everywhere, but kept so a sync does not re-import it. */
+    fun delete(ids: List<Long>, deleted: Boolean = true) {
+        if (ids.isEmpty()) return
+        val v = ContentValues().apply { put("is_deleted", if (deleted) 1 else 0) }
+        ids.chunked(500).forEach { chunk ->
+            writableDatabase.update("items", v, "id IN (${chunk.joinToString(",")})", null)
+        }
+    }
+
+    /** Ids matching a query (used by cleanup and "delete all from sender"). */
+    fun ids(q: ItemQuery): List<Long> {
+        val (where, args) = whereOf(q)
+        return readableDatabase.rawQuery("SELECT id FROM live_items WHERE $where", args).use { c ->
+            val l = ArrayList<Long>(c.count)
+            while (c.moveToNext()) l += c.getLong(0)
+            l
+        }
+    }
+
+    // ---------- chosen people ----------
+
+    fun vips(): List<com.rez.notif.classify.VipPerson> =
+        readableDatabase.rawQuery("SELECT id, name, numbers FROM vip ORDER BY name", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.VipPerson>()
+            while (c.moveToNext()) {
+                l += com.rez.notif.classify.VipPerson(c.getLong(0), c.getString(1), c.getString(2).split(",").filter { it.isNotBlank() })
+            }
+            l
+        }
+
+    fun addVip(name: String, numbers: List<String>): Long {
+        val v = ContentValues().apply {
+            put("name", name)
+            put("numbers", numbers.joinToString(","))
+            put("created", System.currentTimeMillis())
+        }
+        return writableDatabase.insert("vip", null, v)
+    }
+
+    fun removeVip(id: Long) {
+        writableDatabase.delete("vip", "id = ?", arrayOf(id.toString()))
+        val v = ContentValues().apply { put("vip_id", 0) }
+        writableDatabase.update("items", v, "vip_id = ?", arrayOf(id.toString()))
+    }
+
+    fun setVip(ids: List<Long>, vipId: Long) {
+        if (ids.isEmpty()) return
+        val v = ContentValues().apply { put("vip_id", vipId) }
+        ids.chunked(500).forEach { chunk ->
+            writableDatabase.update("items", v, "id IN (${chunk.joinToString(",")})", null)
+        }
+    }
+
+    /** Every item (also deleted ones) for re-tagging chosen people: id, source, sender, title, body. */
+    fun allForVipScan(): List<Array<String>> =
+        readableDatabase.rawQuery("SELECT id, source, sender, title, body FROM items", null).use { c ->
+            val l = ArrayList<Array<String>>(c.count)
+            while (c.moveToNext()) l += arrayOf(c.getLong(0).toString(), c.getString(1), c.getString(2), c.getString(3), c.getString(4))
+            l
+        }
+
+    fun vipCounts(): Map<Long, Pair<Int, Long>> =
+        readableDatabase.rawQuery("SELECT vip_id, COUNT(*), MAX(timestamp) FROM live_items WHERE vip_id > 0 GROUP BY vip_id", null).use { c ->
+            val m = HashMap<Long, Pair<Int, Long>>()
+            while (c.moveToNext()) m[c.getLong(0)] = c.getInt(1) to c.getLong(2)
+            m
+        }
+
     fun deleteAll() {
         writableDatabase.delete("items", null, null)
     }
@@ -127,7 +211,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
     // ---------- reads ----------
 
     fun get(id: Long): Item? =
-        readableDatabase.rawQuery("SELECT * FROM items WHERE id = ?", arrayOf(id.toString())).use { c ->
+        readableDatabase.rawQuery("SELECT * FROM live_items WHERE id = ?", arrayOf(id.toString())).use { c ->
             if (c.moveToFirst()) c.toItem() else null
         }
 
@@ -139,6 +223,12 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
         q.simSlot?.let { where += "sim_slot = ?"; args += it.toString() }
         q.sinceMillis?.let { where += "timestamp >= ?"; args += it.toString() }
         if (q.onlyValuable) where += "(is_valuable = 1 OR is_starred = 1)"
+        q.vipId?.let { where += "vip_id = ?"; args += it.toString() }
+        if (q.onlyVip) where += "vip_id > 0"
+        q.beforeMillis?.let { where += "timestamp < ?"; args += it.toString() }
+        q.sender?.let { where += "sender = ?"; args += it }
+        q.packageName?.let { where += "package_name = ?"; args += it }
+        if (q.excludeKept) where += "vip_id = 0 AND is_starred = 0 AND is_valuable = 0"
         if (q.onlyAds) where += "is_ad = 1" else if (!q.includeAds && q.category == null) where += "is_ad = 0"
         q.text?.trim()?.takeIf { it.isNotEmpty() }?.let { t ->
             where += "(body LIKE ? OR title LIKE ? OR sender LIKE ? OR app_name LIKE ?)"
@@ -150,7 +240,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
 
     fun query(q: ItemQuery): List<Item> {
         val (where, args) = whereOf(q)
-        val sql = "SELECT * FROM items WHERE $where ORDER BY timestamp DESC LIMIT ${q.limit}"
+        val sql = "SELECT * FROM live_items WHERE $where ORDER BY timestamp DESC LIMIT ${q.limit}"
         return readableDatabase.rawQuery(sql, args).use { c ->
             val list = ArrayList<Item>(c.count)
             while (c.moveToNext()) list += c.toItem()
@@ -171,7 +261,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
 
     fun categoryCounts(): List<CategoryCount> =
         readableDatabase.rawQuery(
-            "SELECT category, COUNT(*), SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) FROM items GROUP BY category",
+            "SELECT category, COUNT(*), SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) FROM live_items GROUP BY category",
             null,
         ).use { c ->
             val list = ArrayList<CategoryCount>()
@@ -180,14 +270,14 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
         }
 
     fun count(where: String = "1=1", args: Array<String>? = null): Int =
-        readableDatabase.rawQuery("SELECT COUNT(*) FROM items WHERE $where", args).use { c ->
+        readableDatabase.rawQuery("SELECT COUNT(*) FROM live_items WHERE $where", args).use { c ->
             if (c.moveToFirst()) c.getInt(0) else 0
         }
 
     fun stats(dayStarts: List<Long>): Stats {
         val db = readableDatabase
         val topApps = db.rawQuery(
-            "SELECT app_name, package_name, COUNT(*) n FROM items WHERE source = 'NOTIFICATION' " +
+            "SELECT app_name, package_name, COUNT(*) n FROM live_items WHERE source = 'NOTIFICATION' " +
                 "GROUP BY package_name ORDER BY n DESC LIMIT 6",
             null,
         ).use { c ->
@@ -196,7 +286,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
             l
         }
         val topSenders = db.rawQuery(
-            "SELECT sender, '', COUNT(*) n FROM items WHERE source = 'SMS' GROUP BY sender ORDER BY n DESC LIMIT 6",
+            "SELECT sender, '', COUNT(*) n FROM live_items WHERE source = 'SMS' GROUP BY sender ORDER BY n DESC LIMIT 6",
             null,
         ).use { c ->
             val l = ArrayList<AppCount>()
@@ -242,6 +332,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
         put("is_valuable", if (isValuable) 1 else 0)
         put("is_starred", if (isStarred) 1 else 0)
         put("is_read", if (isRead) 1 else 0)
+        put("vip_id", vipId)
     }
 
     private fun Cursor.toItem(): Item {
@@ -263,6 +354,7 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 1) {
             isValuable = i("is_valuable") == 1,
             isStarred = i("is_starred") == 1,
             isRead = i("is_read") == 1,
+            vipId = getLong(getColumnIndexOrThrow("vip_id")),
         )
     }
 }

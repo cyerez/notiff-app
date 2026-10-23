@@ -36,6 +36,7 @@ object Classifier {
     // ---------- SMS ----------
 
     private fun classifySms(sender: String, text: String): Category {
+        if (isMissedCall(text)) return Category.MISSED
         if (isOtp(text)) return Category.OTP
         if (isBank(sender, text)) return Category.BANK
         if (isAd(sender, text)) return Category.ADS
@@ -52,6 +53,7 @@ object Classifier {
 
     private fun classifyNotification(pkg: String, text: String): Category {
         val p = pkg.lowercase()
+        if (DIALER_PACKAGES.any { p.startsWith(it) }) return if (isMissedCall(text)) Category.MISSED else Category.SYSTEM
         if (isOtp(text)) return Category.OTP
         if (SOCIAL_PACKAGES.any { p.startsWith(it) }) return Category.SOCIAL
         if (EMAIL_PACKAGES.any { p.startsWith(it) }) return Category.EMAIL
@@ -64,6 +66,21 @@ object Classifier {
     }
 
     // ---------- Rules ----------
+
+    private val MISSED_WORDS = listOf(
+        "تماس از دست رفته", "تماس بی پاسخ", "تماس بیپاسخ", "تماس پاسخ داده نشده", "با شما تماس گرفت",
+        "تماس ناموفق", "missed call", "missed calls", "you missed", "tried to call", "called you",
+    )
+
+    fun isMissedCall(text: String): Boolean {
+        val t = normalize(text)
+        return MISSED_WORDS.any { it in t }
+    }
+
+    private val DIALER_PACKAGES = listOf(
+        "com.samsung.android.dialer", "com.samsung.android.incallui", "com.google.android.dialer",
+        "com.android.dialer", "com.android.server.telecom", "com.android.phone",
+    )
 
     private val OTP_WORDS = listOf(
         "کد", "رمز", "code", "otp", "password", "verification",

@@ -24,7 +24,23 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.NEON_BLUE,
     val animations: Boolean = true,
+    /** On opening the app, clear status-bar notifications except main categories and chosen people. */
+    val clearOnOpen: Boolean = true,
+    /** Run the smart cleanup once a day on opening the app. */
+    val autoClean: Boolean = false,
+    val cleanupRules: Set<String> = CleanupRule.entries.filter { it.defaultOn }.map { it.name }.toSet(),
+    val lastAutoClean: Long = 0,
 )
+
+/** Smart cleanup rules: what counts as clutter, and from what age. Chosen people, starred and valuable are never touched. */
+enum class CleanupRule(val label: String, val category: String, val days: Int, val defaultOn: Boolean) {
+    MISSED("میس‌کال‌های قدیمی‌تر از ۳ روز", "missed", 3, true),
+    OTP("کدهای تأیید قدیمی‌تر از ۱ روز", "otp", 1, true),
+    ADS("تبلیغ‌های قدیمی‌تر از ۷ روز", "ads", 7, true),
+    OPERATOR("پیام‌های اپراتور قدیمی‌تر از ۳۰ روز", "operator", 30, false),
+    SYSTEM("نوتیف‌های سیستم قدیمی‌تر از ۷ روز", "system", 7, true),
+    APPS("نوتیف بقیه اپ‌ها قدیمی‌تر از ۳۰ روز", "apps", 30, false),
+}
 
 /** Small settings store on top of SharedPreferences, exposed as a flow for the UI. */
 class Prefs(context: Context) {
@@ -41,6 +57,10 @@ class Prefs(context: Context) {
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
         animations = sp.getBoolean("animations", true),
+        clearOnOpen = sp.getBoolean("clearOnOpen", true),
+        autoClean = sp.getBoolean("autoClean", false),
+        cleanupRules = sp.getStringSet("cleanupRules", null)?.toSet() ?: Settings().cleanupRules,
+        lastAutoClean = sp.getLong("lastAutoClean", 0),
     )
 
     fun update(change: (Settings) -> Settings) {
@@ -53,6 +73,10 @@ class Prefs(context: Context) {
             .putString("themeMode", s.themeMode.name)
             .putString("accent", s.accent.name)
             .putBoolean("animations", s.animations)
+            .putBoolean("clearOnOpen", s.clearOnOpen)
+            .putBoolean("autoClean", s.autoClean)
+            .putStringSet("cleanupRules", s.cleanupRules)
+            .putLong("lastAutoClean", s.lastAutoClean)
             .apply()
         _state.value = s
     }

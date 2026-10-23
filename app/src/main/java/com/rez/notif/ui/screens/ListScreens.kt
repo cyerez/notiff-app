@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -66,12 +68,15 @@ fun CategoryScreen(categoryId: String, nav: Navigator) {
         repo.items(ItemQuery(category = categoryId, source = filter.source, limit = 500))
     }
     val list = items.orEmpty()
+    var edit by remember { mutableStateOf(false) }
 
     Column {
         GlassTopBar(title = c.label, subtitle = fa(list.size) + " مورد", onBack = nav::back) {
+            IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) c.tint else null)
+            Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.DoneAll, { scope.launch { repo.markRead(list) } })
         }
-        ItemList(list, empty = "در این دسته چیزی نیست.") {
+        ItemList(list, empty = "در این دسته چیزی نیست.", editMode = edit, onEditModeChange = { edit = it }) {
             item { Header(c.icon, c.tint, c.description) }
             item { SourceFilters(filter) { filter = it } }
         }
@@ -94,9 +99,12 @@ fun SpecialListScreen(kind: SpecialList, nav: Navigator) {
         SpecialList.VALUABLE -> Icons.Rounded.Star to ValuableColor
         SpecialList.ADS -> Icons.Rounded.Campaign to Category.ADS.tint
     }
+    var edit by remember { mutableStateOf(false) }
     Column {
-        GlassTopBar(title = kind.title, subtitle = fa(list.size) + " مورد", onBack = nav::back)
-        ItemList(list, empty = "فعلاً چیزی نیست.") {
+        GlassTopBar(title = kind.title, subtitle = fa(list.size) + " مورد", onBack = nav::back) {
+            IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) color else null)
+        }
+        ItemList(list, empty = "فعلاً چیزی نیست.", editMode = edit, onEditModeChange = { edit = it }) {
             item { Header(icon, color, kind.hint) }
             item { SourceFilters(filter) { filter = it } }
         }

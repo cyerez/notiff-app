@@ -7,6 +7,7 @@ package com.rez.notif.classify
 enum class Category(val id: String, val label: String, val description: String, val color: Long) {
     OTP("otp", "کد تأیید", "کدهای ورود و رمزهای پویا", 0xFF5CF2FF),
     BANK("bank", "بانکی", "واریز، برداشت و مانده حساب", 0xFF3D7BFF),
+    MISSED("missed", "تماس از دست رفته", "میس‌کال‌ها، از پیامک اپراتور یا اپ تلفن", 0xFFFB7185),
     PERSONAL("personal", "شخصی", "پیامک از شماره‌های معمولی", 0xFF34D399),
     SOCIAL("social", "پیام‌رسان‌ها", "تلگرام، واتس‌اپ، اینستاگرام و…", 0xFF8B5CF6),
     EMAIL("email", "ایمیل", "Gmail و بقیه اپ‌های ایمیل", 0xFFF472B6),

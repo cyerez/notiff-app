@@ -26,19 +26,21 @@ app/src/main/java/com/rez/notif/
     Category.kt          built-in categories (ids are stored in the DB: never rename)
     Classifier.kt        rule-based "first brain" (keywords, sender patterns, packages)
     Analyzer.kt          first-scan pass: sender-majority smoothing + category suggestions
+    Vip.kt               chosen people ("افراد منتخب") + VipMatcher (number or name match)
   data/
-    Db.kt                SQLiteOpenHelper: items + sender_overrides (what the user taught)
+    Db.kt                SQLiteOpenHelper v2: items, sender_overrides, vip. Reads go through the
+                         live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
-    Prefs.kt             settings (SharedPreferences + StateFlow)
+    Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
     Models.kt            Item, ItemQuery, Stats...
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast)
   notif/ NotifListener.kt (NotificationListenerService; hides ad notifications)
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
-    components/          Glass.kt (glass panel, neon icons, buttons, ring), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings
-app/src/test/java/...    ClassifierTest, AnalyzerTest (plain JUnit)
+    components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
+    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip
+app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest (plain JUnit)
 ```
 
 ## How it works
@@ -50,6 +52,13 @@ app/src/test/java/...    ClassifierTest, AnalyzerTest (plain JUnit)
    "hide ads" is on, the listener cancels the ad notification (also the SMS app's notification for an ad SMS).
 4. Learning: in the detail sheet, changing category with "all from this sender" writes a
    `sender_overrides` row; the classifier always applies overrides first.
+5. Chosen people: `VipMatcher` tags items with `vip_id`. VIP items are never ads, never cleaned, and
+   stay in the status bar. Adding a person re-tags old items and un-deletes theirs.
+6. Tidy-up: on resume, `NotifListener.clearNonEssential` cancels shade notifications that
+   `Repository.keepInShade` rejects; `autoCleanIfDue` runs the chosen `CleanupRule`s once a day.
+   Deleting only hides items in this app; the phone's SMS inbox is untouched.
+7. Glass panels must not use Compose `Modifier.shadow`/elevation: it shows through the translucent
+   fill as a white box. Use `softShadow` (Glow.kt).
 
 ## Build
 - CI: `.github/workflows/build.yml` runs unit tests and builds the APK on every push and PR.

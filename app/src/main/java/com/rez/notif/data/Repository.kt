@@ -9,6 +9,8 @@ import android.os.Build
 import com.rez.notif.classify.Analyzer
 import com.rez.notif.classify.Category
 import com.rez.notif.classify.Classifier
+import com.rez.notif.classify.VipMatcher
+import com.rez.notif.classify.VipPerson
 import com.rez.notif.sms.RawSms
 import com.rez.notif.sms.SmsReader
 import kotlinx.coroutines.Dispatchers
@@ -46,13 +48,17 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     @Volatile private var overrides: Map<String, String>? = null
     private fun overrides(): Map<String, String> = overrides ?: db.overrides().also { overrides = it }
 
+    @Volatile private var vipCache: List<VipPerson>? = null
+    private fun vipPeople(): List<VipPerson> = vipCache ?: db.vips().also { vipCache = it }
+
     // ---------- incoming ----------
 
     private fun smsKey(address: String, body: String, date: Long): String =
         "sms:" + Classifier.normalize(address).replace(" ", "") + ":" + body.hashCode() + ":" + date / 600_000L
 
     private fun smsToItem(raw: RawSms): Item {
-        val r = Classifier.classify(Classifier.Input(isSms = true, sender = raw.address, title = "", body = raw.body), overrides())
+        val vip = VipMatcher.match(vipPeople(), true, raw.address, "", raw.body)
+        val r = vipSafe(Classifier.classify(Classifier.Input(isSms = true, sender = raw.address, title = "", body = raw.body), overrides()), vip)
         return Item(
             source = Source.SMS,
             sourceKey = smsKey(raw.address, raw.body, raw.date),
@@ -66,8 +72,13 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             category = r.category.id,
             isAd = r.category == Category.ADS,
             isValuable = r.isValuable,
+            vipId = vip?.id ?: 0,
         )
     }
+
+    /** A chosen person's message is never an ad. */
+    private fun vipSafe(r: Classifier.Result, vip: VipPerson?): Classifier.Result =
+        if (vip != null && r.category == Category.ADS) r.copy(category = Category.PERSONAL) else r
 
     fun addSms(raw: RawSms) {
         if (db.insert(smsToItem(raw))) changed()
@@ -78,12 +89,17 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val hideAds = prefs.current.hideAds
         if (n.isSmsApp) {
             // The SMS itself is stored by SmsReceiver. Here we only decide whether to hide its notification.
-            val r = Classifier.classify(Classifier.Input(true, n.title, "", n.text), overrides())
+            val vip = VipMatcher.match(vipPeople(), true, n.title, "", n.text)
+            val r = vipSafe(Classifier.classify(Classifier.Input(true, n.title, "", n.text), overrides()), vip)
             return hideAds && r.category == Category.ADS
         }
-        val r = Classifier.classify(
-            Classifier.Input(isSms = false, sender = n.title, title = n.title, body = n.text, packageName = n.packageName),
-            overrides(),
+        val vip = VipMatcher.match(vipPeople(), false, n.title, n.title, n.text)
+        val r = vipSafe(
+            Classifier.classify(
+                Classifier.Input(isSms = false, sender = n.title, title = n.title, body = n.text, packageName = n.packageName),
+                overrides(),
+            ),
+            vip,
         )
         val key = "n:" + n.packageName + ":" + (n.title + "|" + n.text).hashCode() + ":" + n.postTime / 600_000L
         n.contentIntent?.let { contentIntents[key] = it }
@@ -100,6 +116,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
                 category = r.category.id,
                 isAd = r.category == Category.ADS,
                 isValuable = r.isValuable,
+                vipId = vip?.id ?: 0,
             ),
         )
         if (inserted) changed()
@@ -115,8 +132,16 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             val items = raws.map { smsToItem(it) }
             val msgs = items.map { Analyzer.Msg(it.sourceKey, it.sender, it.body, Category.of(it.category)) }
             Analyzer.smoothBySender(msgs)
+            val dayAgo = System.currentTimeMillis() - 86_400_000L
             val smoothed = items.zip(msgs) { item, m ->
-                item.copy(category = m.category.id, isAd = m.category == Category.ADS, isValuable = item.isValuable && m.category != Category.ADS)
+                val cat = if (item.vipId > 0 && m.category == Category.ADS) Category.PERSONAL else m.category
+                item.copy(
+                    category = cat.id,
+                    isAd = cat == Category.ADS,
+                    isValuable = item.isValuable && cat != Category.ADS,
+                    // Old messages count as already read; only the last day shows as new.
+                    isRead = item.timestamp < dayAgo,
+                )
             }
             db.insertAll(smoothed)
             // Notifications caught so far also count toward the suggestions.
@@ -188,6 +213,124 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     suspend fun deleteAll() = withContext(Dispatchers.IO) {
         db.deleteAll()
+        changed()
+    }
+
+    // ---------- delete and cleanup ----------
+
+    /** Hides items from the app (the phone's own SMS inbox is not touched). Returns their ids for undo. */
+    suspend fun delete(items: List<Item>): List<Long> = withContext(Dispatchers.IO) {
+        val ids = items.map { it.id }
+        db.delete(ids)
+        changed()
+        ids
+    }
+
+    suspend fun undoDelete(ids: List<Long>) = withContext(Dispatchers.IO) {
+        db.delete(ids, deleted = false)
+        changed()
+    }
+
+    /** Everything from the same SMS sender, or the same app. */
+    suspend fun deleteFromSender(item: Item): List<Long> = withContext(Dispatchers.IO) {
+        val ids = if (item.source == Source.SMS) {
+            db.ids(ItemQuery(source = Source.SMS, sender = item.sender, includeAds = true))
+        } else {
+            db.ids(ItemQuery(source = Source.NOTIFICATION, packageName = item.packageName, includeAds = true))
+        }
+        db.delete(ids)
+        changed()
+        ids
+    }
+
+    private fun cleanupQuery(rule: CleanupRule) = ItemQuery(
+        category = rule.category,
+        beforeMillis = System.currentTimeMillis() - rule.days * 86_400_000L,
+        excludeKept = true,
+        includeAds = true,
+        limit = Int.MAX_VALUE,
+    )
+
+    suspend fun cleanupPreview(): Map<CleanupRule, Int> = withContext(Dispatchers.IO) {
+        CleanupRule.entries.associateWith { db.count(cleanupQuery(it)) }
+    }
+
+    suspend fun runCleanup(rules: Set<CleanupRule>): Int = withContext(Dispatchers.IO) {
+        var n = 0
+        rules.forEach { rule ->
+            val ids = db.ids(cleanupQuery(rule))
+            db.delete(ids)
+            n += ids.size
+        }
+        if (n > 0) changed()
+        n
+    }
+
+    /** Runs the chosen cleanup rules at most once a day, when the user turned auto clean on. */
+    suspend fun autoCleanIfDue() {
+        val s = prefs.current
+        if (!s.autoClean || System.currentTimeMillis() - s.lastAutoClean < 86_400_000L) return
+        runCleanup(s.cleanupRules.mapNotNull { runCatching { CleanupRule.valueOf(it) }.getOrNull() }.toSet())
+        prefs.update { it.copy(lastAutoClean = System.currentTimeMillis()) }
+    }
+
+    // ---------- status bar ----------
+
+    /**
+     * Decides what stays in the phone's notification shade when the app is opened:
+     * chosen people, main categories, valuable items, and fresh login codes (under 10 minutes).
+     */
+    fun keepInShade(packageName: String, isSmsApp: Boolean, title: String, text: String, postTime: Long): Boolean {
+        val vip = VipMatcher.match(vipPeople(), isSmsApp, title, if (isSmsApp) "" else title, text)
+        if (vip != null) return true
+        val r = if (isSmsApp) {
+            Classifier.classify(Classifier.Input(true, title, "", text), overrides())
+        } else {
+            Classifier.classify(Classifier.Input(false, title, title, text, packageName), overrides())
+        }
+        if (r.isValuable) return true
+        if (r.category == Category.OTP) return System.currentTimeMillis() - postTime < 10 * 60_000L
+        return r.category.id in prefs.current.mainCategories
+    }
+
+    // ---------- chosen people ----------
+
+    data class VipSummary(val person: VipPerson, val count: Int, val last: Long)
+
+    suspend fun vipSummaries(): List<VipSummary> = withContext(Dispatchers.IO) {
+        val counts = db.vipCounts()
+        db.vips().map { p -> VipSummary(p, counts[p.id]?.first ?: 0, counts[p.id]?.second ?: 0L) }
+            .sortedByDescending { it.last }
+    }
+
+    suspend fun addVip(name: String, rawNumbers: List<String>): Long = withContext(Dispatchers.IO) {
+        val numbers = rawNumbers.mapNotNull { VipMatcher.key(it) }.distinct()
+        val id = db.addVip(name.trim().ifEmpty { rawNumbers.firstOrNull() ?: "?" }, numbers)
+        vipCache = null
+        retagVips()
+        id
+    }
+
+    suspend fun removeVip(id: Long) = withContext(Dispatchers.IO) {
+        db.removeVip(id)
+        vipCache = null
+        changed()
+    }
+
+    /** Finds old messages of chosen people, also ones deleted before, and files them under that person. */
+    private fun retagVips() {
+        val people = vipPeople()
+        val byVip = HashMap<Long, MutableList<Long>>()
+        db.allForVipScan().forEach { row ->
+            val isSms = row[1] == Source.SMS.name
+            VipMatcher.match(people, isSms, row[2], if (isSms) "" else row[3], row[4])?.let { p ->
+                byVip.getOrPut(p.id) { ArrayList() } += row[0].toLong()
+            }
+        }
+        byVip.forEach { (vipId, ids) ->
+            db.setVip(ids, vipId)
+            db.delete(ids, deleted = false) // a chosen person's messages are never lost
+        }
         changed()
     }
 

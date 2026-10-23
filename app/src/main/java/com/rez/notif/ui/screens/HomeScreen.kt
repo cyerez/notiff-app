@@ -15,6 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
@@ -23,6 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +52,7 @@ import com.rez.notif.ui.components.NeonIcon
 import com.rez.notif.ui.components.NeonNumber
 import com.rez.notif.ui.components.SectionTitle
 import com.rez.notif.ui.components.ValuableColor
+import com.rez.notif.ui.components.VipColor
 import com.rez.notif.ui.components.fa
 import com.rez.notif.ui.components.icon
 import com.rez.notif.ui.components.tint
@@ -57,6 +64,9 @@ private data class HomeData(
     val counts: List<CategoryCount>,
     val todayCount: Int,
     val valuable: Int,
+    val vips: Int,
+    val vipItems: Int,
+    val clutter: Int,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -76,6 +86,9 @@ fun HomeScreen(nav: Navigator) {
             counts = counts,
             todayCount = repo.count(ItemQuery(sinceMillis = dayStart)),
             valuable = repo.count(ItemQuery(onlyValuable = true, includeAds = true)),
+            vips = repo.vipSummaries().size,
+            vipItems = repo.count(ItemQuery(onlyVip = true, includeAds = true)),
+            clutter = repo.prefs.current.cleanupRules.let { on -> repo.cleanupPreview().filterKeys { it.name in on }.values.sum() },
         )
     }
     val recent by rememberLoaded(repo) { repo.items(ItemQuery(limit = 40)) }
@@ -85,9 +98,12 @@ fun HomeScreen(nav: Navigator) {
     val main = Category.entries.filter { it.id in settings.mainCategories && it != Category.ADS }
     val others = Category.entries.filter { it.id !in settings.mainCategories && it != Category.ADS && (counts[it.id]?.total ?: 0) > 0 }
     val adCount = counts[Category.ADS.id]?.total ?: 0
+    var edit by remember { mutableStateOf(false) }
 
     Column {
         GlassTopBar(title = "نوتیف", subtitle = today()) {
+            IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) g.accent else null)
+            Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.Search, { nav.go(Screen.Search) })
             Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.BarChart, { nav.go(Screen.Stats) })
@@ -98,6 +114,8 @@ fun HomeScreen(nav: Navigator) {
         ItemList(
             items = recent.orEmpty(),
             empty = "هنوز چیزی نیومده.",
+            editMode = edit,
+            onEditModeChange = { edit = it },
         ) {
             item {
                 // Three big tiles, like the "Inbox / To-Do / Notifications" sample.
@@ -107,6 +125,20 @@ fun HomeScreen(nav: Navigator) {
                     SummaryTile("ارزشمند", fa(data?.valuable ?: 0), ValuableColor, Modifier.weight(1f)) {
                         nav.go(Screen.Special(SpecialList.VALUABLE))
                     }
+                }
+            }
+            item {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActionTile(
+                        Icons.Rounded.Favorite, VipColor, "افراد منتخب",
+                        if ((data?.vips ?: 0) == 0) "هنوز کسی نیست" else fa(data?.vips ?: 0) + " نفر · " + fa(data?.vipItems ?: 0) + " مورد",
+                        Modifier.weight(1f),
+                    ) { nav.go(Screen.Vip) }
+                    ActionTile(
+                        Icons.Rounded.CleaningServices, g.accent, "پاک‌سازی",
+                        if ((data?.clutter ?: 0) == 0) "همه چی مرتبه" else fa(data?.clutter ?: 0) + " مورد اضافه",
+                        Modifier.weight(1f),
+                    ) { nav.go(Screen.Cleanup) }
                 }
             }
             if (main.isNotEmpty()) {
@@ -180,6 +212,21 @@ private fun SummaryTile(label: String, value: String, color: Color, modifier: Mo
         Spacer(Modifier.height(10.dp))
         NeonNumber(value, color, size = 58.dp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun ActionTile(icon: ImageVector, color: Color, title: String, hint: String, modifier: Modifier, onClick: () -> Unit) {
+    val g = LocalGlass.current
+    GlassCard(modifier, shape = RoundedCornerShape(22.dp), onClick = onClick, contentPadding = 12.dp, glow = color) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NeonIcon(icon, color, size = 36.dp)
+            Spacer(Modifier.size(10.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = g.text, maxLines = 1)
+                Text(hint, style = MaterialTheme.typography.bodySmall, color = g.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 

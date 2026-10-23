@@ -24,8 +24,15 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,8 +40,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,23 +58,42 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rez.notif.NotifApp
 import com.rez.notif.classify.Category
+import com.rez.notif.classify.VipMatcher
 import com.rez.notif.data.Item
 import com.rez.notif.data.Source
 import com.rez.notif.ui.theme.LocalGlass
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** One SMS or notification in a list. */
 @Composable
-fun ItemRow(item: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ItemRow(
+    item: Item,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    /** null when not selecting; true/false shows a tick circle. */
+    selected: Boolean? = null,
+) {
     val g = LocalGlass.current
     val cat = Category.of(item.category)
     GlassCard(
         modifier.padding(horizontal = 16.dp, vertical = 5.dp).fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
+        glow = if (selected == true) g.accent else null,
         onClick = onClick,
+        onLongClick = onLongClick,
         contentPadding = 14.dp,
     ) {
         Row(verticalAlignment = Alignment.Top) {
+            if (selected != null) {
+                Icon(
+                    if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    null,
+                    tint = if (selected) g.accent else g.textDim,
+                    modifier = Modifier.padding(top = 8.dp, end = 10.dp).size(24.dp),
+                )
+            }
             NeonIcon(cat.icon, cat.tint, size = 38.dp)
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
@@ -79,6 +107,10 @@ fun ItemRow(item: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
+                    if (item.vipId > 0) {
+                        Icon(Icons.Rounded.Favorite, null, tint = VipColor, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.size(4.dp))
+                    }
                     if (item.isValuable || item.isStarred) {
                         Icon(Icons.Rounded.Star, null, tint = ValuableColor, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.size(4.dp))
@@ -108,11 +140,6 @@ fun ItemRow(item: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** Adds rows to a LazyColumn. */
-fun LazyListScope.itemRows(items: List<Item>, onClick: (Item) -> Unit) {
-    items(items, key = { it.id }) { item -> ItemRow(item, onClick = { onClick(item) }) }
-}
-
 @Composable
 fun EmptyState(text: String, modifier: Modifier = Modifier) {
     val g = LocalGlass.current
@@ -121,21 +148,95 @@ fun EmptyState(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** A full list with the detail sheet built in. */
+/**
+ * A full list with the detail sheet built in.
+ * Long-press an item (or turn on [editMode]) to select several and delete them; a short undo bar follows.
+ */
 @Composable
 fun ItemList(
     items: List<Item>,
     modifier: Modifier = Modifier,
     empty: String = "چیزی اینجا نیست.",
+    editMode: Boolean = false,
+    onEditModeChange: (Boolean) -> Unit = {},
     header: LazyListScope.() -> Unit = {},
 ) {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val scope = rememberCoroutineScope()
     var open by remember { mutableStateOf<Item?>(null) }
-    LazyColumn(modifier, contentPadding = PaddingValues(bottom = 96.dp)) {
-        header()
-        if (items.isEmpty()) item { EmptyState(empty) }
-        itemRows(items) { open = it }
+    var selected by remember { mutableStateOf(setOf<Long>()) }
+    var undo by remember { mutableStateOf<List<Long>?>(null) }
+    val selecting = editMode || selected.isNotEmpty()
+
+    fun stopSelecting() {
+        selected = emptySet()
+        onEditModeChange(false)
     }
-    open?.let { ItemSheet(it, onDismiss = { open = null }) }
+
+    LaunchedEffect(undo) { if (undo != null) { delay(6000); undo = null } }
+
+    Box(modifier) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
+            header()
+            if (items.isEmpty()) item { EmptyState(empty) }
+            items(items, key = { it.id }) { item ->
+                ItemRow(
+                    item,
+                    selected = if (selecting) item.id in selected else null,
+                    onClick = {
+                        if (selecting) {
+                            selected = if (item.id in selected) selected - item.id else selected + item.id
+                        } else {
+                            open = item
+                        }
+                    },
+                    onLongClick = { selected = selected + item.id },
+                )
+            }
+        }
+
+        if (selecting) {
+            BottomBar(Modifier.align(Alignment.BottomCenter)) {
+                Text(fa(selected.size) + " انتخاب", color = g.text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                GlassButton("همه", onClick = { selected = items.map { it.id }.toSet() }, primary = false)
+                Spacer(Modifier.size(6.dp))
+                GlassButton("حذف", icon = Icons.Rounded.Delete, enabled = selected.isNotEmpty(), onClick = {
+                    val chosen = items.filter { it.id in selected }
+                    scope.launch { undo = repo.delete(chosen) }
+                    stopSelecting()
+                })
+                Spacer(Modifier.size(6.dp))
+                IconBubble(Icons.Rounded.Close, { stopSelecting() })
+            }
+        } else if (undo != null) {
+            BottomBar(Modifier.align(Alignment.BottomCenter)) {
+                Text(fa(undo!!.size) + " مورد حذف شد", color = g.text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                GlassButton("برگردون", onClick = {
+                    val ids = undo!!
+                    undo = null
+                    scope.launch { repo.undoDelete(ids) }
+                }, primary = false)
+            }
+        }
+    }
+    open?.let { ItemSheet(it, onDismiss = { open = null }, onDeleted = { ids -> undo = ids }) }
+}
+
+/** Floating glass bar at the bottom of a list. */
+@Composable
+fun BottomBar(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Row(
+        modifier
+            .navigationBarsPadding()
+            .padding(16.dp)
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(26.dp), elevation = 18.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
 }
 
 /**
@@ -144,7 +245,7 @@ fun ItemList(
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ItemSheet(item: Item, onDismiss: () -> Unit) {
+fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit = {}) {
     val g = LocalGlass.current
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
@@ -154,8 +255,11 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit) {
     var current by remember(item.id) { mutableStateOf(Category.of(item.category)) }
     var wholeSender by remember { mutableStateOf(false) }
     var openFailed by remember { mutableStateOf(false) }
+    var vipAdded by remember { mutableStateOf(item.vipId > 0) }
+    var confirmSenderDelete by remember { mutableStateOf(false) }
+    val who = if (item.source == Source.SMS) item.sender else item.appName
 
-    androidx.compose.runtime.LaunchedEffect(item.id) { repo.markRead(listOf(item)) }
+    LaunchedEffect(item.id) { repo.markRead(listOf(item)) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -240,6 +344,52 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit) {
                     color = g.text,
                 )
             }
+
+            Spacer(Modifier.height(18.dp))
+            Text("کارها", style = MaterialTheme.typography.titleMedium, color = g.text)
+            Spacer(Modifier.height(8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!vipAdded) {
+                    GlassButton("افزودن به افراد منتخب", icon = Icons.Rounded.Favorite, primary = false, onClick = {
+                        vipAdded = true
+                        val name = if (item.source == Source.SMS) item.sender else item.title
+                        val numbers = listOfNotNull(VipMatcher.key(item.sender))
+                        scope.launch { repo.addVip(name, numbers) }
+                    })
+                }
+                GlassButton("حذف", icon = Icons.Rounded.Delete, primary = false, onClick = {
+                    scope.launch {
+                        onDeleted(repo.delete(listOf(item)))
+                        onDismiss()
+                    }
+                })
+                GlassButton("حذف همه از «" + who.take(18) + "»", icon = Icons.Rounded.DeleteSweep, primary = false, onClick = {
+                    confirmSenderDelete = true
+                })
+            }
+            Text(
+                "حذف فقط از این اپه؛ پیامک‌های خود گوشی دست نمی‌خورن.",
+                style = MaterialTheme.typography.bodySmall,
+                color = g.textDim,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
+    }
+    if (confirmSenderDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmSenderDelete = false },
+            title = { Text("حذف همه از «$who»؟") },
+            text = { Text("همه پیامک‌ها یا نوتیف‌های این فرستنده از اپ حذف میشن. تا چند ثانیه بعد می‌تونی برگردونی.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSenderDelete = false
+                    scope.launch {
+                        onDeleted(repo.deleteFromSender(item))
+                        onDismiss()
+                    }
+                }) { Text("حذف کن", color = Category.ADS.tint) }
+            },
+            dismissButton = { TextButton(onClick = { confirmSenderDelete = false }) { Text("نه") } },
+        )
     }
 }
