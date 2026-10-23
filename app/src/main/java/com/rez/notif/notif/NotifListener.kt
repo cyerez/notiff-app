@@ -42,7 +42,7 @@ class NotifListener : NotificationListenerService() {
                 val repo = NotifApp.repo(this)
                 val keys = activeNotifications.orEmpty().filter { sbn ->
                     val n = sbn.notification
-                    sbn.packageName != packageName && sbn.isClearable && !sbn.isOngoing && n != null &&
+                    sbn.packageName != packageName && sbn.isClearable && n != null && !mustKeep(sbn) &&
                         n.flags and Notification.FLAG_GROUP_SUMMARY == 0 &&
                         !repo.keepInShade(
                             sbn.packageName,
@@ -71,7 +71,8 @@ class NotifListener : NotificationListenerService() {
         val pkg = sbn.packageName ?: return
         if (pkg == packageName) return
         val n = sbn.notification ?: return
-        if (sbn.isOngoing) return // music, downloads, navigation...
+        // Music, calls, navigation, downloads, VPN, recorders...: never stored, never hidden.
+        if (mustKeep(sbn)) return
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         val extras = n.extras
@@ -119,6 +120,37 @@ class NotifListener : NotificationListenerService() {
     }
 
     companion object {
+        private val KEEP_CATEGORIES = setOf(
+            Notification.CATEGORY_TRANSPORT, // music and video players
+            Notification.CATEGORY_CALL,
+            Notification.CATEGORY_NAVIGATION,
+            Notification.CATEGORY_PROGRESS,
+            Notification.CATEGORY_SERVICE,
+            Notification.CATEGORY_ALARM,
+            Notification.CATEGORY_STOPWATCH,
+            Notification.CATEGORY_LOCATION_SHARING,
+            Notification.CATEGORY_WORKOUT,
+        )
+
+        /**
+         * Notifications that belong to something running (a player, a call, a foreground service).
+         * Since Android 14 these can be "clearable", but removing them breaks the app (music stops,
+         * the controls vanish), so we leave them completely alone.
+         */
+        fun mustKeep(sbn: StatusBarNotification): Boolean {
+            val n = sbn.notification ?: return true
+            if (sbn.isOngoing) return true
+            val keepFlags = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_NO_CLEAR
+            if (n.flags and keepFlags != 0) return true
+            if (n.category in KEEP_CATEGORIES) return true
+            val e = n.extras ?: return false
+            if (e.containsKey(Notification.EXTRA_MEDIA_SESSION)) return true
+            val template = e.getString(Notification.EXTRA_TEMPLATE).orEmpty()
+            if ("MediaStyle" in template || "CallStyle" in template) return true
+            if (e.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0 || e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)) return true
+            return false
+        }
+
         /** The running listener, when notification access is on. */
         @Volatile var instance: NotifListener? = null
 
