@@ -34,7 +34,7 @@ app/src/main/java/com/rez/notif/
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
     Models.kt            Item, ItemQuery, Stats...
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast)
-  notif/ NotifListener.kt (NotificationListenerService; hides ad notifications)
+  notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
@@ -57,6 +57,8 @@ app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatche
 6. Tidy-up: on resume, `NotifListener.clearNonEssential` cancels shade notifications that
    `Repository.keepInShade` rejects; `autoCleanIfDue` runs the chosen `CleanupRule`s once a day.
    Deleting only hides items in this app; the phone's SMS inbox is untouched.
+8. Hide-all (default on): `Repository.hideNow` decides per notification; the listener cancels it and
+   `SummaryNotifier` posts one quiet summary (cleared, and `lastSeen` reset, when the app opens).
 7. Glass panels must not use Compose `Modifier.shadow`/elevation: it shows through the translucent
    fill as a white box. Use `softShadow` (Glow.kt).
 

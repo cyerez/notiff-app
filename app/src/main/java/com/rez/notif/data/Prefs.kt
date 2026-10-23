@@ -24,6 +24,15 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.NEON_BLUE,
     val animations: Boolean = true,
+    /** Hide every new notification from the status bar right away; it lives on inside the app. */
+    val hideAll: Boolean = true,
+    /** Exceptions while hideAll is on. */
+    val keepOtp: Boolean = true,
+    val keepVip: Boolean = false,
+    /** One quiet summary notification from this app instead of the hidden ones. */
+    val summary: Boolean = true,
+    /** When the app was last opened; the summary counts what came after it. */
+    val lastSeen: Long = 0,
     /** On opening the app, clear status-bar notifications except main categories and chosen people. */
     val clearOnOpen: Boolean = true,
     /** Run the smart cleanup once a day on opening the app. */
@@ -57,6 +66,11 @@ class Prefs(context: Context) {
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
         animations = sp.getBoolean("animations", true),
+        hideAll = sp.getBoolean("hideAll", true),
+        keepOtp = sp.getBoolean("keepOtp", true),
+        keepVip = sp.getBoolean("keepVip", false),
+        summary = sp.getBoolean("summary", true),
+        lastSeen = sp.getLong("lastSeen", 0),
         clearOnOpen = sp.getBoolean("clearOnOpen", true),
         autoClean = sp.getBoolean("autoClean", false),
         cleanupRules = sp.getStringSet("cleanupRules", null)?.toSet() ?: Settings().cleanupRules,
@@ -73,6 +87,11 @@ class Prefs(context: Context) {
             .putString("themeMode", s.themeMode.name)
             .putString("accent", s.accent.name)
             .putBoolean("animations", s.animations)
+            .putBoolean("hideAll", s.hideAll)
+            .putBoolean("keepOtp", s.keepOtp)
+            .putBoolean("keepVip", s.keepVip)
+            .putBoolean("summary", s.summary)
+            .putLong("lastSeen", s.lastSeen)
             .putBoolean("clearOnOpen", s.clearOnOpen)
             .putBoolean("autoClean", s.autoClean)
             .putStringSet("cleanupRules", s.cleanupRules)

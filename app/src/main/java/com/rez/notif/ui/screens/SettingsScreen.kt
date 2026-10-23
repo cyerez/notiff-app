@@ -98,7 +98,25 @@ fun SettingsScreen(nav: Navigator) {
                         repo.prefs.update { it.copy(hideAds = v) }
                     }
                     Spacer(Modifier.height(10.dp))
-                    ToggleRow("مرتب کردن نوتیف‌ها موقع ورود", "با باز کردن اپ، نوتیف‌های اضافه از نوار بالای گوشی پاک میشن. دسته‌های اصلی، افراد منتخب و کدهای تازه می‌مونن.", s.clearOnOpen) { v ->
+                    ToggleRow("مخفی کردن فوری همه نوتیف‌ها", "هر نوتیف تازه همون لحظه از نوار بالای گوشی برداشته میشه و فقط توی دسته خودش در این اپ می‌مونه.", s.hideAll) { v ->
+                        repo.prefs.update { it.copy(hideAll = v) }
+                    }
+                    if (s.hideAll) {
+                        Spacer(Modifier.height(10.dp))
+                        ToggleRow("کد تأیید روی گوشی بمونه", "کدهای ورود و رمز پویا تا ۱۰ دقیقه روی نوار گوشی می‌مونن.", s.keepOtp) { v ->
+                            repo.prefs.update { it.copy(keepOtp = v) }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        ToggleRow("افراد منتخب روی گوشی بمونن", "نوتیف‌های افراد منتخب مخفی نمیشن.", s.keepVip) { v ->
+                            repo.prefs.update { it.copy(keepVip = v) }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        ToggleRow("یک نوتیف خلاصه", "به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه.", s.summary) { v ->
+                            repo.prefs.update { it.copy(summary = v) }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    ToggleRow("مرتب کردن نوتیف‌ها موقع ورود", "با باز کردن اپ، نوتیف‌های قبلی هم با همین قانون‌ها از نوار گوشی پاک میشن.", s.clearOnOpen) { v ->
                         repo.prefs.update { it.copy(clearOnOpen = v) }
                     }
                     Spacer(Modifier.height(10.dp))

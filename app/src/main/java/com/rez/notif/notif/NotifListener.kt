@@ -97,6 +97,7 @@ class NotifListener : NotificationListenerService() {
         val shouldCancel = NotifApp.repo(this).addNotification(input)
         if (shouldCancel) {
             try { cancelNotification(sbn.key) } catch (_: Exception) { }
+            SummaryNotifier.update(this)
         }
     }
 

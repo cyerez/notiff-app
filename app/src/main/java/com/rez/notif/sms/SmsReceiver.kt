@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import com.rez.notif.NotifApp
+import com.rez.notif.notif.SummaryNotifier
 
 /**
  * Gets every new SMS the moment it arrives (we are not the default SMS app, so we only read it;
@@ -28,6 +29,7 @@ class SmsReceiver : BroadcastReceiver() {
             try {
                 val repo = NotifApp.repo(context)
                 messages.forEach { repo.addSms(it) }
+                runCatching { SummaryNotifier.update(context) }
             } finally {
                 pending.finish()
             }

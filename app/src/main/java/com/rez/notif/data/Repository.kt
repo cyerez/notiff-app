@@ -86,12 +86,11 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     /** Stores a notification. Returns true when the listener should remove it from the status bar (an ad). */
     fun addNotification(n: NotificationIn): Boolean {
-        val hideAds = prefs.current.hideAds
         if (n.isSmsApp) {
             // The SMS itself is stored by SmsReceiver. Here we only decide whether to hide its notification.
             val vip = VipMatcher.match(vipPeople(), true, n.title, "", n.text)
             val r = vipSafe(Classifier.classify(Classifier.Input(true, n.title, "", n.text), overrides()), vip)
-            return hideAds && r.category == Category.ADS
+            return hideNow(r.category, vip, n.postTime)
         }
         val vip = VipMatcher.match(vipPeople(), false, n.title, n.title, n.text)
         val r = vipSafe(
@@ -120,8 +119,21 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             ),
         )
         if (inserted) changed()
-        return hideAds && r.category == Category.ADS
+        return hideNow(r.category, vip, n.postTime)
     }
+
+    /** Should this notification leave the status bar right away? */
+    private fun hideNow(category: Category, vip: VipPerson?, postTime: Long): Boolean {
+        val s = prefs.current
+        if (!s.hideAll) return s.hideAds && category == Category.ADS
+        if (s.keepVip && vip != null) return false
+        if (s.keepOtp && category == Category.OTP && System.currentTimeMillis() - postTime < 10 * 60_000L) return false
+        return true
+    }
+
+    /** What arrived after the app was last opened (for the summary notification). Ads are left out. */
+    fun newSince(since: Long): List<Item> =
+        db.query(ItemQuery(sinceMillis = maxOf(since + 1, System.currentTimeMillis() - 24 * 3_600_000L), limit = 300))
 
     // ---------- first scan (the "first brain") ----------
 
@@ -282,12 +294,13 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
      */
     fun keepInShade(packageName: String, isSmsApp: Boolean, title: String, text: String, postTime: Long): Boolean {
         val vip = VipMatcher.match(vipPeople(), isSmsApp, title, if (isSmsApp) "" else title, text)
-        if (vip != null) return true
         val r = if (isSmsApp) {
             Classifier.classify(Classifier.Input(true, title, "", text), overrides())
         } else {
             Classifier.classify(Classifier.Input(false, title, title, text, packageName), overrides())
         }
+        if (prefs.current.hideAll) return !hideNow(r.category, vip, postTime)
+        if (vip != null) return true
         if (r.isValuable) return true
         if (r.category == Category.OTP) return System.currentTimeMillis() - postTime < 10 * 60_000L
         return r.category.id in prefs.current.mainCategories
