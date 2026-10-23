@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import com.rez.notif.backup.BackupCrypto
 import com.rez.notif.classify.Analyzer
 import com.rez.notif.classify.Category
 import com.rez.notif.classify.Classifier
@@ -304,6 +305,73 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (r.isValuable) return true
         if (r.category == Category.OTP) return System.currentTimeMillis() - postTime < 10 * 60_000L
         return r.category.id in prefs.current.mainCategories
+    }
+
+    // ---------- learned rules ----------
+
+    /** A rule the app learned when the user moved "all from this sender" to a category. */
+    data class Learned(val key: String, val who: String, val isSms: Boolean, val category: Category)
+
+    suspend fun learned(): List<Learned> = withContext(Dispatchers.IO) {
+        db.overrides().map { (key, cat) ->
+            val isSms = key.startsWith("sms:")
+            val raw = key.substringAfter(':')
+            val who = if (isSms) raw else runCatching {
+                context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(raw, 0)).toString()
+            }.getOrDefault(raw)
+            Learned(key, who, isSms, Category.of(cat))
+        }.sortedBy { it.who }
+    }
+
+    suspend fun changeLearned(key: String, category: Category) = withContext(Dispatchers.IO) {
+        db.putOverride(key, category.id)
+        overrides = null
+        if (key.startsWith("app:")) {
+            db.updateCategoryForSender(key.removePrefix("app:"), Source.NOTIFICATION, category.id, category == Category.ADS)
+        }
+        changed()
+    }
+
+    /** Forgets a rule. Items keep their category; new ones go back to the built-in rules. */
+    suspend fun forgetLearned(key: String) = withContext(Dispatchers.IO) {
+        db.removeOverride(key)
+        overrides = null
+        changed()
+    }
+
+    // ---------- backup ----------
+
+    /** Writes a password-locked copy of everything in the app to [uri]. */
+    suspend fun exportBackup(uri: Uri, password: CharArray) = withContext(Dispatchers.IO) {
+        val tmp = java.io.File(context.cacheDir, "backup.db")
+        try {
+            db.snapshotTo(tmp)
+            val locked = BackupCrypto.encrypt(tmp.readBytes(), password)
+            context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(locked) } ?: error("cannot write file")
+        } finally {
+            tmp.delete()
+        }
+    }
+
+    /** Replaces everything in the app with the backup in [uri]. Throws BackupCrypto errors on a bad file/password. */
+    suspend fun importBackup(uri: Uri, password: CharArray) = withContext(Dispatchers.IO) {
+        val data = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("cannot read file")
+        val plain = BackupCrypto.decrypt(data, password)
+        if (!plain.copyOfRange(0, 15).contentEquals("SQLite format 3".toByteArray())) throw BackupCrypto.NotABackup()
+        val tmp = java.io.File(context.cacheDir, "restore.db")
+        tmp.writeBytes(plain)
+        // Make sure it really is our database before touching the current one.
+        android.database.sqlite.SQLiteDatabase.openDatabase(tmp.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { d ->
+            d.rawQuery("SELECT COUNT(*) FROM items", null).use { it.moveToFirst() }
+        }
+        val path = context.getDatabasePath("notif.db")
+        db.close()
+        listOf("", "-wal", "-shm", "-journal").forEach { java.io.File(path.path + it).delete() }
+        tmp.copyTo(path, overwrite = true)
+        tmp.delete()
+        overrides = null
+        vipCache = null
+        changed()
     }
 
     // ---------- chosen people ----------

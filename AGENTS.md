@@ -33,14 +33,16 @@ app/src/main/java/com/rez/notif/
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
     Models.kt            Item, ItemQuery, Stats...
+  backup/ BackupCrypto.kt (password -> PBKDF2 -> AES-256-GCM; pure Kotlin, tested)
+  security/ AppLock.kt (system BiometricPrompt; relocks after 30 s away)
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast)
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip
-app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest (plain JUnit)
+    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock
+app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest (plain JUnit)
 ```
 
 ## How it works
@@ -59,6 +61,8 @@ app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatche
    Deleting only hides items in this app; the phone's SMS inbox is untouched.
 8. Hide-all (default on): `Repository.hideNow` decides per notification; the listener cancels it and
    `SummaryNotifier` posts one quiet summary (cleared, and `lastSeen` reset, when the app opens).
+9. Backup: `Db.snapshotTo` (VACUUM INTO) -> encrypt -> SAF file. Restore checks the file, closes the
+   helper, swaps the DB file, and SQLiteOpenHelper reopens (and migrates) it on next use.
 7. Glass panels must not use Compose `Modifier.shadow`/elevation: it shows through the translucent
    fill as a white box. Use `softShadow` (Glow.kt).
 

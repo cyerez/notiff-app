@@ -21,9 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.rez.notif.NotifApp
 import com.rez.notif.data.Repository
+import com.rez.notif.security.AppLock
 import com.rez.notif.ui.components.GlassBackground
 import com.rez.notif.ui.screens.CategoryScreen
+import com.rez.notif.ui.screens.BackupScreen
 import com.rez.notif.ui.screens.CleanupScreen
+import com.rez.notif.ui.screens.LearnedScreen
+import com.rez.notif.ui.screens.LockScreen
 import com.rez.notif.ui.screens.VipPersonScreen
 import com.rez.notif.ui.screens.VipScreen
 import com.rez.notif.ui.screens.HomeScreen
@@ -47,6 +51,8 @@ sealed interface Screen {
     data object Stats : Screen
     data object Settings : Screen
     data object Cleanup : Screen
+    data object Learned : Screen
+    data object Backup : Screen
     data object Vip : Screen
     data class VipPerson(val id: Long, val name: String) : Screen
 }
@@ -76,8 +82,13 @@ fun AppRoot() {
     }
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
 
+    val unlocked by AppLock.unlocked.collectAsState()
     NotifTheme(settings) {
         GlassBackground {
+            if (settings.appLock && !unlocked) {
+                Box(Modifier.fillMaxSize().statusBarsPadding()) { LockScreen() }
+                return@GlassBackground
+            }
             AnimatedContent(
                 targetState = nav.current,
                 transitionSpec = {
@@ -100,6 +111,8 @@ fun AppRoot() {
                         Screen.Stats -> StatsScreen(nav)
                         Screen.Settings -> SettingsScreen(nav)
                         Screen.Cleanup -> CleanupScreen(nav)
+                        Screen.Learned -> LearnedScreen(nav)
+                        Screen.Backup -> BackupScreen(nav)
                         Screen.Vip -> VipScreen(nav)
                         is Screen.VipPerson -> VipPersonScreen(screen.id, screen.name, nav)
                     }

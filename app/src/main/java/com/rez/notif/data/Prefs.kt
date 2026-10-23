@@ -33,6 +33,8 @@ data class Settings(
     val summary: Boolean = true,
     /** When the app was last opened; the summary counts what came after it. */
     val lastSeen: Long = 0,
+    /** Ask for fingerprint / phone PIN when opening the app. */
+    val appLock: Boolean = false,
     /** On opening the app, clear status-bar notifications except main categories and chosen people. */
     val clearOnOpen: Boolean = true,
     /** Run the smart cleanup once a day on opening the app. */
@@ -71,6 +73,7 @@ class Prefs(context: Context) {
         keepVip = sp.getBoolean("keepVip", false),
         summary = sp.getBoolean("summary", true),
         lastSeen = sp.getLong("lastSeen", 0),
+        appLock = sp.getBoolean("appLock", false),
         clearOnOpen = sp.getBoolean("clearOnOpen", true),
         autoClean = sp.getBoolean("autoClean", false),
         cleanupRules = sp.getStringSet("cleanupRules", null)?.toSet() ?: Settings().cleanupRules,
@@ -92,6 +95,7 @@ class Prefs(context: Context) {
             .putBoolean("keepVip", s.keepVip)
             .putBoolean("summary", s.summary)
             .putLong("lastSeen", s.lastSeen)
+            .putBoolean("appLock", s.appLock)
             .putBoolean("clearOnOpen", s.clearOnOpen)
             .putBoolean("autoClean", s.autoClean)
             .putStringSet("cleanupRules", s.cleanupRules)

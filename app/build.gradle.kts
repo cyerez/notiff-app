@@ -15,7 +15,7 @@ android {
         targetSdk = 35
         // CI passes its run number so each build has a higher version.
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        versionName = "0.4." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
     // One fixed debug key in the repo, so every new build installs over the old one

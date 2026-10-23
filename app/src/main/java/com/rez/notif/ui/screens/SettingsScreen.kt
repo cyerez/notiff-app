@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +43,7 @@ import com.rez.notif.NotifApp
 import com.rez.notif.classify.Category
 import com.rez.notif.data.Accent
 import com.rez.notif.data.ThemeMode
+import com.rez.notif.security.AppLock
 import com.rez.notif.ui.Navigator
 import com.rez.notif.ui.Screen
 import com.rez.notif.ui.components.GlassButton
@@ -140,6 +142,25 @@ fun SettingsScreen(nav: Navigator) {
                 }
             }
 
+            item { SectionTitle("امنیت و پشتیبان") }
+            item {
+                GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                    ToggleRow("قفل با اثر انگشت", "موقع باز کردن اپ، اثر انگشت یا رمز گوشی می‌خواد. اگه بیشتر از ۳۰ ثانیه از اپ بیرون باشی دوباره قفل میشه.", s.appLock) { v ->
+                        // Ask for the finger first, so nobody can turn the lock on or off without it.
+                        (context as? Activity)?.let { a ->
+                            AppLock.authenticate(a, if (v) "روشن کردن قفل" else "خاموش کردن قفل") { ok ->
+                                if (ok) repo.prefs.update { it.copy(appLock = v) }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassButton("پشتیبان رمزدار", onClick = { nav.go(Screen.Backup) }, primary = false)
+                        GlassButton("یادگرفته‌ها", onClick = { nav.go(Screen.Learned) }, primary = false)
+                    }
+                }
+            }
+
             item { SectionTitle("داده‌ها") }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
@@ -168,7 +189,7 @@ fun SettingsScreen(nav: Navigator) {
             }
             item {
                 Text(
-                    "نوتیف · نسخه ۰.۱ (آزمایشی)",
+                    "نوتیف · نسخه " + fa(runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "") + " (آزمایشی)",
                     style = MaterialTheme.typography.labelMedium,
                     color = g.textDim,
                     modifier = Modifier.padding(22.dp),

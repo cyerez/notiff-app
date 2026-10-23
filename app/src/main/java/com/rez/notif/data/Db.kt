@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper
 
 /**
  * Plain SQLite storage on the phone. No internet, nothing leaves the device.
- * (Phase 2 plan: encrypt this file with SQLCipher + Android Keystore.)
+ * The file sits in the app's private storage, which Android encrypts with the phone lock.
  */
 class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 2) {
 
@@ -198,6 +198,16 @@ class Db(context: Context) : SQLiteOpenHelper(context, "notif.db", null, 2) {
             put("category", category)
         }
         writableDatabase.insertWithOnConflict("sender_overrides", null, v, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun removeOverride(senderKey: String) {
+        writableDatabase.delete("sender_overrides", "sender_key = ?", arrayOf(senderKey))
+    }
+
+    /** Writes a consistent copy of the whole database to [target] without closing it. */
+    fun snapshotTo(target: java.io.File) {
+        target.delete()
+        writableDatabase.execSQL("VACUUM INTO ?", arrayOf(target.absolutePath))
     }
 
     fun overrides(): Map<String, String> {

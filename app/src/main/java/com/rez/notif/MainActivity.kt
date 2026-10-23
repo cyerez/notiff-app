@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.rez.notif.notif.NotifListener
 import com.rez.notif.notif.SummaryNotifier
+import com.rez.notif.security.AppLock
 import com.rez.notif.ui.AppRoot
 import kotlinx.coroutines.launch
 
@@ -15,6 +16,18 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent { AppRoot() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppLock.onReturn()
+        // While the lock is on, the recent-apps preview stays blank.
+        setRecentsScreenshotEnabled(!NotifApp.repo(this).prefs.current.appLock)
+    }
+
+    override fun onStop() {
+        AppLock.onLeave()
+        super.onStop()
     }
 
     override fun onResume() {
