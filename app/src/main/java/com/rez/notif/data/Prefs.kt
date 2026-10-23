@@ -43,6 +43,11 @@ data class Settings(
     val accent: Accent = Accent.NEON_BLUE,
     val style: AppStyle = AppStyle.GLASS,
     val season: Season = Season.AUTO,
+    /** Asked once for contacts access (to show names instead of numbers). */
+    val contactsAsked: Boolean = false,
+    /** Home sections, in the user's order, and the ones they hid. */
+    val homeOrder: List<String> = emptyList(),
+    val homeHidden: Set<String> = emptySet(),
     /** Phase 5 (Notif is the default SMS app): ad SMS never reach the phone's inbox; they stay only in "hidden ads". */
     val blockAdSms: Boolean = false,
     /** Phase 5: deleting in Notif also deletes the SMS from the phone (undo puts it back). */
@@ -105,6 +110,9 @@ class Prefs(context: Context) {
         style = runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.GLASS),
         blockAdSms = sp.getBoolean("blockAdSms", false),
         phoneDelete = sp.getBoolean("phoneDelete", true),
+        contactsAsked = sp.getBoolean("contactsAsked", false),
+        homeOrder = sp.getString("homeOrder", "").orEmpty().split(",").filter { it.isNotBlank() },
+        homeHidden = sp.getStringSet("homeHidden", emptySet())?.toSet() ?: emptySet(),
         season = runCatching { Season.valueOf(sp.getString("season", null)!!) }.getOrDefault(Season.AUTO),
         language = runCatching { Lang.valueOf(sp.getString("language", null)!!) }.getOrDefault(Lang.FA),
         animations = sp.getBoolean("animations", true),
@@ -133,6 +141,9 @@ class Prefs(context: Context) {
             .putString("accent", s.accent.name)
             .putString("style", s.style.name)
             .putString("season", s.season.name)
+            .putBoolean("contactsAsked", s.contactsAsked)
+            .putString("homeOrder", s.homeOrder.joinToString(","))
+            .putStringSet("homeHidden", s.homeHidden)
             .putBoolean("blockAdSms", s.blockAdSms)
             .putBoolean("phoneDelete", s.phoneDelete)
             .putString("language", s.language.name)

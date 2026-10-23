@@ -295,6 +295,37 @@ class Db private constructor(
         return writableDatabase.insert("vip", null, v)
     }
 
+    fun updateVip(id: Long, name: String, numbers: List<String>) {
+        writableDatabase.update(
+            "vip",
+            ContentValues().apply { put("name", name); put("numbers", numbers.joinToString(",")) },
+            "id = ?", arrayOf(id.toString()),
+        )
+    }
+
+    /** Folds chosen people with the same name into one (all their numbers, all their items). */
+    fun mergeVipsByName(): Boolean {
+        val groups = vips().groupBy { it.name.trim().lowercase() }.values.filter { it.size > 1 }
+        if (groups.isEmpty()) return false
+        val w = writableDatabase
+        w.beginTransaction()
+        try {
+            for (g in groups) {
+                val keep = g.minBy { it.id }
+                val numbers = g.flatMap { it.numbers }.distinct()
+                w.update("vip", ContentValues().apply { put("numbers", numbers.joinToString(",")) }, "id = ?", arrayOf(keep.id.toString()))
+                for (other in g) if (other.id != keep.id) {
+                    w.update("items", ContentValues().apply { put("vip_id", keep.id) }, "vip_id = ?", arrayOf(other.id.toString()))
+                    w.delete("vip", "id = ?", arrayOf(other.id.toString()))
+                }
+            }
+            w.setTransactionSuccessful()
+        } finally {
+            w.endTransaction()
+        }
+        return true
+    }
+
     fun removeVip(id: Long) {
         writableDatabase.delete("vip", "id = ?", arrayOf(id.toString()))
         val v = ContentValues().apply { put("vip_id", 0) }
@@ -392,11 +423,18 @@ class Db private constructor(
         q.sender?.let { where += "sender = ?"; args += it }
         q.packageName?.let { where += "package_name = ?"; args += it }
         if (q.excludeKept) where += "vip_id = 0 AND is_starred = 0 AND is_valuable = 0"
+        if (q.onlyUnread) where += "is_read = 0"
+        if (q.excludeCategories.isNotEmpty()) {
+            where += "category NOT IN (" + q.excludeCategories.joinToString(",") { "?" } + ")"
+            args += q.excludeCategories
+        }
         if (q.onlyAds) where += "is_ad = 1" else if (!q.includeAds && q.category == null) where += "is_ad = 0"
         q.text?.trim()?.takeIf { it.isNotEmpty() }?.let { t ->
-            where += "(body LIKE ? OR title LIKE ? OR sender LIKE ? OR app_name LIKE ?)"
+            val tails = q.textSenderTails.take(50)
+            where += "(body LIKE ? OR title LIKE ? OR sender LIKE ? OR app_name LIKE ?" + tails.joinToString("") { " OR sender LIKE ?" } + ")"
             val like = "%$t%"
             repeat(4) { args += like }
+            tails.forEach { args += "%$it" }
         }
         return (if (where.isEmpty()) "1=1" else where.joinToString(" AND ")) to args.toTypedArray()
     }

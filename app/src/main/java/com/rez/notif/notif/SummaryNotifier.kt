@@ -30,6 +30,7 @@ object SummaryNotifier {
         if (!s.hideAll || !s.summary) { nm.cancel(ID); return }
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
 
+        com.rez.notif.sms.ContactNames.ensure(context)
         val items = repo.newSince(s.lastSeen)
         if (items.isEmpty()) { nm.cancel(ID); return }
 
@@ -43,7 +44,7 @@ object SummaryNotifier {
         val summary = byCategory.joinToString(t("، ")) { t(Category.of(it.key).label) + " " + fa(it.value.size) }
         val style = Notification.InboxStyle().setSummaryText(summary)
         items.take(6).forEach { i ->
-            val who = i.sender.ifBlank { i.appName }
+            val who = if (i.sender.isBlank()) i.appName else com.rez.notif.sms.ContactNames.label(i.sender)
             style.addLine("$who: " + i.body.replace('\n', ' ').take(70))
         }
         val open = PendingIntent.getActivity(

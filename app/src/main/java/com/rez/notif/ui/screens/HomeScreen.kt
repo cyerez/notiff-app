@@ -7,6 +7,15 @@ import com.rez.notif.data.Repository
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import com.rez.notif.i18n.t
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import com.rez.notif.sms.ContactNames
+import com.rez.notif.ui.components.GlassButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -86,12 +95,9 @@ fun HomeScreen(nav: Navigator) {
 
     val data by rememberLoaded(repo) {
         val counts = repo.categoryCounts()
-        val dayStart = java.util.Calendar.getInstance().apply {
-            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0)
-        }.timeInMillis
         HomeData(
             counts = counts,
-            todayCount = repo.count(ItemQuery(sinceMillis = dayStart)),
+            todayCount = repo.today(false).first.size,
             valuable = repo.count(ItemQuery(onlyValuable = true, includeAds = true)),
             vips = repo.vipSummaries().size,
             vipItems = repo.count(ItemQuery(onlyVip = true, includeAds = true)),
@@ -110,9 +116,26 @@ fun HomeScreen(nav: Navigator) {
     var edit by remember { mutableStateOf(false) }
     var showAllImportant by remember { mutableStateOf(false) }
 
+    val askContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        repo.prefs.update { it.copy(contactsAsked = true) }
+        kotlin.concurrent.thread { ContactNames.refresh(context); repo.bump() }
+    }
+    val order = HomeBlock.ordered(settings.homeOrder)
+    fun move(b: HomeBlock, by: Int) {
+        val l = order.toMutableList()
+        val i = l.indexOf(b)
+        val j = (i + by).coerceIn(0, l.lastIndex)
+        if (i == j) return
+        l.removeAt(i); l.add(j, b)
+        repo.prefs.update { it.copy(homeOrder = l.map { x -> x.name }) }
+    }
+    fun toggleHidden(b: HomeBlock) = repo.prefs.update {
+        it.copy(homeHidden = if (b.name in it.homeHidden) it.homeHidden - b.name else it.homeHidden + b.name)
+    }
+
     Column {
         GlassTopBar(title = t("نوتیف"), subtitle = today()) {
-            IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) g.accent else null)
+            IconBubble(if (edit) Icons.Rounded.Check else Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) g.accent else null)
             Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.Search, { nav.go(Screen.Search) })
             Spacer(Modifier.width(8.dp))
@@ -124,123 +147,227 @@ fun HomeScreen(nav: Navigator) {
         ItemList(
             items = recent.orEmpty(),
             empty = t("هنوز چیزی نیومده."),
-            editMode = edit,
-            onEditModeChange = { edit = it },
         ) { openItem ->
-            away?.let { a ->
+            if (edit) {
+                item {
+                    Text(
+                        t("ترتیب بخش‌ها رو با فلش‌ها عوض کن و با چشم پنهان یا پیداشون کن. دسته‌های اصلی رو هم همینجا انتخاب کن. آخرش ✓ رو بزن."),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = g.textDim,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 6.dp),
+                    )
+                }
+            }
+            if (!edit && settings.firstScanDone && !settings.contactsAsked && !ContactNames.allowed(context)) {
+                item {
+                    GlassCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), glow = VipColor) {
+                        Text(t("اسم مخاطب‌ها به جای شماره"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Text(
+                            t("با اجازه دسترسی به مخاطبین، همه جا اسم آدم‌ها نشون داده میشه و چند شماره یه نفر یکی حساب میشن. مخاطبین از گوشی بیرون نمیرن."),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = g.textDim,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GlassButton(t("اجازه بده"), onClick = { askContacts.launch(arrayOf(android.Manifest.permission.READ_CONTACTS)) })
+                            GlassButton(t("نه"), primary = false, onClick = { repo.prefs.update { it.copy(contactsAsked = true) } })
+                        }
+                    }
+                }
+            }
+            if (!edit) away?.let { a ->
                 item { AwayCard(a) { repo.prefs.update { it.copy(awaySince = 0) } } }
             }
-            item {
-                // Three big tiles, like the "Inbox / To-Do / Notifications" sample.
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SummaryTile(t("امروز"), fa(data?.todayCount ?: 0), g.accent, Modifier.weight(1f)) {}
-                    SummaryTile(t("خونده‌نشده"), fa(unreadAll), Color(0xFF34D399), Modifier.weight(1f)) {}
-                    SummaryTile(t("ارزشمند"), fa(data?.valuable ?: 0), ValuableColor, Modifier.weight(1f)) {
-                        nav.go(Screen.Special(SpecialList.VALUABLE))
+            order.forEachIndexed { index, block ->
+                val hidden = block.name in settings.homeHidden
+                if (edit) {
+                    item(key = "edit-" + block.name) {
+                        BlockEditBar(
+                            t(block.label), hidden,
+                            canUp = index > 0, canDown = index < order.lastIndex,
+                            onUp = { move(block, -1) }, onDown = { move(block, 1) }, onEye = { toggleHidden(block) },
+                        )
                     }
                 }
-            }
-            item {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionTile(
-                        Icons.Rounded.Favorite, VipColor, t("افراد منتخب"),
-                        if ((data?.vips ?: 0) == 0) t("هنوز کسی نیست") else fa(data?.vips ?: 0) + t(" نفر · ") + fa(data?.vipItems ?: 0) + t(" مورد"),
-                        Modifier.weight(1f),
-                    ) { nav.go(Screen.Vip) }
-                    ActionTile(
-                        Icons.Rounded.CleaningServices, g.accent, t("پاک‌سازی"),
-                        if ((data?.clutter ?: 0) == 0) t("همه چی مرتبه") else fa(data?.clutter ?: 0) + t(" مورد اضافه"),
-                        Modifier.weight(1f),
-                    ) { nav.go(Screen.Cleanup) }
-                }
-            }
-            item {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionTile(
-                        Icons.Rounded.Key, ValuableColor, t("کیف پسورد"), t("رمزهای ضروری، آفلاین"),
-                        Modifier.weight(1f),
-                    ) { nav.go(Screen.Wallet) }
-                    ActionTile(
-                        Icons.Rounded.DocumentScanner, g.accent2, t("متن از عکس"), t("با قلم یا هر عکسی"),
-                        Modifier.weight(1f),
-                    ) { nav.go(Screen.Ocr()) }
-                }
-            }
-            if (main.isNotEmpty()) {
-                item { SectionTitle(t("دسته‌های اصلی")) }
-                item {
-                    FlowRow(
-                        Modifier.padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        maxItemsInEachRow = 2,
-                    ) {
-                        main.forEach { c ->
-                            CategoryTile(c, counts[c.id], Modifier.weight(1f)) { nav.go(Screen.CategoryList(c.id)) }
-                        }
-                        if (main.size % 2 == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-            if (others.isNotEmpty()) {
-                item { SectionTitle(t("بقیه دسته‌ها")) }
-                item {
-                    FlowRow(
-                        Modifier.padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        others.forEach { c ->
-                            GlassChip(
-                                t(c.label) + " " + fa(counts[c.id]?.total ?: 0),
-                                selected = false,
-                                color = c.tint,
-                                icon = c.icon,
-                                onClick = { nav.go(Screen.CategoryList(c.id)) },
-                            )
+                if (hidden) return@forEachIndexed
+                when (block) {
+                    HomeBlock.SUMMARY -> item(key = "b-summary") {
+                        // Three big tiles, like the "Inbox / To-Do / Notifications" sample.
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryTile(t("امروز"), fa(data?.todayCount ?: 0), g.accent, Modifier.weight(1f)) {
+                                nav.go(Screen.Special(SpecialList.TODAY))
+                            }
+                            SummaryTile(t("خونده‌نشده"), fa(unreadAll), Color(0xFF34D399), Modifier.weight(1f)) {
+                                nav.go(Screen.Special(SpecialList.UNREAD))
+                            }
+                            SummaryTile(t("ارزشمند"), fa(data?.valuable ?: 0), ValuableColor, Modifier.weight(1f)) {
+                                nav.go(Screen.Special(SpecialList.VALUABLE))
+                            }
                         }
                     }
-                }
-            }
-            item {
-                GlassCard(
-                    Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    onClick = { nav.go(Screen.Special(SpecialList.ADS)) },
-                    contentPadding = 14.dp,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        NeonIcon(Icons.Rounded.Campaign, Category.ADS.tint, size = 36.dp)
-                        Spacer(Modifier.size(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(t("تبلیغات مخفی‌شده"), style = MaterialTheme.typography.titleSmall, color = g.text)
-                            Text(
-                                if (settings.hideAds) t("نوتیف تبلیغ‌ها خودکار پاک میشه") else t("مخفی کردن تبلیغ خاموشه"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = g.textDim,
-                            )
-                        }
-                        Text(fa(adCount), style = MaterialTheme.typography.titleMedium, color = Category.ADS.tint)
-                    }
-                }
-            }
-            // Important items sit under the menu, so the tiles never get pushed down. Two are shown; the rest on tap.
-            val top = important.orEmpty()
-            if (top.isNotEmpty()) {
-                item {
-                    SectionTitle(t("مهم‌ها")) {
-                        if (top.size > 2) {
-                            GlassChip(
-                                if (showAllImportant) t("کمتر") else t("همه") + " " + fa(top.size),
-                                selected = showAllImportant,
-                                onClick = { showAllImportant = !showAllImportant },
-                            )
+                    HomeBlock.ACTIONS -> item(key = "b-actions") {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ActionTile(
+                                Icons.Rounded.Favorite, VipColor, t("افراد منتخب"),
+                                if ((data?.vips ?: 0) == 0) t("هنوز کسی نیست") else fa(data?.vips ?: 0) + t(" نفر · ") + fa(data?.vipItems ?: 0) + t(" مورد"),
+                                Modifier.weight(1f),
+                            ) { nav.go(Screen.Vip) }
+                            ActionTile(
+                                Icons.Rounded.CleaningServices, g.accent, t("پاک‌سازی"),
+                                if ((data?.clutter ?: 0) == 0) t("همه چی مرتبه") else fa(data?.clutter ?: 0) + t(" مورد اضافه"),
+                                Modifier.weight(1f),
+                            ) { nav.go(Screen.Cleanup) }
                         }
                     }
+                    HomeBlock.TOOLS -> item(key = "b-tools") {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ActionTile(
+                                Icons.Rounded.Key, ValuableColor, t("کیف پسورد"), t("رمزهای ضروری، آفلاین"),
+                                Modifier.weight(1f),
+                            ) { nav.go(Screen.Wallet) }
+                            ActionTile(
+                                Icons.Rounded.DocumentScanner, g.accent2, t("متن از عکس"), t("با قلم یا هر عکسی"),
+                                Modifier.weight(1f),
+                            ) { nav.go(Screen.Ocr()) }
+                        }
+                    }
+                    HomeBlock.MAIN -> {
+                        if (edit) {
+                            item(key = "b-main-pick") {
+                                FlowRow(
+                                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Category.entries.filter { it != Category.ADS }.forEach { c ->
+                                        val on = c.id in settings.mainCategories
+                                        GlassChip(t(c.label), on, {
+                                            repo.prefs.update { st ->
+                                                st.copy(mainCategories = if (on) st.mainCategories - c.id else st.mainCategories + c.id)
+                                            }
+                                        }, color = c.tint, icon = c.icon)
+                                    }
+                                }
+                            }
+                        } else if (main.isNotEmpty()) {
+                            item(key = "b-main-title") { SectionTitle(t("دسته‌های اصلی")) }
+                            item(key = "b-main") {
+                                FlowRow(
+                                    Modifier.padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    maxItemsInEachRow = 2,
+                                ) {
+                                    main.forEach { c ->
+                                        CategoryTile(c, counts[c.id], Modifier.weight(1f)) { nav.go(Screen.CategoryList(c.id)) }
+                                    }
+                                    if (main.size % 2 == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                    HomeBlock.OTHERS -> if (others.isNotEmpty() && !edit) {
+                        item(key = "b-others-title") { SectionTitle(t("بقیه دسته‌ها")) }
+                        item(key = "b-others") {
+                            FlowRow(
+                                Modifier.padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                others.forEach { c ->
+                                    GlassChip(
+                                        t(c.label) + " " + fa(counts[c.id]?.total ?: 0),
+                                        selected = false,
+                                        color = c.tint,
+                                        icon = c.icon,
+                                        onClick = { nav.go(Screen.CategoryList(c.id)) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    HomeBlock.ADS -> item(key = "b-ads") {
+                        GlassCard(
+                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
+                            shape = RoundedCornerShape(22.dp),
+                            onClick = { nav.go(Screen.Special(SpecialList.ADS)) },
+                            contentPadding = 14.dp,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                NeonIcon(Icons.Rounded.Campaign, Category.ADS.tint, size = 36.dp)
+                                Spacer(Modifier.size(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(t("تبلیغات مخفی‌شده"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                                    Text(
+                                        if (settings.hideAds) t("نوتیف تبلیغ‌ها خودکار پاک میشه") else t("مخفی کردن تبلیغ خاموشه"),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = g.textDim,
+                                    )
+                                }
+                                Text(fa(adCount), style = MaterialTheme.typography.titleMedium, color = Category.ADS.tint)
+                            }
+                        }
+                    }
+                    HomeBlock.IMPORTANT -> if (!edit) {
+                        // Two are shown; the rest on tap.
+                        val top = important.orEmpty()
+                        if (top.isNotEmpty()) {
+                            item(key = "b-important-title") {
+                                SectionTitle(t("مهم‌ها")) {
+                                    if (top.size > 2) {
+                                        GlassChip(
+                                            if (showAllImportant) t("کمتر") else t("همه") + " " + fa(top.size),
+                                            selected = showAllImportant,
+                                            onClick = { showAllImportant = !showAllImportant },
+                                        )
+                                    }
+                                }
+                            }
+                            (if (showAllImportant) top else top.take(2)).forEach { i -> item(key = "imp-" + i.id) { ItemRow(i, onClick = { openItem(i) }) } }
+                        }
+                    }
                 }
-                (if (showAllImportant) top else top.take(2)).forEach { i -> item { ItemRow(i, onClick = { openItem(i) }) } }
             }
             item { SectionTitle(t("تازه‌ها")) }
+        }
+    }
+}
+
+/** Up / down / show-hide controls above a home section while editing. */
+@Composable
+private fun BlockEditBar(title: String, hidden: Boolean, canUp: Boolean, canDown: Boolean, onUp: () -> Unit, onDown: () -> Unit, onEye: () -> Unit) {
+    val g = LocalGlass.current
+    Row(
+        Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (hidden) g.textDim else g.accent,
+            modifier = Modifier.weight(1f),
+        )
+        if (canUp) { IconBubble(Icons.Rounded.KeyboardArrowUp, onUp); Spacer(Modifier.width(6.dp)) }
+        if (canDown) { IconBubble(Icons.Rounded.KeyboardArrowDown, onDown); Spacer(Modifier.width(6.dp)) }
+        IconBubble(if (hidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, onEye, tint = if (hidden) g.textDim else g.accent)
+    }
+}
+
+/** The sections of the home screen the user can move and hide. */
+enum class HomeBlock(val label: String) {
+    SUMMARY("کاشی‌های امروز، خونده‌نشده، ارزشمند"),
+    ACTIONS("افراد منتخب و پاک‌سازی"),
+    TOOLS("کیف پسورد و متن از عکس"),
+    MAIN("دسته‌های اصلی"),
+    OTHERS("بقیه دسته‌ها"),
+    ADS("تبلیغات مخفی‌شده"),
+    IMPORTANT("مهم‌ها");
+
+    companion object {
+        /** Saved order, with any new section added at its default place. */
+        fun ordered(saved: List<String>): List<HomeBlock> {
+            val known = saved.mapNotNull { n -> entries.firstOrNull { it.name == n } }
+            return known + entries.filter { it !in known }
         }
     }
 }

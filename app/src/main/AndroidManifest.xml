@@ -9,6 +9,8 @@
     <!-- Phase 5: needed to be chosen as the phone's SMS app -->
     <uses-permission android:name="android.permission.RECEIVE_MMS" />
     <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
+    <!-- Names instead of numbers; all numbers of one contact count as one person -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Which SIM a message came in on -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- The app's own notifications -->

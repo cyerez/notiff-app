@@ -318,5 +318,15 @@ internal object En {
         "متنی پیدا نشد. یه تیکه بزرگ‌تر و واضح‌تر رو انتخاب کن." to "No text found. Select a bigger, clearer piece.",
         "کپی" to "Copy",
         "کپی شد." to "Copied.",
+        "اسم مخاطب‌ها به جای شماره" to "Contact names instead of numbers",
+        "افراد منتخب و پاک‌سازی" to "Chosen people and cleanup",
+        "با اجازه دسترسی به مخاطبین، همه جا اسم آدم‌ها نشون داده میشه و چند شماره یه نفر یکی حساب میشن. مخاطبین از گوشی بیرون نمیرن." to "With contacts access, people show by name everywhere and one person's numbers count as one. Contacts never leave the phone.",
+        "ترتیب بخش‌ها رو با فلش‌ها عوض کن و با چشم پنهان یا پیداشون کن. دسته‌های اصلی رو هم همینجا انتخاب کن. آخرش ✓ رو بزن." to "Reorder sections with the arrows and hide or show them with the eye. Pick your main categories here too. Tap ✓ when done.",
+        "همه رو نشون بده" to "Show everything",
+        "پاک کردن به‌دردنخورها" to "Delete the clutter",
+        "کاشی‌های امروز، خونده‌نشده، ارزشمند" to "Today, unread and valuable tiles",
+        "کیف پسورد و متن از عکس" to "Password wallet and picture to text",
+        "تبلیغ، پیام اپراتور و سیستم، و کدهای تأیید کهنه اینجا نشون داده نمیشن." to "Ads, operator and system messages, and old login codes are left out here.",
+        "هر چی هنوز باز نکردی. با دکمه بالا همه خونده میشن." to "Everything you haven't opened yet. The button at the top marks it all read.",
     )
 }

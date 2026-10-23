@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.automirrored.rounded.Send
 import com.rez.notif.i18n.t
+import com.rez.notif.sms.ContactNames
 import com.rez.notif.notif.CodeNotifier
 import com.rez.notif.classify.Classifier
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -51,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,7 +109,7 @@ fun ItemRow(
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (item.source == Source.SMS) item.sender else item.appName,
+                        if (item.source == Source.SMS) senderLabel(item.sender) else item.appName,
                         style = MaterialTheme.typography.titleSmall,
                         color = g.text,
                         fontWeight = if (item.isRead) FontWeight.Medium else FontWeight.Black,
@@ -267,7 +269,7 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
     var openFailed by remember { mutableStateOf(false) }
     var vipAdded by remember { mutableStateOf(item.vipId > 0) }
     var confirmSenderDelete by remember { mutableStateOf(false) }
-    val who = if (item.source == Source.SMS) item.sender else item.appName
+    val who = if (item.source == Source.SMS) senderLabel(item.sender) else item.appName
 
     LaunchedEffect(item.id) { repo.markRead(listOf(item)) }
 
@@ -288,7 +290,7 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 Spacer(Modifier.size(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (item.source == Source.SMS) item.sender else item.appName,
+                        if (item.source == Source.SMS) senderLabel(item.sender) else item.appName,
                         style = MaterialTheme.typography.titleLarge,
                         color = g.text,
                     )
@@ -383,8 +385,11 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 if (!vipAdded) {
                     GlassButton(t("افزودن به افراد منتخب"), icon = Icons.Rounded.Favorite, primary = false, onClick = {
                         vipAdded = true
-                        val name = if (item.source == Source.SMS) item.sender else item.title
-                        val numbers = listOfNotNull(VipMatcher.key(item.sender))
+                        // A saved contact is added once, with the contact's name and all of their numbers.
+                        val contact = if (item.source == Source.SMS) ContactNames.nameOf(item.sender) else null
+                        val name = contact ?: if (item.source == Source.SMS) item.sender else item.title
+                        val numbers = (listOfNotNull(VipMatcher.key(item.sender)) +
+                            (contact?.let { c -> ContactNames.names.value.filterValues { it == c }.keys } ?: emptySet())).distinct()
                         scope.launch { repo.addVip(name, numbers) }
                     })
                 }
@@ -476,4 +481,11 @@ private fun QuickReply(item: Item) {
         }, tint = g.accent)
     }
     status?.let { Text(it, color = g.textDim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp)) }
+}
+
+/** A contact's name for an SMS sender (recomposes when contacts load), or the sender as it came. */
+@Composable
+fun senderLabel(sender: String): String {
+    val names by ContactNames.names.collectAsState()
+    return VipMatcher.key(sender)?.let { names[it] } ?: sender
 }

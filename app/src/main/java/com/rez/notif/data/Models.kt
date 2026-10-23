@@ -71,5 +71,10 @@ data class ItemQuery(
     val packageName: String? = null,
     /** Leave out what must never be auto-deleted: chosen people, starred, valuable. */
     val excludeKept: Boolean = false,
+    val onlyUnread: Boolean = false,
+    /** With [text]: also match senders ending in these digits (numbers of contacts whose name matches). */
+    val textSenderTails: List<String> = emptyList(),
+    /** Categories to leave out (for "today without the clutter"). */
+    val excludeCategories: Set<String> = emptySet(),
     val limit: Int = 300,
 )

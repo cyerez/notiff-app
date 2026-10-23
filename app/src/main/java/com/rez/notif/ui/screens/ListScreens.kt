@@ -15,6 +15,9 @@ import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material.icons.rounded.MarkEmailUnread
+import com.rez.notif.data.Item
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,6 +54,8 @@ import kotlinx.coroutines.launch
 enum class SpecialList(val title: String, val hint: String) {
     VALUABLE("ارزشمند", "هدیه، تخفیف، ایمیل خوب و هر چی ستاره زدی. اینجا می‌مونن حتی اگه نوتیفشون پاک بشه."),
     ADS("تبلیغات مخفی‌شده", "اینجا رو گاهی نگاه کن. اگه چیزی اشتباهی اینجا اومده، بازش کن و دسته‌ش رو عوض کن."),
+    TODAY("امروز", "تبلیغ، پیام اپراتور و سیستم، و کدهای تأیید کهنه اینجا نشون داده نمیشن."),
+    UNREAD("خونده‌نشده", "هر چی هنوز باز نکردی. با دکمه بالا همه خونده میشن."),
 }
 
 /** Source filter shared by list screens. */
@@ -86,27 +91,61 @@ fun CategoryScreen(categoryId: String, nav: Navigator) {
 
 @Composable
 fun SpecialListScreen(kind: SpecialList, nav: Navigator) {
+    val g = LocalGlass.current
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
+    val scope = rememberCoroutineScope()
     var filter by remember { mutableStateOf(SourceFilter.ALL) }
-    val items by rememberLoaded(repo, kind, filter) {
+    var showAll by remember { mutableStateOf(false) }
+    var clutter by remember { mutableStateOf<List<Item>>(emptyList()) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val items by rememberLoaded(repo, kind, filter, showAll) {
         when (kind) {
             SpecialList.VALUABLE -> repo.items(ItemQuery(onlyValuable = true, includeAds = true, source = filter.source, limit = 500))
             SpecialList.ADS -> repo.items(ItemQuery(onlyAds = true, source = filter.source, limit = 500))
+            SpecialList.UNREAD -> repo.items(ItemQuery(onlyUnread = true, source = filter.source, limit = 500))
+            SpecialList.TODAY -> {
+                val (shown, junk) = repo.today(showAll)
+                clutter = junk
+                shown.filter { filter.source == null || it.source == filter.source }
+            }
         }
     }
     val list = items.orEmpty()
     val (icon, color) = when (kind) {
         SpecialList.VALUABLE -> Icons.Rounded.Star to ValuableColor
         SpecialList.ADS -> Icons.Rounded.Campaign to Category.ADS.tint
+        SpecialList.TODAY -> Icons.Rounded.Today to g.accent
+        SpecialList.UNREAD -> Icons.Rounded.MarkEmailUnread to Color(0xFF34D399)
     }
     var edit by remember { mutableStateOf(false) }
     Column {
         GlassTopBar(title = t(kind.title), subtitle = fa(list.size) + t(" مورد"), onBack = nav::back) {
             IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) color else null)
+            if (kind == SpecialList.UNREAD || kind == SpecialList.TODAY) {
+                Spacer(Modifier.width(8.dp))
+                IconBubble(Icons.Rounded.DoneAll, { scope.launch { repo.markRead(list) } })
+            }
         }
         ItemList(list, empty = t("فعلاً چیزی نیست."), editMode = edit, onEditModeChange = { edit = it }) {
             item { Header(icon, color, t(kind.hint)) }
+            if (kind == SpecialList.TODAY) {
+                item {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassChip(t("همه رو نشون بده"), showAll, { showAll = !showAll })
+                        if (clutter.isNotEmpty()) {
+                            GlassChip(t("پاک کردن به‌دردنخورها") + " " + fa(clutter.size), false, {
+                                scope.launch {
+                                    val n = clutter.size
+                                    repo.delete(clutter)
+                                    note = fa(n) + t(" مورد پاک شد.")
+                                }
+                            }, color = Category.ADS.tint)
+                        }
+                    }
+                }
+                note?.let { n -> item { Text(n, color = g.textDim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 22.dp)) } }
+            }
             item { SourceFilters(filter) { filter = it } }
         }
     }

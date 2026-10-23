@@ -18,6 +18,7 @@ import com.rez.notif.classify.Learner
 import com.rez.notif.classify.Priority
 import com.rez.notif.classify.VipMatcher
 import com.rez.notif.classify.VipPerson
+import com.rez.notif.sms.ContactNames
 import com.rez.notif.sms.DefaultSms
 import com.rez.notif.sms.RawSms
 import com.rez.notif.sms.SmsReader
@@ -49,6 +50,9 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     /** Goes up by one on every change, so screens know when to reload. */
     private val _version = MutableStateFlow(0L)
     val version: StateFlow<Long> = _version.asStateFlow()
+    /** Asks every screen to reload (e.g. after contacts were loaded). */
+    fun bump() = changed()
+
     private fun changed() {
         _version.update { it + 1 }
         com.rez.notif.widget.NotifWidget.refreshSoon(context)
@@ -86,9 +90,14 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         "sms:" + Classifier.normalize(address).replace(" ", "") + ":" + body.hashCode() + ":" + date / 600_000L
 
     private fun smsToItem(raw: RawSms): Item {
+        ContactNames.ensure(context)
         val vip = VipMatcher.match(vipPeople(), true, raw.address, "", raw.body)
         var r = vipSafe(Classifier.classify(Classifier.Input(isSms = true, sender = raw.address, title = "", body = raw.body), overrides()), vip)
         if (r.category == Category.OTHER && vip == null) learner?.guess(raw.body)?.let { r = r.copy(category = it.category) }
+        // A saved contact is a person: never an ad, and "personal" when nothing better fits.
+        if (ContactNames.nameOf(raw.address) != null && (r.category == Category.ADS || r.category == Category.OTHER)) {
+            r = r.copy(category = Category.PERSONAL)
+        }
         return Item(
             source = Source.SMS,
             sourceKey = smsKey(raw.address, raw.body, raw.date),
@@ -146,6 +155,24 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             .sortedByDescending { it.second }
             .take(5)
             .map { it.first }
+    }
+
+    /** What counts as clutter in "today": ads, operator and system messages, and login codes older than an hour. */
+    val clutterCategories = setOf(Category.OPERATOR.id, Category.SYSTEM.id)
+
+    private fun isClutter(i: Item, now: Long) =
+        i.isAd || i.category in clutterCategories || (i.category == Category.OTP.id && now - i.timestamp > 3_600_000L)
+
+    fun dayStart(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    /** Today's items; without [all], the clutter is left out. Returns (shown, clutter). */
+    suspend fun today(all: Boolean): Pair<List<Item>, List<Item>> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val items = db.query(ItemQuery(sinceMillis = dayStart(), includeAds = true, limit = 2000))
+        val (junk, good) = items.partition { isClutter(it, now) && it.vipId == 0L && !it.isStarred && !it.isValuable }
+        (if (all) items else good) to junk
     }
 
     data class Away(val since: Long, val total: Int, val byCategory: List<Pair<Category, Int>>, val vip: Int)
@@ -298,7 +325,15 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     // ---------- reads ----------
 
-    suspend fun items(q: ItemQuery): List<Item> = withContext(Dispatchers.IO) { db.query(q) }
+    suspend fun items(q: ItemQuery): List<Item> = withContext(Dispatchers.IO) { db.query(withContactSearch(q)) }
+
+    /** Searching a contact's name also finds their SMS (which are stored under the number). */
+    private fun withContactSearch(q: ItemQuery): ItemQuery {
+        val text = q.text?.trim().orEmpty()
+        if (text.length < 2) return q
+        val tails = ContactNames.names.value.filterValues { it.contains(text, ignoreCase = true) }.keys.toList()
+        return if (tails.isEmpty()) q else q.copy(textSenderTails = tails)
+    }
     suspend fun item(id: Long): Item? = withContext(Dispatchers.IO) { db.get(id) }
     suspend fun count(q: ItemQuery): Int = withContext(Dispatchers.IO) { db.count(q) }
     suspend fun categoryCounts(): List<CategoryCount> = withContext(Dispatchers.IO) { db.categoryCounts() }
@@ -578,6 +613,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     data class VipSummary(val person: VipPerson, val count: Int, val last: Long)
 
     suspend fun vipSummaries(): List<VipSummary> = withContext(Dispatchers.IO) {
+        tidyVips()
         val counts = db.vipCounts()
         db.vips().map { p -> VipSummary(p, counts[p.id]?.first ?: 0, counts[p.id]?.second ?: 0L) }
             .sortedByDescending { it.last }
@@ -587,8 +623,35 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val numbers = rawNumbers.mapNotNull { VipMatcher.key(it) }.distinct()
         val id = db.addVip(name.trim().ifEmpty { rawNumbers.firstOrNull() ?: "?" }, numbers)
         vipCache = null
-        retagVips()
+        tidyVips(force = true)
         id
+    }
+
+    /**
+     * One person = one entry: a chosen person whose number is in the contacts gets the contact's name and
+     * all of the contact's numbers, and entries with the same name are folded together.
+     */
+    private fun tidyVips(force: Boolean = false) {
+        ContactNames.ensure(context)
+        val names = ContactNames.names.value
+        var changed = false
+        if (names.isNotEmpty()) {
+            for (v in db.vips()) {
+                val contact = v.numbers.firstNotNullOfOrNull { names[it] } ?: continue
+                val all = names.filterValues { it == contact }.keys
+                val newName = if (v.name.none { it.isLetter() }) contact else v.name
+                val newNumbers = (v.numbers + all).distinct()
+                if (newName != v.name || newNumbers.size != v.numbers.size) {
+                    db.updateVip(v.id, newName, newNumbers)
+                    changed = true
+                }
+            }
+        }
+        if (db.mergeVipsByName()) changed = true
+        if (changed || force) {
+            vipCache = null
+            retagVips()
+        }
     }
 
     suspend fun removeVip(id: Long) = withContext(Dispatchers.IO) {

@@ -48,6 +48,8 @@ app/src/main/java/com/rez/notif/
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast; skipped when we are default)
          Phase 5 (default SMS app): DefaultSms.kt (role, send, write/delete in the phone's SMS store, threads),
          SmsDeliverReceiver.kt (SMS_DELIVER: must write to the inbox, then notify via SmsNotifier),
+         ContactNames.kt (READ_CONTACTS: number → name by last 10 digits; UI uses senderLabel(); VIPs are merged
+         per contact by Repository.tidyVips)
          MmsReceiver.kt + MmsPdu.kt (MMS is only recorded, not downloaded), HeadlessSmsSendService.kt
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/

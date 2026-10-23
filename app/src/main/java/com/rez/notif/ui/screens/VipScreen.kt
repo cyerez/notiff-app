@@ -4,6 +4,9 @@ import com.rez.notif.i18n.t
 import android.app.Activity
 import android.content.Intent
 import android.provider.ContactsContract
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.rez.notif.sms.ContactNames
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -71,18 +74,27 @@ fun VipScreen(nav: Navigator) {
     val people by rememberLoaded(repo) { repo.vipSummaries() }
     var manual by remember { mutableStateOf(false) }
 
-    // The system contact picker hands back only the chosen number, so no contacts permission is needed.
+    // With contacts access, picking a person brings all of their numbers; otherwise the picker gives one number.
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val uri = res.data?.data
         if (res.resultCode != Activity.RESULT_OK || uri == null) return@rememberLauncherForActivityResult
-        val cols = arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER)
-        context.contentResolver.query(uri, cols, null, null, null)?.use { c ->
-            if (c.moveToFirst()) {
-                val name = c.getString(0) ?: ""
-                val number = c.getString(1) ?: ""
-                scope.launch { repo.addVip(name, listOf(number)) }
+        scope.launch {
+            val picked = withContext(Dispatchers.IO) {
+                if (ContactNames.allowed(context)) {
+                    runCatching { ContactNames.contactOf(context, uri) }.getOrNull()
+                } else {
+                    val cols = arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    context.contentResolver.query(uri, cols, null, null, null)?.use { c ->
+                        if (c.moveToFirst()) (c.getString(0) ?: "") to listOf(c.getString(1) ?: "") else null
+                    }
+                }
             }
+            picked?.let { (name, numbers) -> repo.addVip(name, numbers) }
         }
+    }
+    val askContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        repo.prefs.update { it.copy(contactsAsked = true) }
+        picker.launch(pickIntent(context))
     }
 
     Column {
@@ -101,7 +113,8 @@ fun VipScreen(nav: Navigator) {
                     }
                     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         GlassButton(t("از مخاطبین"), icon = Icons.Rounded.ContactPhone, onClick = {
-                            picker.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI))
+                            if (ContactNames.allowed(context)) picker.launch(pickIntent(context))
+                            else askContacts.launch(arrayOf(android.Manifest.permission.READ_CONTACTS))
                         })
                         GlassButton(t("دستی"), icon = Icons.Rounded.EditNote, primary = false, onClick = { manual = true })
                     }
@@ -180,3 +193,8 @@ fun VipPersonScreen(id: Long, name: String, nav: Navigator) {
         ItemList(list, empty = t("هنوز چیزی از این شخص نیومده."), editMode = edit, onEditModeChange = { edit = it })
     }
 }
+
+/** Pick a whole person when we can read contacts, otherwise one phone number. */
+private fun pickIntent(context: android.content.Context): Intent =
+    if (ContactNames.allowed(context)) Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
+    else Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)

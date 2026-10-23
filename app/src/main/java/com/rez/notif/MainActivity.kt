@@ -87,6 +87,10 @@ class MainActivity : ComponentActivity() {
         }
         SummaryNotifier.clear(this)
         lifecycleScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                // Contacts may have changed while the app was closed.
+                com.rez.notif.sms.ContactNames.refresh(this@MainActivity)
+            }
             if (hasSmsPermission()) runCatching { repo.syncSms() }
             runCatching { repo.autoCleanIfDue() }
             runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repo.ensureLearner() } }

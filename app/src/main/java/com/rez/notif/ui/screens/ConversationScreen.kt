@@ -45,6 +45,7 @@ import com.rez.notif.NotifApp
 import com.rez.notif.data.ItemQuery
 import com.rez.notif.data.Source
 import com.rez.notif.i18n.t
+import com.rez.notif.sms.ContactNames
 import com.rez.notif.sms.DefaultSms
 import com.rez.notif.sms.SmsNotifier
 import com.rez.notif.sms.ThreadMsg
@@ -100,7 +101,7 @@ fun ConversationScreen(address: String, draft: String, nav: Navigator) {
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
-        GlassTopBar(title = address, subtitle = t("گفتگو"), onBack = { nav.back() })
+        GlassTopBar(title = com.rez.notif.ui.components.senderLabel(address), subtitle = if (ContactNames.nameOf(address) != null) address else t("گفتگو"), onBack = { nav.back() })
 
         val list = messages.orEmpty()
         val state = rememberLazyListState()

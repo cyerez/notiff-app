@@ -40,7 +40,7 @@ object SmsNotifier {
         )
         val b = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_notif)
-            .setContentTitle(address)
+            .setContentTitle(ContactNames.ensure(context).let { ContactNames.label(address) })
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
             .setCategory(Notification.CATEGORY_MESSAGE)
