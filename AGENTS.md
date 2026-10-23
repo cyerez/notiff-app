@@ -12,6 +12,7 @@ The user writes Persian and is new to Kotlin. Explain changes in simple Persian 
 ## Hard rules
 - **Offline only.** The app has no `INTERNET` permission. Never add one, never add analytics or network libraries.
 - **Persian, right-to-left UI.** All user text is Persian. The theme forces RTL (`ui/theme/Theme.kt`).
+- **Every user-facing string goes through `t(...)`** (see i18n/).
 - **Never lose user data.** Database changes need a migration in `Db.onUpgrade`; never drop tables.
 - **Do not become the default SMS app** unless the user asks (that is phase 5).
 - Keep the classifier pure Kotlin (no Android imports) so it stays unit-testable.
@@ -33,8 +34,10 @@ app/src/main/java/com/rez/notif/
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
     Models.kt            Item, ItemQuery, Stats...
+  i18n/  I18n.kt + En.kt: t("persian") returns English when the app is in English. Wrap every new
+         user-facing Persian string in t(...) and add its English to En.kt (I18nTest fails otherwise).
   backup/ BackupCrypto.kt (password -> PBKDF2 -> AES-256-GCM; pure Kotlin, tested)
-  security/ AppLock.kt (system BiometricPrompt; relocks after 30 s away)
+  security/ AppLock.kt (system BiometricPrompt; relocks after 30 s away), DbKey.kt (DB key wrapped by Keystore)
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast)
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/
@@ -61,6 +64,10 @@ app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatche
    Deleting only hides items in this app; the phone's SMS inbox is untouched.
 8. Hide-all (default on): `Repository.hideNow` decides per notification; the listener cancels it and
    `SummaryNotifier` posts one quiet summary (cleared, and `lastSeen` reset, when the app opens).
+10. Database is SQLCipher (`notif-secure.db`). `Db.open` moves the old plain `notif.db` once and deletes
+    it only after row counts match; if anything fails it keeps running on the plain file.
+11. Styles: `AppStyle` in Prefs -> `themeColors` in Theme.kt. Vector scenes live in theme/Scenes.kt
+    (pure DrawScope paths + a palette); a new mood or season is a new `ScenePalette`.
 9. Backup: `Db.snapshotTo` (VACUUM INTO) -> encrypt -> SAF file. Restore checks the file, closes the
    helper, swaps the DB file, and SQLiteOpenHelper reopens (and migrates) it on next use.
 7. Glass panels must not use Compose `Modifier.shadow`/elevation: it shows through the translucent

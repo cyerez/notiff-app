@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,9 +66,9 @@ fun ScanScreen(onDone: () -> Unit) {
             picked.addAll(s.filter { it.recommended }.map { it.category.id })
             suggestions = s
         } catch (e: SecurityException) {
-            error = "دسترسی پیامک داده نشده."
+            error = t("دسترسی پیامک داده نشده.")
         } catch (e: Exception) {
-            error = "اسکن با خطا روبه‌رو شد: " + (e.message ?: "")
+            error = t("اسکن با خطا روبه‌رو شد: ") + (e.message ?: "")
         }
     }
 
@@ -81,19 +82,19 @@ fun ScanScreen(onDone: () -> Unit) {
             NeonRing(progress = if (total > 0) done.toFloat() / total else null, size = 200.dp) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(fa(done), style = MaterialTheme.typography.headlineLarge, color = g.text)
-                    if (total > 0) Text("از " + fa(total), style = MaterialTheme.typography.bodyMedium, color = g.textDim)
+                    if (total > 0) Text(t("از ") + fa(total), style = MaterialTheme.typography.bodyMedium, color = g.textDim)
                 }
             }
             Spacer(Modifier.height(28.dp))
             Text(
-                error ?: "دارم پیامک‌ها رو می‌خونم و دسته‌ها رو حدس می‌زنم…",
+                error ?: t("دارم پیامک‌ها رو می‌خونم و دسته‌ها رو حدس می‌زنم…"),
                 style = MaterialTheme.typography.titleMedium,
                 color = g.text,
                 textAlign = TextAlign.Center,
             )
             if (error != null) {
                 Spacer(Modifier.height(16.dp))
-                GlassButton("رد شدن", onClick = {
+                GlassButton(t("رد شدن"), onClick = {
                     repo.prefs.update { it.copy(firstScanDone = true) }
                     onDone()
                 }, primary = false)
@@ -105,9 +106,9 @@ fun ScanScreen(onDone: () -> Unit) {
     Box(Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp)) {
             item {
-                Text("دسته‌های پیشنهادی", style = MaterialTheme.typography.headlineMedium, color = g.text)
+                Text(t("دسته‌های پیشنهادی"), style = MaterialTheme.typography.headlineMedium, color = g.text)
                 Text(
-                    fa(list.sumOf { it.count }) + " مورد خونده شد. دسته‌هایی که برات مهمن رو تیک بزن تا در صفحه اصلی بزرگ نشون داده بشن. بقیه هم هستن، فقط کوچیک‌تر.",
+                    fa(list.sumOf { it.count }) + t(" مورد خونده شد. دسته‌هایی که برات مهمن رو تیک بزن تا در صفحه اصلی بزرگ نشون داده بشن. بقیه هم هستن، فقط کوچیک‌تر."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = g.textDim,
                     modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
@@ -121,7 +122,7 @@ fun ScanScreen(onDone: () -> Unit) {
             }
         }
         GlassButton(
-            text = "تأیید و شروع",
+            text = t("تأیید و شروع"),
             onClick = {
                 repo.prefs.update { it.copy(firstScanDone = true, mainCategories = picked.toSet()) }
                 onDone()
@@ -149,14 +150,14 @@ private fun SuggestionCard(s: Analyzer.Suggestion, checked: Boolean, onToggle: (
             NeonIcon(c.icon, c.tint, size = 42.dp)
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(c.label + "  ·  " + fa(s.count), style = MaterialTheme.typography.titleMedium, color = g.text)
-                Text(c.description, style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                Text(t(c.label) + "  ·  " + fa(s.count), style = MaterialTheme.typography.titleMedium, color = g.text)
+                Text(t(c.description), style = MaterialTheme.typography.bodySmall, color = g.textDim)
             }
             Checkbox(checked, onCheckedChange = { onToggle() }, colors = CheckboxDefaults.colors(checkedColor = c.tint))
         }
         if (s.topSenders.isNotEmpty()) {
             Text(
-                "فرستنده‌ها: " + s.topSenders.joinToString("، "),
+                t("فرستنده‌ها: ") + s.topSenders.joinToString(t("، ")),
                 style = MaterialTheme.typography.labelMedium,
                 color = g.textDim,
                 maxLines = 1,

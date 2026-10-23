@@ -1,5 +1,6 @@
 package com.rez.notif.ui.components
 
+import com.rez.notif.i18n.t
 import com.rez.notif.notif.CodeNotifier
 import com.rez.notif.classify.Classifier
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -119,7 +120,7 @@ fun ItemRow(
                         Spacer(Modifier.size(4.dp))
                     }
                     if (item.simSlot > 0) {
-                        Text("سیم " + fa(item.simSlot), style = MaterialTheme.typography.labelSmall, color = g.textDim)
+                        Text(t("سیم ") + fa(item.simSlot), style = MaterialTheme.typography.labelSmall, color = g.textDim)
                         Spacer(Modifier.size(6.dp))
                     }
                     Text(shortTime(item.timestamp), style = MaterialTheme.typography.labelSmall, color = g.textDim)
@@ -160,7 +161,7 @@ fun EmptyState(text: String, modifier: Modifier = Modifier) {
 fun ItemList(
     items: List<Item>,
     modifier: Modifier = Modifier,
-    empty: String = "چیزی اینجا نیست.",
+    empty: String = t("چیزی اینجا نیست."),
     editMode: Boolean = false,
     onEditModeChange: (Boolean) -> Unit = {},
     header: LazyListScope.() -> Unit = {},
@@ -203,10 +204,10 @@ fun ItemList(
 
         if (selecting) {
             BottomBar(Modifier.align(Alignment.BottomCenter)) {
-                Text(fa(selected.size) + " انتخاب", color = g.text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                GlassButton("همه", onClick = { selected = items.map { it.id }.toSet() }, primary = false)
+                Text(fa(selected.size) + t(" انتخاب"), color = g.text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                GlassButton(t("همه"), onClick = { selected = items.map { it.id }.toSet() }, primary = false)
                 Spacer(Modifier.size(6.dp))
-                GlassButton("حذف", icon = Icons.Rounded.Delete, enabled = selected.isNotEmpty(), onClick = {
+                GlassButton(t("حذف"), icon = Icons.Rounded.Delete, enabled = selected.isNotEmpty(), onClick = {
                     val chosen = items.filter { it.id in selected }
                     scope.launch { undo = repo.delete(chosen) }
                     stopSelecting()
@@ -216,8 +217,8 @@ fun ItemList(
             }
         } else if (undo != null) {
             BottomBar(Modifier.align(Alignment.BottomCenter)) {
-                Text(fa(undo!!.size) + " مورد حذف شد", color = g.text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                GlassButton("برگردون", onClick = {
+                Text(fa(undo!!.size) + t(" مورد حذف شد"), color = g.text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                GlassButton(t("برگردون"), onClick = {
                     val ids = undo!!
                     undo = null
                     scope.launch { repo.undoDelete(ids) }
@@ -287,7 +288,7 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                         color = g.text,
                     )
                     Text(
-                        fullTime(item.timestamp) + (if (item.simSlot > 0) "  ·  سیم " + fa(item.simSlot) else ""),
+                        fullTime(item.timestamp) + (if (item.simSlot > 0) t("  ·  سیم ") + fa(item.simSlot) else ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = g.textDim,
                     )
@@ -314,7 +315,7 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
             Spacer(Modifier.height(16.dp))
             codeOf(item)?.let { code ->
                 GlassButton(
-                    text = "کپی کد " + fa(code),
+                    text = t("کپی کد ") + fa(code),
                     icon = Icons.Rounded.ContentCopy,
                     onClick = { CodeNotifier.copy(context, code) },
                     modifier = Modifier.fillMaxWidth(),
@@ -322,22 +323,22 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 Spacer(Modifier.height(10.dp))
             }
             GlassButton(
-                text = if (item.source == Source.SMS) "باز کردن گفتگو و جواب" else "باز کردن در " + item.appName,
+                text = if (item.source == Source.SMS) t("باز کردن گفتگو و جواب") else t("باز کردن در ") + item.appName,
                 primary = codeOf(item) == null,
                 icon = Icons.AutoMirrored.Rounded.Reply,
                 onClick = { openFailed = !repo.openSource(context, item) },
                 modifier = Modifier.fillMaxWidth(),
             )
             if (openFailed) {
-                Text("این اپ باز نشد.", color = Category.ADS.tint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+                Text(t("این اپ باز نشد."), color = Category.ADS.tint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
             }
 
             Spacer(Modifier.height(20.dp))
-            Text("دسته", style = MaterialTheme.typography.titleMedium, color = g.text)
+            Text(t("دسته"), style = MaterialTheme.typography.titleMedium, color = g.text)
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Category.entries.forEach { c ->
-                    GlassChip(c.label, selected = c == current, color = c.tint, icon = c.icon, onClick = {
+                    GlassChip(t(c.label), selected = c == current, color = c.tint, icon = c.icon, onClick = {
                         current = c
                         scope.launch { repo.setCategory(item, c, wholeSender) }
                     })
@@ -353,36 +354,36 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                     colors = CheckboxDefaults.colors(checkedColor = g.accent),
                 )
                 Text(
-                    if (item.source == Source.SMS) "همه پیام‌های این فرستنده (اپ یاد می‌گیره)" else "همه نوتیف‌های این اپ (اپ یاد می‌گیره)",
+                    if (item.source == Source.SMS) t("همه پیام‌های این فرستنده (اپ یاد می‌گیره)") else t("همه نوتیف‌های این اپ (اپ یاد می‌گیره)"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = g.text,
                 )
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("کارها", style = MaterialTheme.typography.titleMedium, color = g.text)
+            Text(t("کارها"), style = MaterialTheme.typography.titleMedium, color = g.text)
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!vipAdded) {
-                    GlassButton("افزودن به افراد منتخب", icon = Icons.Rounded.Favorite, primary = false, onClick = {
+                    GlassButton(t("افزودن به افراد منتخب"), icon = Icons.Rounded.Favorite, primary = false, onClick = {
                         vipAdded = true
                         val name = if (item.source == Source.SMS) item.sender else item.title
                         val numbers = listOfNotNull(VipMatcher.key(item.sender))
                         scope.launch { repo.addVip(name, numbers) }
                     })
                 }
-                GlassButton("حذف", icon = Icons.Rounded.Delete, primary = false, onClick = {
+                GlassButton(t("حذف"), icon = Icons.Rounded.Delete, primary = false, onClick = {
                     scope.launch {
                         onDeleted(repo.delete(listOf(item)))
                         onDismiss()
                     }
                 })
-                GlassButton("حذف همه از «" + who.take(18) + "»", icon = Icons.Rounded.DeleteSweep, primary = false, onClick = {
+                GlassButton(t("حذف همه از «") + who.take(18) + "»", icon = Icons.Rounded.DeleteSweep, primary = false, onClick = {
                     confirmSenderDelete = true
                 })
             }
             Text(
-                "حذف فقط از این اپه؛ پیامک‌های خود گوشی دست نمی‌خورن.",
+                t("حذف فقط از این اپه؛ پیامک‌های خود گوشی دست نمی‌خورن."),
                 style = MaterialTheme.typography.bodySmall,
                 color = g.textDim,
                 modifier = Modifier.padding(top = 8.dp),
@@ -392,8 +393,8 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
     if (confirmSenderDelete) {
         AlertDialog(
             onDismissRequest = { confirmSenderDelete = false },
-            title = { Text("حذف همه از «$who»؟") },
-            text = { Text("همه پیامک‌ها یا نوتیف‌های این فرستنده از اپ حذف میشن. تا چند ثانیه بعد می‌تونی برگردونی.") },
+            title = { Text(t("حذف همه از «") + who + t("»؟")) },
+            text = { Text(t("همه پیامک‌ها یا نوتیف‌های این فرستنده از اپ حذف میشن. تا چند ثانیه بعد می‌تونی برگردونی.")) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmSenderDelete = false
@@ -401,9 +402,9 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                         onDeleted(repo.deleteFromSender(item))
                         onDismiss()
                     }
-                }) { Text("حذف کن", color = Category.ADS.tint) }
+                }) { Text(t("حذف کن"), color = Category.ADS.tint) }
             },
-            dismissButton = { TextButton(onClick = { confirmSenderDelete = false }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { confirmSenderDelete = false }) { Text(t("نه")) } },
         )
     }
 }
@@ -418,6 +419,6 @@ private fun CopyCodeChip(item: Item, modifier: Modifier = Modifier) {
     val code = remember(item.id) { codeOf(item) } ?: return
     val context = LocalContext.current
     Box(modifier) {
-        GlassChip("کپی " + fa(code), selected = true, color = Category.OTP.tint, icon = Icons.Rounded.ContentCopy, onClick = { CodeNotifier.copy(context, code) })
+        GlassChip(t("کپی ") + fa(code), selected = true, color = Category.OTP.tint, icon = Icons.Rounded.ContentCopy, onClick = { CodeNotifier.copy(context, code) })
     }
 }

@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,13 +72,13 @@ fun CategoryScreen(categoryId: String, nav: Navigator) {
     var edit by remember { mutableStateOf(false) }
 
     Column {
-        GlassTopBar(title = c.label, subtitle = fa(list.size) + " مورد", onBack = nav::back) {
+        GlassTopBar(title = t(c.label), subtitle = fa(list.size) + t(" مورد"), onBack = nav::back) {
             IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) c.tint else null)
             Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.DoneAll, { scope.launch { repo.markRead(list) } })
         }
-        ItemList(list, empty = "در این دسته چیزی نیست.", editMode = edit, onEditModeChange = { edit = it }) {
-            item { Header(c.icon, c.tint, c.description) }
+        ItemList(list, empty = t("در این دسته چیزی نیست."), editMode = edit, onEditModeChange = { edit = it }) {
+            item { Header(c.icon, c.tint, t(c.description)) }
             item { SourceFilters(filter) { filter = it } }
         }
     }
@@ -101,11 +102,11 @@ fun SpecialListScreen(kind: SpecialList, nav: Navigator) {
     }
     var edit by remember { mutableStateOf(false) }
     Column {
-        GlassTopBar(title = kind.title, subtitle = fa(list.size) + " مورد", onBack = nav::back) {
+        GlassTopBar(title = t(kind.title), subtitle = fa(list.size) + t(" مورد"), onBack = nav::back) {
             IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) color else null)
         }
-        ItemList(list, empty = "فعلاً چیزی نیست.", editMode = edit, onEditModeChange = { edit = it }) {
-            item { Header(icon, color, kind.hint) }
+        ItemList(list, empty = t("فعلاً چیزی نیست."), editMode = edit, onEditModeChange = { edit = it }) {
+            item { Header(icon, color, t(kind.hint)) }
             item { SourceFilters(filter) { filter = it } }
         }
     }
@@ -126,6 +127,6 @@ private fun Header(icon: ImageVector, color: Color, text: String) {
 @Composable
 private fun SourceFilters(current: SourceFilter, onPick: (SourceFilter) -> Unit) {
     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SourceFilter.entries.forEach { f -> GlassChip(f.label, selected = f == current, onClick = { onPick(f) }) }
+        SourceFilter.entries.forEach { f -> GlassChip(t(f.label), selected = f == current, onClick = { onPick(f) }) }
     }
 }

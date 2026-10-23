@@ -1,5 +1,6 @@
 package com.rez.notif.notif
 
+import com.rez.notif.i18n.t
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -32,10 +33,10 @@ object CodeNotifier {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         // Pops up on screen but stays silent: the original notification already made its sound.
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "کدهای تأیید", NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(CHANNEL, t("کدهای تأیید"), NotificationManager.IMPORTANCE_HIGH).apply {
                 setSound(null, null)
                 enableVibration(false)
-                description = "کد ورود و رمز پویا با دکمه کپی"
+                description = t("کد ورود و رمز پویا با دکمه کپی")
             },
         )
         val id = 1000 + (code.hashCode() and 0xFFFF)
@@ -53,7 +54,7 @@ object CodeNotifier {
             .setTimeoutAfter(10 * 60_000L)
             .setAutoCancel(true)
             .setContentIntent(copy)
-            .addAction(Notification.Action.Builder(null, "کپی کد", copy).build())
+            .addAction(Notification.Action.Builder(null, t("کپی کد"), copy).build())
             .build()
         nm.notify(id, n)
     }
@@ -67,7 +68,7 @@ object CodeNotifier {
         }
         cm.setPrimaryClip(clip)
         // Android 13+ shows its own "copied" message.
-        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "کد کپی شد", Toast.LENGTH_SHORT).show()
+        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, t("کد کپی شد"), Toast.LENGTH_SHORT).show()
     }
 
     internal fun codeOf(intent: Intent): String? = intent.getStringExtra(EXTRA_CODE)

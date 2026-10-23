@@ -1,6 +1,8 @@
 package com.rez.notif.data
 
 import android.content.Context
+import com.rez.notif.i18n.I18n
+import com.rez.notif.i18n.Lang
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +32,7 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.NEON_BLUE,
     val style: AppStyle = AppStyle.GLASS,
+    val language: Lang = Lang.FA,
     val animations: Boolean = true,
     /** Hide every new notification from the status bar right away; it lives on inside the app. */
     val hideAll: Boolean = true,
@@ -63,7 +66,7 @@ enum class CleanupRule(val label: String, val category: String, val days: Int, v
 /** Small settings store on top of SharedPreferences, exposed as a flow for the UI. */
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    private val _state = MutableStateFlow(load())
+    private val _state = MutableStateFlow(load().also { I18n.lang = it.language })
     val state: StateFlow<Settings> = _state.asStateFlow()
     val current: Settings get() = _state.value
 
@@ -75,6 +78,7 @@ class Prefs(context: Context) {
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
         style = runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.GLASS),
+        language = runCatching { Lang.valueOf(sp.getString("language", null)!!) }.getOrDefault(Lang.FA),
         animations = sp.getBoolean("animations", true),
         hideAll = sp.getBoolean("hideAll", true),
         keepOtp = sp.getBoolean("keepOtp", true),
@@ -98,6 +102,7 @@ class Prefs(context: Context) {
             .putString("themeMode", s.themeMode.name)
             .putString("accent", s.accent.name)
             .putString("style", s.style.name)
+            .putString("language", s.language.name)
             .putBoolean("animations", s.animations)
             .putBoolean("hideAll", s.hideAll)
             .putBoolean("keepOtp", s.keepOtp)
@@ -110,6 +115,7 @@ class Prefs(context: Context) {
             .putStringSet("cleanupRules", s.cleanupRules)
             .putLong("lastAutoClean", s.lastAutoClean)
             .apply()
+        I18n.lang = s.language
         _state.value = s
     }
 }

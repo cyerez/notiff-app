@@ -22,6 +22,7 @@ import com.rez.notif.R
 import com.rez.notif.data.Accent
 import com.rez.notif.data.AppStyle
 import com.rez.notif.data.Settings
+import com.rez.notif.i18n.Lang
 import com.rez.notif.data.ThemeMode
 
 /** All colors of the glass look. One instance for light, one for dark, tinted by the chosen accent. */
@@ -171,8 +172,8 @@ fun NotifTheme(settings: Settings, content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, typography = typography()) {
         CompositionLocalProvider(
             LocalGlass provides glass,
-            // The app is Persian: always right-to-left, whatever the phone language is.
-            LocalLayoutDirection provides LayoutDirection.Rtl,
+            // Follows the app language (not the phone's): Persian right-to-left, English left-to-right.
+            LocalLayoutDirection provides if (settings.language == Lang.FA) LayoutDirection.Rtl else LayoutDirection.Ltr,
             content = content,
         )
     }

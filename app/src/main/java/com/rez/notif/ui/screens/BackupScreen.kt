@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -74,7 +75,7 @@ fun BackupScreen(nav: Navigator) {
     }
 
     Column {
-        GlassTopBar(title = "پشتیبان", onBack = nav::back)
+        GlassTopBar(title = t("پشتیبان"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 60.dp)) {
             item {
                 GlassCard(Modifier.fillMaxWidth().padding(vertical = 6.dp), glow = g.accent) {
@@ -82,7 +83,7 @@ fun BackupScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.Lock, g.accent, size = 46.dp)
                         Spacer(Modifier.size(12.dp))
                         Text(
-                            "همه پیامک‌ها، نوتیف‌ها، افراد منتخب و یادگرفته‌ها توی یک فایل رمزدار ذخیره میشن. بدون رمز هیچ‌کس نمی‌تونه بازش کنه، پس رمز رو فراموش نکن.",
+                            t("همه پیامک‌ها، نوتیف‌ها، افراد منتخب و یادگرفته‌ها توی یک فایل رمزدار ذخیره میشن. بدون رمز هیچ‌کس نمی‌تونه بازش کنه، پس رمز رو فراموش نکن."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = g.text,
                         )
@@ -91,7 +92,7 @@ fun BackupScreen(nav: Navigator) {
             }
             item {
                 Spacer(Modifier.height(10.dp))
-                GlassButton("ساختن فایل پشتیبان", icon = Icons.Rounded.CloudUpload, enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+                GlassButton(t("ساختن فایل پشتیبان"), icon = Icons.Rounded.CloudUpload, enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                     val name = "notif-" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) + ".notifbak"
                     createFile.launch(
                         Intent(Intent.ACTION_CREATE_DOCUMENT)
@@ -101,7 +102,7 @@ fun BackupScreen(nav: Navigator) {
                     )
                 })
                 Spacer(Modifier.height(10.dp))
-                GlassButton("بازگردانی از فایل", icon = Icons.Rounded.CloudDownload, primary = false, enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+                GlassButton(t("بازگردانی از فایل"), icon = Icons.Rounded.CloudDownload, primary = false, enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                     openFile.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"))
                 })
                 message?.let { Text(it, color = g.accent, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp)) }
@@ -115,41 +116,41 @@ fun BackupScreen(nav: Navigator) {
         val ok = if (step == BackupStep.EXPORT) pass.length >= 4 && pass == again else pass.isNotEmpty()
         AlertDialog(
             onDismissRequest = { pending = null },
-            title = { Text(if (step == BackupStep.EXPORT) "رمز فایل پشتیبان" else "بازگردانی") },
+            title = { Text(if (step == BackupStep.EXPORT) t("رمز فایل پشتیبان") else t("بازگردانی")) },
             text = {
                 Column {
                     if (step == BackupStep.IMPORT) {
-                        Text("همه داده‌های فعلی اپ با این فایل جایگزین میشن.", color = Category.ADS.tint, style = MaterialTheme.typography.bodySmall)
+                        Text(t("همه داده‌های فعلی اپ با این فایل جایگزین میشن."), color = Category.ADS.tint, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
                     }
-                    PasswordField(pass, { pass = it }, "رمز")
-                    if (step == BackupStep.EXPORT) PasswordField(again, { again = it }, "تکرار رمز")
+                    PasswordField(pass, { pass = it }, t("رمز"))
+                    if (step == BackupStep.EXPORT) PasswordField(again, { again = it }, t("تکرار رمز"))
                 }
             },
             confirmButton = {
                 TextButton(enabled = ok, onClick = {
                     pending = null
                     busy = true
-                    message = "صبر کن…"
+                    message = t("صبر کن…")
                     scope.launch {
                         message = try {
                             if (step == BackupStep.EXPORT) {
-                                repo.exportBackup(uri, pass.toCharArray()); "فایل پشتیبان ساخته شد."
+                                repo.exportBackup(uri, pass.toCharArray()); t("فایل پشتیبان ساخته شد.")
                             } else {
-                                repo.importBackup(uri, pass.toCharArray()); "بازگردانی انجام شد."
+                                repo.importBackup(uri, pass.toCharArray()); t("بازگردانی انجام شد.")
                             }
                         } catch (e: BackupCrypto.WrongPassword) {
-                            "رمز اشتباهه (یا فایل خراب شده)."
+                            t("رمز اشتباهه (یا فایل خراب شده).")
                         } catch (e: BackupCrypto.NotABackup) {
-                            "این فایل پشتیبان نوتیف نیست."
+                            t("این فایل پشتیبان نوتیف نیست.")
                         } catch (e: Exception) {
-                            "خطا: " + (e.message ?: "نامشخص")
+                            t("خطا: ") + (e.message ?: t("نامشخص"))
                         }
                         busy = false
                     }
-                }) { Text(if (step == BackupStep.EXPORT) "ذخیره" else "بازگردانی") }
+                }) { Text(if (step == BackupStep.EXPORT) t("ذخیره") else t("بازگردانی")) }
             },
-            dismissButton = { TextButton(onClick = { pending = null }) { Text("لغو") } },
+            dismissButton = { TextButton(onClick = { pending = null }) { Text(t("لغو")) } },
         )
     }
 }

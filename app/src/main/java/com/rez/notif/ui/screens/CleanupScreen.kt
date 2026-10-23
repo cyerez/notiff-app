@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -62,7 +63,7 @@ fun CleanupScreen(nav: Navigator) {
     val total = preview.orEmpty().filterKeys { it in chosen }.values.sum()
 
     Column {
-        GlassTopBar(title = "پاک‌سازی هوشمند", onBack = nav::back)
+        GlassTopBar(title = t("پاک‌سازی هوشمند"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 60.dp)) {
             item {
                 GlassCard(Modifier.fillMaxWidth().padding(vertical = 6.dp), glow = g.accent) {
@@ -70,7 +71,7 @@ fun CleanupScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.CleaningServices, g.accent, size = 46.dp)
                         Spacer(Modifier.size(12.dp))
                         Text(
-                            "چیزهای قدیمی و بی‌مصرف رو پیدا می‌کنم. افراد منتخب، ستاره‌دارها و ارزشمندها هیچ‌وقت پاک نمیشن. پیامک‌های خود گوشی هم دست نمی‌خورن.",
+                            t("چیزهای قدیمی و بی‌مصرف رو پیدا می‌کنم. افراد منتخب، ستاره‌دارها و ارزشمندها هیچ‌وقت پاک نمیشن. پیامک‌های خود گوشی هم دست نمی‌خورن."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = g.text,
                         )
@@ -91,8 +92,8 @@ fun CleanupScreen(nav: Navigator) {
                         NeonIcon(c.icon, c.tint, size = 36.dp)
                         Spacer(Modifier.size(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(rule.label, style = MaterialTheme.typography.titleSmall, color = g.text)
-                            Text(fa(preview?.get(rule) ?: 0) + " مورد", style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                            Text(t(rule.label), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(fa(preview?.get(rule) ?: 0) + t(" مورد"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                         }
                         Checkbox(on, onCheckedChange = null, colors = CheckboxDefaults.colors(checkedColor = c.tint))
                     }
@@ -101,12 +102,12 @@ fun CleanupScreen(nav: Navigator) {
             item {
                 Spacer(Modifier.height(12.dp))
                 GlassButton(
-                    text = if (total > 0) "پاک کردن " + fa(total) + " مورد" else "چیزی برای پاک کردن نیست",
+                    text = if (total > 0) t("پاک کردن ") + fa(total) + t(" مورد") else t("چیزی برای پاک کردن نیست"),
                     enabled = total > 0,
                     onClick = {
                         scope.launch {
                             val n = repo.runCleanup(chosen)
-                            result = fa(n) + " مورد پاک شد."
+                            result = fa(n) + t(" مورد پاک شد.")
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -117,8 +118,8 @@ fun CleanupScreen(nav: Navigator) {
                 GlassCard(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("پاک‌سازی خودکار", style = MaterialTheme.typography.titleSmall, color = g.text)
-                            Text("روزی یک بار، موقع باز کردن اپ، با همین تیک‌ها", style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                            Text(t("پاک‌سازی خودکار"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(t("روزی یک بار، موقع باز کردن اپ، با همین تیک‌ها"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                         }
                         Switch(
                             checked = s.autoClean,

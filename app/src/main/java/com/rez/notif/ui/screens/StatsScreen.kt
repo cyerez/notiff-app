@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -59,35 +60,35 @@ fun StatsScreen(nav: Navigator) {
     val stats by rememberLoaded(repo) { repo.stats() }
 
     Column {
-        GlassTopBar(title = "آمار", onBack = nav::back)
+        GlassTopBar(title = t("آمار"), onBack = nav::back)
         val s = stats ?: return@Column
         LazyColumn(contentPadding = PaddingValues(bottom = 60.dp)) {
             item {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Tile("پیامک", s.sms, Color(0xFF34D399), Modifier.weight(1f))
-                    Tile("نوتیف", s.notifications, g.accent, Modifier.weight(1f))
-                    Tile("تبلیغ", s.ads, Category.ADS.tint, Modifier.weight(1f))
-                    Tile("ارزشمند", s.valuable, ValuableColor, Modifier.weight(1f))
+                    Tile(t("پیامک"), s.sms, Color(0xFF34D399), Modifier.weight(1f))
+                    Tile(t("نوتیف"), s.notifications, g.accent, Modifier.weight(1f))
+                    Tile(t("تبلیغ"), s.ads, Category.ADS.tint, Modifier.weight(1f))
+                    Tile(t("ارزشمند"), s.valuable, ValuableColor, Modifier.weight(1f))
                 }
             }
-            item { SectionTitle("هفت روز اخیر") }
+            item { SectionTitle(t("هفت روز اخیر")) }
             item { WeekChart(s) }
-            item { SectionTitle("سهم دسته‌ها") }
+            item { SectionTitle(t("سهم دسته‌ها")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
                     val max = s.byCategory.maxOfOrNull { it.total }?.coerceAtLeast(1) ?: 1
                     s.byCategory.forEach { cc ->
                         val c = Category.of(cc.category)
-                        BarRow(c.label, cc.total, max, c.tint)
+                        BarRow(t(c.label), cc.total, max, c.tint)
                     }
                 }
             }
             if (s.topApps.isNotEmpty()) {
-                item { SectionTitle("پرنوتیف‌ترین اپ‌ها") }
+                item { SectionTitle(t("پرنوتیف‌ترین اپ‌ها")) }
                 item { RankCard(s.topApps) }
             }
             if (s.topSenders.isNotEmpty()) {
-                item { SectionTitle("پرپیامک‌ترین فرستنده‌ها") }
+                item { SectionTitle(t("پرپیامک‌ترین فرستنده‌ها")) }
                 item { RankCard(s.topSenders) }
             }
         }
@@ -155,9 +156,9 @@ private fun WeekChart(s: Stats) {
         }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).background(g.accent, RoundedCornerShape(5.dp)))
-            Text("  همه   ", style = MaterialTheme.typography.labelSmall, color = g.textDim)
+            Text(t("  همه   "), style = MaterialTheme.typography.labelSmall, color = g.textDim)
             Box(Modifier.size(10.dp).background(Category.ADS.tint, RoundedCornerShape(5.dp)))
-            Text("  تبلیغ", style = MaterialTheme.typography.labelSmall, color = g.textDim)
+            Text(t("  تبلیغ"), style = MaterialTheme.typography.labelSmall, color = g.textDim)
         }
     }
 }

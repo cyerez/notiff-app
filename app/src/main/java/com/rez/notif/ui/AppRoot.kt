@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -83,7 +84,8 @@ fun AppRoot() {
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
 
     val unlocked by AppLock.unlocked.collectAsState()
-    NotifTheme(settings) {
+    // Changing the language rebuilds every screen so all texts switch at once.
+    key(settings.language) { NotifTheme(settings) {
         GlassBackground {
             if (settings.appLock && !unlocked) {
                 Box(Modifier.fillMaxSize().statusBarsPadding()) { LockScreen() }
@@ -119,7 +121,7 @@ fun AppRoot() {
                 }
             }
         }
-    }
+    } }
 }
 
 /** Loads data with [loader] and reloads it whenever anything in the database changes. */

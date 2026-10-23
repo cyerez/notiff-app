@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -59,7 +60,7 @@ fun LearnedScreen(nav: Navigator) {
     var editing by remember { mutableStateOf<Repository.Learned?>(null) }
 
     Column {
-        GlassTopBar(title = "یادگرفته‌ها", subtitle = fa(rules?.size ?: 0) + " قانون", onBack = nav::back)
+        GlassTopBar(title = t("یادگرفته‌ها"), subtitle = fa(rules?.size ?: 0) + t(" قانون"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 60.dp)) {
             item {
                 GlassCard(Modifier.fillMaxWidth().padding(vertical = 6.dp), glow = g.accent) {
@@ -67,7 +68,7 @@ fun LearnedScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.School, g.accent, size = 46.dp)
                         Spacer(Modifier.size(12.dp))
                         Text(
-                            "هر بار که «همه پیام‌های این فرستنده» رو به یه دسته بردی، اپ یه قانون یاد گرفته. اینجا می‌تونی عوضش کنی یا فراموشش کنی.",
+                            t("هر بار که «همه پیام‌های این فرستنده» رو به یه دسته بردی، اپ یه قانون یاد گرفته. اینجا می‌تونی عوضش کنی یا فراموشش کنی."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = g.text,
                         )
@@ -75,7 +76,7 @@ fun LearnedScreen(nav: Navigator) {
                 }
             }
             if (rules?.isEmpty() == true) {
-                item { Text("هنوز چیزی یاد نگرفته.", color = g.textDim, modifier = Modifier.padding(16.dp)) }
+                item { Text(t("هنوز چیزی یاد نگرفته."), color = g.textDim, modifier = Modifier.padding(16.dp)) }
             }
             items(rules.orEmpty(), key = { it.key }) { r ->
                 GlassCard(Modifier.fillMaxWidth().padding(vertical = 5.dp), onClick = { editing = r }, contentPadding = 12.dp) {
@@ -84,7 +85,7 @@ fun LearnedScreen(nav: Navigator) {
                         Spacer(Modifier.size(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(r.who, style = MaterialTheme.typography.titleSmall, color = g.text, maxLines = 1)
-                            Text((if (r.isSms) "پیامک" else "اپ") + " ← " + r.category.label, style = MaterialTheme.typography.bodySmall, color = r.category.tint)
+                            Text((if (r.isSms) t("پیامک") else t("اپ")) + " ← " + t(r.category.label), style = MaterialTheme.typography.bodySmall, color = r.category.tint)
                         }
                         IconBubble(Icons.Rounded.Delete, { scope.launch { repo.forgetLearned(r.key) } })
                     }
@@ -100,14 +101,14 @@ fun LearnedScreen(nav: Navigator) {
             text = {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Category.entries.forEach { c ->
-                        GlassChip(c.label, c == r.category, color = c.tint, icon = c.icon, onClick = {
+                        GlassChip(t(c.label), c == r.category, color = c.tint, icon = c.icon, onClick = {
                             editing = null
                             scope.launch { repo.changeLearned(r.key, c) }
                         })
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { editing = null }) { Text("بستن") } },
+            confirmButton = { TextButton(onClick = { editing = null }) { Text(t("بستن")) } },
         )
     }
 }

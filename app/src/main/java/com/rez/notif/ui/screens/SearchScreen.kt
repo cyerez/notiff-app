@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -69,11 +70,11 @@ fun SearchScreen(nav: Navigator) {
     }
 
     Column {
-        GlassTopBar(title = "جستجو", onBack = nav::back)
+        GlassTopBar(title = t("جستجو"), onBack = nav::back)
         TextField(
             value = text,
             onValueChange = { text = it },
-            placeholder = { Text("متن، فرستنده یا اسم اپ…") },
+            placeholder = { Text(t("متن، فرستنده یا اسم اپ…")) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             singleLine = true,
             shape = RoundedCornerShape(22.dp),
@@ -96,32 +97,32 @@ fun SearchScreen(nav: Navigator) {
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            GlassChip("همه", source == null, { source = null })
-            GlassChip("پیامک", source == Source.SMS, { source = Source.SMS })
-            GlassChip("نوتیف", source == Source.NOTIFICATION, { source = Source.NOTIFICATION })
-            GlassChip("سیم ۱", sim == 1, { sim = if (sim == 1) null else 1 })
-            GlassChip("سیم ۲", sim == 2, { sim = if (sim == 2) null else 2 })
+            GlassChip(t("همه"), source == null, { source = null })
+            GlassChip(t("پیامک"), source == Source.SMS, { source = Source.SMS })
+            GlassChip(t("نوتیف"), source == Source.NOTIFICATION, { source = Source.NOTIFICATION })
+            GlassChip(t("سیم ۱"), sim == 1, { sim = if (sim == 1) null else 1 })
+            GlassChip(t("سیم ۲"), sim == 2, { sim = if (sim == 2) null else 2 })
         }
         LazyRow(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item { GlassChip("با تبلیغ‌ها", withAds, { withAds = !withAds }, color = Category.ADS.tint) }
+            item { GlassChip(t("با تبلیغ‌ها"), withAds, { withAds = !withAds }, color = Category.ADS.tint) }
             Category.entries.filter { it != Category.ADS }.forEach { c ->
                 item {
-                    GlassChip(c.label, category == c.id, { category = if (category == c.id) null else c.id }, color = c.tint, icon = c.icon)
+                    GlassChip(t(c.label), category == c.id, { category = if (category == c.id) null else c.id }, color = c.tint, icon = c.icon)
                 }
             }
         }
         val list = results.orEmpty()
         if (active) {
             Text(
-                fa(list.size) + " نتیجه",
+                fa(list.size) + t(" نتیجه"),
                 style = MaterialTheme.typography.labelMedium,
                 color = g.textDim,
                 modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp),
             )
         }
-        ItemList(list, empty = if (active) "چیزی پیدا نشد." else "یک کلمه بنویس یا یک فیلتر انتخاب کن.")
+        ItemList(list, empty = if (active) t("چیزی پیدا نشد.") else t("یک کلمه بنویس یا یک فیلتر انتخاب کن."))
     }
 }

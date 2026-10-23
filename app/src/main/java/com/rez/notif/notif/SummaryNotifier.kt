@@ -1,5 +1,6 @@
 package com.rez.notif.notif
 
+import com.rez.notif.i18n.t
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -34,12 +35,12 @@ object SummaryNotifier {
 
         // Low importance: the original notification already made its sound, so this one stays silent.
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "خلاصه نوتیف‌ها", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "یک نوتیف آروم به جای همه نوتیف‌های مخفی‌شده"
+            NotificationChannel(CHANNEL, t("خلاصه نوتیف‌ها"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = t("یک نوتیف آروم به جای همه نوتیف‌های مخفی‌شده")
             },
         )
         val byCategory = items.groupBy { it.category }.entries.sortedByDescending { it.value.size }
-        val summary = byCategory.joinToString("، ") { Category.of(it.key).label + " " + fa(it.value.size) }
+        val summary = byCategory.joinToString(t("، ")) { t(Category.of(it.key).label) + " " + fa(it.value.size) }
         val style = Notification.InboxStyle().setSummaryText(summary)
         items.take(6).forEach { i ->
             val who = i.sender.ifBlank { i.appName }
@@ -53,7 +54,7 @@ object SummaryNotifier {
         )
         val n = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_notif)
-            .setContentTitle(fa(items.size) + " مورد تازه")
+            .setContentTitle(fa(items.size) + t(" مورد تازه"))
             .setContentText(summary)
             .setStyle(style)
             .setNumber(items.size)

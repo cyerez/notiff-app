@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import android.app.Activity
 import android.content.Intent
 import android.provider.ContactsContract
@@ -85,7 +86,7 @@ fun VipScreen(nav: Navigator) {
     }
 
     Column {
-        GlassTopBar(title = "افراد منتخب", subtitle = fa(people?.size ?: 0) + " نفر", onBack = nav::back)
+        GlassTopBar(title = t("افراد منتخب"), subtitle = fa(people?.size ?: 0) + t(" نفر"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 60.dp)) {
             item {
                 GlassCard(Modifier.fillMaxWidth().padding(vertical = 6.dp), glow = VipColor) {
@@ -93,16 +94,16 @@ fun VipScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.Favorite, VipColor, size = 46.dp)
                         Spacer(Modifier.size(12.dp))
                         Text(
-                            "هر پیامک، نوتیف یا میس‌کالی از این افراد برای همیشه اینجا می‌مونه. هیچ‌وقت تبلیغ حساب نمیشه، خودکار پاک نمیشه و نوتیفش روی گوشی می‌مونه.",
+                            t("هر پیامک، نوتیف یا میس‌کالی از این افراد برای همیشه اینجا می‌مونه. هیچ‌وقت تبلیغ حساب نمیشه، خودکار پاک نمیشه و نوتیفش روی گوشی می‌مونه."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = g.text,
                         )
                     }
                     Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton("از مخاطبین", icon = Icons.Rounded.ContactPhone, onClick = {
+                        GlassButton(t("از مخاطبین"), icon = Icons.Rounded.ContactPhone, onClick = {
                             picker.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI))
                         })
-                        GlassButton("دستی", icon = Icons.Rounded.EditNote, primary = false, onClick = { manual = true })
+                        GlassButton(t("دستی"), icon = Icons.Rounded.EditNote, primary = false, onClick = { manual = true })
                     }
                 }
             }
@@ -118,7 +119,7 @@ fun VipScreen(nav: Navigator) {
                         Column(Modifier.weight(1f)) {
                             Text(v.person.name, style = MaterialTheme.typography.titleMedium, color = g.text)
                             Text(
-                                fa(v.count) + " مورد" + (if (v.last > 0) "  ·  آخرین: " + shortTime(v.last) else ""),
+                                fa(v.count) + t(" مورد") + (if (v.last > 0) t("  ·  آخرین: ") + shortTime(v.last) else ""),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = g.textDim,
                             )
@@ -135,14 +136,14 @@ fun VipScreen(nav: Navigator) {
         var number by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { manual = false },
-            title = { Text("افزودن دستی") },
+            title = { Text(t("افزودن دستی")) },
             text = {
                 Column {
-                    OutlinedTextField(name, { name = it }, label = { Text("اسم (همونی که در تلگرام و … دیده میشه)") }, singleLine = true)
+                    OutlinedTextField(name, { name = it }, label = { Text(t("اسم (همونی که در تلگرام و … دیده میشه)")) }, singleLine = true)
                     OutlinedTextField(
                         number,
                         { number = it },
-                        label = { Text("شماره (اختیاری)") },
+                        label = { Text(t("شماره (اختیاری)")) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     )
@@ -152,9 +153,9 @@ fun VipScreen(nav: Navigator) {
                 TextButton(enabled = name.isNotBlank() || number.isNotBlank(), onClick = {
                     manual = false
                     scope.launch { repo.addVip(name, listOf(number)) }
-                }) { Text("افزودن") }
+                }) { Text(t("افزودن")) }
             },
-            dismissButton = { TextButton(onClick = { manual = false }) { Text("لغو") } },
+            dismissButton = { TextButton(onClick = { manual = false }) { Text(t("لغو")) } },
         )
     }
 }
@@ -171,11 +172,11 @@ fun VipPersonScreen(id: Long, name: String, nav: Navigator) {
     Column {
         GlassTopBar(
             title = name,
-            subtitle = fa(list.size) + " مورد" + (if (missed > 0) "  ·  " + fa(missed) + " میس‌کال" else ""),
+            subtitle = fa(list.size) + t(" مورد") + (if (missed > 0) "  ·  " + fa(missed) + t(" میس‌کال") else ""),
             onBack = nav::back,
         ) {
             IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) Category.MISSED.tint else null)
         }
-        ItemList(list, empty = "هنوز چیزی از این شخص نیومده.", editMode = edit, onEditModeChange = { edit = it })
+        ItemList(list, empty = t("هنوز چیزی از این شخص نیومده."), editMode = edit, onEditModeChange = { edit = it })
     }
 }

@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +45,7 @@ import com.rez.notif.classify.Category
 import com.rez.notif.data.Accent
 import com.rez.notif.data.AppStyle
 import com.rez.notif.data.ThemeMode
+import com.rez.notif.i18n.Lang
 import com.rez.notif.security.AppLock
 import com.rez.notif.ui.Navigator
 import com.rez.notif.ui.Screen
@@ -72,76 +74,80 @@ fun SettingsScreen(nav: Navigator) {
     var confirmWipe by remember { mutableStateOf(false) }
 
     Column {
-        GlassTopBar(title = "تنظیمات", onBack = nav::back)
+        GlassTopBar(title = t("تنظیمات"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(bottom = 60.dp)) {
-            item { SectionTitle("ظاهر") }
+            item { SectionTitle(t("ظاهر")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    Text("سبک", style = MaterialTheme.typography.titleSmall, color = g.text)
+                    Text("زبان / Language", style = MaterialTheme.typography.titleSmall, color = g.text)
+                    Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Lang.entries.forEach { l -> GlassChip(l.label, s.language == l, { repo.prefs.update { it.copy(language = l) } }) }
+                    }
+                    Text(t("سبک"), style = MaterialTheme.typography.titleSmall, color = g.text)
                     FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         AppStyle.entries.forEach { st ->
-                            GlassChip(st.label, s.style == st, { repo.prefs.update { it.copy(style = st) } })
+                            GlassChip(t(st.label), s.style == st, { repo.prefs.update { it.copy(style = st) } })
                         }
                     }
-                    Text("حالت", style = MaterialTheme.typography.titleSmall, color = g.text)
+                    Text(t("حالت"), style = MaterialTheme.typography.titleSmall, color = g.text)
                     Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassChip("خودکار", s.themeMode == ThemeMode.SYSTEM, { repo.prefs.update { it.copy(themeMode = ThemeMode.SYSTEM) } })
-                        GlassChip("روشن", s.themeMode == ThemeMode.LIGHT, { repo.prefs.update { it.copy(themeMode = ThemeMode.LIGHT) } })
-                        GlassChip("تیره", s.themeMode == ThemeMode.DARK, { repo.prefs.update { it.copy(themeMode = ThemeMode.DARK) } })
+                        GlassChip(t("خودکار"), s.themeMode == ThemeMode.SYSTEM, { repo.prefs.update { it.copy(themeMode = ThemeMode.SYSTEM) } })
+                        GlassChip(t("روشن"), s.themeMode == ThemeMode.LIGHT, { repo.prefs.update { it.copy(themeMode = ThemeMode.LIGHT) } })
+                        GlassChip(t("تیره"), s.themeMode == ThemeMode.DARK, { repo.prefs.update { it.copy(themeMode = ThemeMode.DARK) } })
                     }
                     if (s.style == AppStyle.GLASS) {
-                        Text("رنگ نئون", style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Text(t("رنگ نئون"), style = MaterialTheme.typography.titleSmall, color = g.text)
                         Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Accent.entries.forEach { a -> AccentDot(a, a == s.accent) { repo.prefs.update { it.copy(accent = a) } } }
                         }
-                        Text(s.accent.label, style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                        Text(t(s.accent.label), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                     }
-                    ToggleRow("انیمیشن‌ها", "پس‌زمینه متحرک و حرکت‌های کوچک", s.animations) { v ->
+                    ToggleRow(t("انیمیشن‌ها"), t("پس‌زمینه متحرک و حرکت‌های کوچک"), s.animations) { v ->
                         repo.prefs.update { it.copy(animations = v) }
                     }
                 }
             }
 
-            item { SectionTitle("دسته‌ها و تبلیغ") }
+            item { SectionTitle(t("دسته‌ها و تبلیغ")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    ToggleRow("مخفی کردن تبلیغ‌ها", "نوتیف تبلیغی (و نوتیف پیامک تبلیغی) فوراً پاک میشه و فقط در «تبلیغات مخفی‌شده» می‌مونه.", s.hideAds) { v ->
+                    ToggleRow(t("مخفی کردن تبلیغ‌ها"), t("نوتیف تبلیغی (و نوتیف پیامک تبلیغی) فوراً پاک میشه و فقط در «تبلیغات مخفی‌شده» می‌مونه."), s.hideAds) { v ->
                         repo.prefs.update { it.copy(hideAds = v) }
                     }
                     Spacer(Modifier.height(10.dp))
-                    ToggleRow("مخفی کردن فوری همه نوتیف‌ها", "هر نوتیف تازه همون لحظه از نوار بالای گوشی برداشته میشه و فقط توی دسته خودش در این اپ می‌مونه.", s.hideAll) { v ->
+                    ToggleRow(t("مخفی کردن فوری همه نوتیف‌ها"), t("هر نوتیف تازه همون لحظه از نوار بالای گوشی برداشته میشه و فقط توی دسته خودش در این اپ می‌مونه."), s.hideAll) { v ->
                         repo.prefs.update { it.copy(hideAll = v) }
                     }
                     if (s.hideAll) {
                         Spacer(Modifier.height(10.dp))
-                        ToggleRow("کد تأیید روی گوشی بمونه", "کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه.", s.keepOtp) { v ->
+                        ToggleRow(t("کد تأیید روی گوشی بمونه"), t("کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه."), s.keepOtp) { v ->
                             repo.prefs.update { it.copy(keepOtp = v) }
                         }
                         Spacer(Modifier.height(10.dp))
-                        ToggleRow("افراد منتخب روی گوشی بمونن", "نوتیف‌های افراد منتخب مخفی نمیشن.", s.keepVip) { v ->
+                        ToggleRow(t("افراد منتخب روی گوشی بمونن"), t("نوتیف‌های افراد منتخب مخفی نمیشن."), s.keepVip) { v ->
                             repo.prefs.update { it.copy(keepVip = v) }
                         }
                         Spacer(Modifier.height(10.dp))
-                        ToggleRow("یک نوتیف خلاصه", "به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه.", s.summary) { v ->
+                        ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
                             repo.prefs.update { it.copy(summary = v) }
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    ToggleRow("مرتب کردن نوتیف‌ها موقع ورود", "با باز کردن اپ، نوتیف‌های قبلی هم با همین قانون‌ها از نوار گوشی پاک میشن.", s.clearOnOpen) { v ->
+                    ToggleRow(t("مرتب کردن نوتیف‌ها موقع ورود"), t("با باز کردن اپ، نوتیف‌های قبلی هم با همین قانون‌ها از نوار گوشی پاک میشن."), s.clearOnOpen) { v ->
                         repo.prefs.update { it.copy(clearOnOpen = v) }
                     }
                     Spacer(Modifier.height(10.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton("افراد منتخب", onClick = { nav.go(Screen.Vip) }, primary = false)
-                        GlassButton("پاک‌سازی هوشمند", onClick = { nav.go(Screen.Cleanup) }, primary = false)
+                        GlassButton(t("افراد منتخب"), onClick = { nav.go(Screen.Vip) }, primary = false)
+                        GlassButton(t("پاک‌سازی هوشمند"), onClick = { nav.go(Screen.Cleanup) }, primary = false)
                     }
                     Spacer(Modifier.height(10.dp))
-                    Text("دسته‌های اصلی صفحه خانه", style = MaterialTheme.typography.titleSmall, color = g.text)
+                    Text(t("دسته‌های اصلی صفحه خانه"), style = MaterialTheme.typography.titleSmall, color = g.text)
                     Spacer(Modifier.height(8.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Category.entries.filter { it != Category.ADS }.forEach { c ->
                             val on = c.id in s.mainCategories
-                            GlassChip(c.label, on, color = c.tint, icon = c.icon, onClick = {
+                            GlassChip(t(c.label), on, color = c.tint, icon = c.icon, onClick = {
                                 repo.prefs.update { st ->
                                     st.copy(mainCategories = if (on) st.mainCategories - c.id else st.mainCategories + c.id)
                                 }
@@ -151,54 +157,54 @@ fun SettingsScreen(nav: Navigator) {
                 }
             }
 
-            item { SectionTitle("امنیت و پشتیبان") }
+            item { SectionTitle(t("امنیت و پشتیبان")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    ToggleRow("قفل با اثر انگشت", "موقع باز کردن اپ، اثر انگشت یا رمز گوشی می‌خواد. اگه بیشتر از ۳۰ ثانیه از اپ بیرون باشی دوباره قفل میشه.", s.appLock) { v ->
+                    ToggleRow(t("قفل با اثر انگشت"), t("موقع باز کردن اپ، اثر انگشت یا رمز گوشی می‌خواد. اگه بیشتر از ۳۰ ثانیه از اپ بیرون باشی دوباره قفل میشه."), s.appLock) { v ->
                         // Ask for the finger first, so nobody can turn the lock on or off without it.
                         (context as? Activity)?.let { a ->
-                            AppLock.authenticate(a, if (v) "روشن کردن قفل" else "خاموش کردن قفل") { ok ->
+                            AppLock.authenticate(a, if (v) t("روشن کردن قفل") else t("خاموش کردن قفل")) { ok ->
                                 if (ok) repo.prefs.update { it.copy(appLock = v) }
                             }
                         }
                     }
                     Spacer(Modifier.height(12.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton("پشتیبان رمزدار", onClick = { nav.go(Screen.Backup) }, primary = false)
-                        GlassButton("یادگرفته‌ها", onClick = { nav.go(Screen.Learned) }, primary = false)
+                        GlassButton(t("پشتیبان رمزدار"), onClick = { nav.go(Screen.Backup) }, primary = false)
+                        GlassButton(t("یادگرفته‌ها"), onClick = { nav.go(Screen.Learned) }, primary = false)
                     }
                 }
             }
 
-            item { SectionTitle("داده‌ها") }
+            item { SectionTitle(t("داده‌ها")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
                     Text(
-                        "همه چیز فقط روی همین گوشی ذخیره میشه. این اپ اصلاً اجازه اینترنت نداره.",
+                        t("همه چیز فقط روی همین گوشی ذخیره میشه. این اپ اصلاً اجازه اینترنت نداره."),
                         style = MaterialTheme.typography.bodyMedium,
                         color = g.textDim,
                     )
                     Spacer(Modifier.height(12.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton("همگام‌سازی پیامک‌ها", onClick = {
+                        GlassButton(t("همگام‌سازی پیامک‌ها"), onClick = {
                             scope.launch {
                                 val n = runCatching { repo.syncSms() }.getOrNull()
-                                syncMsg = if (n == null) "خطا در خوندن پیامک‌ها" else fa(n) + " پیامک جدید اضافه شد"
+                                syncMsg = if (n == null) t("خطا در خوندن پیامک‌ها") else fa(n) + t(" پیامک جدید اضافه شد")
                             }
                         }, primary = false)
-                        GlassButton("اسکن و دسته‌بندی دوباره", onClick = {
+                        GlassButton(t("اسکن و دسته‌بندی دوباره"), onClick = {
                             repo.prefs.update { it.copy(firstScanDone = false) }
                             nav.reset(Screen.Scan)
                         }, primary = false)
-                        GlassButton("دسترسی‌ها", onClick = { nav.go(Screen.Onboarding) }, primary = false)
-                        GlassButton("پاک کردن همه", onClick = { confirmWipe = true }, primary = false)
+                        GlassButton(t("دسترسی‌ها"), onClick = { nav.go(Screen.Onboarding) }, primary = false)
+                        GlassButton(t("پاک کردن همه"), onClick = { confirmWipe = true }, primary = false)
                     }
                     syncMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = g.accent, modifier = Modifier.padding(top = 8.dp)) }
                 }
             }
             item {
                 Text(
-                    "نوتیف · نسخه " + fa(runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "") + " (آزمایشی)",
+                    t("نوتیف · نسخه ") + fa(runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "") + t(" (آزمایشی)"),
                     style = MaterialTheme.typography.labelMedium,
                     color = g.textDim,
                     modifier = Modifier.padding(22.dp),
@@ -210,15 +216,15 @@ fun SettingsScreen(nav: Navigator) {
     if (confirmWipe) {
         AlertDialog(
             onDismissRequest = { confirmWipe = false },
-            title = { Text("پاک کردن همه داده‌ها؟") },
-            text = { Text("همه پیامک‌ها و نوتیف‌های ذخیره‌شده در این اپ پاک میشن. پیامک‌های خود گوشی دست نمی‌خورن.") },
+            title = { Text(t("پاک کردن همه داده‌ها؟")) },
+            text = { Text(t("همه پیامک‌ها و نوتیف‌های ذخیره‌شده در این اپ پاک میشن. پیامک‌های خود گوشی دست نمی‌خورن.")) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmWipe = false
                     scope.launch { repo.deleteAll() }
-                }) { Text("پاک کن", color = Category.ADS.tint) }
+                }) { Text(t("پاک کن"), color = Category.ADS.tint) }
             },
-            dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("نه") } },
+            dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text(t("نه")) } },
         )
     }
 }

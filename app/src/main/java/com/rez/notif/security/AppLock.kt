@@ -1,5 +1,6 @@
 package com.rez.notif.security
 
+import com.rez.notif.i18n.t
 import android.app.Activity
 import android.hardware.biometrics.BiometricManager.Authenticators
 import android.hardware.biometrics.BiometricPrompt
@@ -27,10 +28,10 @@ object AppLock {
     }
 
     /** Shows the system prompt. Fingerprint, face, or the phone's own PIN/pattern all work. */
-    fun authenticate(activity: Activity, title: String = "باز کردن نوتیف", onResult: (Boolean) -> Unit = {}) {
+    fun authenticate(activity: Activity, title: String = t("باز کردن نوتیف"), onResult: (Boolean) -> Unit = {}) {
         val prompt = BiometricPrompt.Builder(activity)
             .setTitle(title)
-            .setSubtitle("اثر انگشت یا رمز گوشی")
+            .setSubtitle(t("اثر انگشت یا رمز گوشی"))
             .setAllowedAuthenticators(Authenticators.BIOMETRIC_WEAK or Authenticators.DEVICE_CREDENTIAL)
             .build()
         prompt.authenticate(

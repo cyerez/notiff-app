@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -101,7 +102,7 @@ fun HomeScreen(nav: Navigator) {
     var edit by remember { mutableStateOf(false) }
 
     Column {
-        GlassTopBar(title = "نوتیف", subtitle = today()) {
+        GlassTopBar(title = t("نوتیف"), subtitle = today()) {
             IconBubble(Icons.Rounded.Edit, { edit = !edit }, tint = if (edit) g.accent else null)
             Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.Search, { nav.go(Screen.Search) })
@@ -113,16 +114,16 @@ fun HomeScreen(nav: Navigator) {
 
         ItemList(
             items = recent.orEmpty(),
-            empty = "هنوز چیزی نیومده.",
+            empty = t("هنوز چیزی نیومده."),
             editMode = edit,
             onEditModeChange = { edit = it },
         ) {
             item {
                 // Three big tiles, like the "Inbox / To-Do / Notifications" sample.
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SummaryTile("امروز", fa(data?.todayCount ?: 0), g.accent, Modifier.weight(1f)) {}
-                    SummaryTile("خونده‌نشده", fa(unreadAll), Color(0xFF34D399), Modifier.weight(1f)) {}
-                    SummaryTile("ارزشمند", fa(data?.valuable ?: 0), ValuableColor, Modifier.weight(1f)) {
+                    SummaryTile(t("امروز"), fa(data?.todayCount ?: 0), g.accent, Modifier.weight(1f)) {}
+                    SummaryTile(t("خونده‌نشده"), fa(unreadAll), Color(0xFF34D399), Modifier.weight(1f)) {}
+                    SummaryTile(t("ارزشمند"), fa(data?.valuable ?: 0), ValuableColor, Modifier.weight(1f)) {
                         nav.go(Screen.Special(SpecialList.VALUABLE))
                     }
                 }
@@ -130,19 +131,19 @@ fun HomeScreen(nav: Navigator) {
             item {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ActionTile(
-                        Icons.Rounded.Favorite, VipColor, "افراد منتخب",
-                        if ((data?.vips ?: 0) == 0) "هنوز کسی نیست" else fa(data?.vips ?: 0) + " نفر · " + fa(data?.vipItems ?: 0) + " مورد",
+                        Icons.Rounded.Favorite, VipColor, t("افراد منتخب"),
+                        if ((data?.vips ?: 0) == 0) t("هنوز کسی نیست") else fa(data?.vips ?: 0) + t(" نفر · ") + fa(data?.vipItems ?: 0) + t(" مورد"),
                         Modifier.weight(1f),
                     ) { nav.go(Screen.Vip) }
                     ActionTile(
-                        Icons.Rounded.CleaningServices, g.accent, "پاک‌سازی",
-                        if ((data?.clutter ?: 0) == 0) "همه چی مرتبه" else fa(data?.clutter ?: 0) + " مورد اضافه",
+                        Icons.Rounded.CleaningServices, g.accent, t("پاک‌سازی"),
+                        if ((data?.clutter ?: 0) == 0) t("همه چی مرتبه") else fa(data?.clutter ?: 0) + t(" مورد اضافه"),
                         Modifier.weight(1f),
                     ) { nav.go(Screen.Cleanup) }
                 }
             }
             if (main.isNotEmpty()) {
-                item { SectionTitle("دسته‌های اصلی") }
+                item { SectionTitle(t("دسته‌های اصلی")) }
                 item {
                     FlowRow(
                         Modifier.padding(horizontal = 16.dp),
@@ -158,7 +159,7 @@ fun HomeScreen(nav: Navigator) {
                 }
             }
             if (others.isNotEmpty()) {
-                item { SectionTitle("بقیه دسته‌ها") }
+                item { SectionTitle(t("بقیه دسته‌ها")) }
                 item {
                     FlowRow(
                         Modifier.padding(horizontal = 16.dp),
@@ -167,7 +168,7 @@ fun HomeScreen(nav: Navigator) {
                     ) {
                         others.forEach { c ->
                             GlassChip(
-                                c.label + " " + fa(counts[c.id]?.total ?: 0),
+                                t(c.label) + " " + fa(counts[c.id]?.total ?: 0),
                                 selected = false,
                                 color = c.tint,
                                 icon = c.icon,
@@ -188,9 +189,9 @@ fun HomeScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.Campaign, Category.ADS.tint, size = 36.dp)
                         Spacer(Modifier.size(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("تبلیغات مخفی‌شده", style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(t("تبلیغات مخفی‌شده"), style = MaterialTheme.typography.titleSmall, color = g.text)
                             Text(
-                                if (settings.hideAds) "نوتیف تبلیغ‌ها خودکار پاک میشه" else "مخفی کردن تبلیغ خاموشه",
+                                if (settings.hideAds) t("نوتیف تبلیغ‌ها خودکار پاک میشه") else t("مخفی کردن تبلیغ خاموشه"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = g.textDim,
                             )
@@ -199,7 +200,7 @@ fun HomeScreen(nav: Navigator) {
                     }
                 }
             }
-            item { SectionTitle("تازه‌ها") }
+            item { SectionTitle(t("تازه‌ها")) }
         }
     }
 }
@@ -240,7 +241,7 @@ private fun CategoryTile(c: Category, count: CategoryCount?, modifier: Modifier,
             Badge(count?.unread ?: 0, c.tint)
         }
         Spacer(Modifier.height(12.dp))
-        Text(c.label, style = MaterialTheme.typography.titleMedium, color = g.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(fa(count?.total ?: 0) + " مورد", style = MaterialTheme.typography.bodySmall, color = g.textDim)
+        Text(t(c.label), style = MaterialTheme.typography.titleMedium, color = g.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(fa(count?.total ?: 0) + t(" مورد"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
     }
 }

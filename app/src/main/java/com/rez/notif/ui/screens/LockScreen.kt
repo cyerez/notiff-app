@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,8 +35,8 @@ fun LockScreen() {
     ) {
         NeonIcon(Icons.Rounded.Fingerprint, g.accent, size = 96.dp)
         Spacer(Modifier.height(20.dp))
-        Text("نوتیف قفله", style = MaterialTheme.typography.headlineSmall, color = g.text)
+        Text(t("نوتیف قفله"), style = MaterialTheme.typography.headlineSmall, color = g.text)
         Spacer(Modifier.height(24.dp))
-        GlassButton("باز کردن", icon = Icons.Rounded.Fingerprint, onClick = { activity?.let { AppLock.authenticate(it) } })
+        GlassButton(t("باز کردن"), icon = Icons.Rounded.Fingerprint, onClick = { activity?.let { AppLock.authenticate(it) } })
     }
 }

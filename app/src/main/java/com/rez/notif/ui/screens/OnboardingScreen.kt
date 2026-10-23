@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.i18n.t
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -98,9 +99,9 @@ fun OnboardingScreen(onDone: () -> Unit) {
         Spacer(Modifier.height(28.dp))
         NeonIcon(Icons.Rounded.NotificationsActive, g.accent, size = 84.dp)
         Spacer(Modifier.height(18.dp))
-        Text("سلام rez", style = MaterialTheme.typography.headlineLarge, color = g.text)
+        Text(t("سلام rez"), style = MaterialTheme.typography.headlineLarge, color = g.text)
         Text(
-            "نوتیف همه پیامک‌ها و نوتیف‌هات رو مرتب می‌کنه. همه چیز فقط روی همین گوشی می‌مونه و هیچ چیزی به اینترنت فرستاده نمیشه.",
+            t("نوتیف همه پیامک‌ها و نوتیف‌هات رو مرتب می‌کنه. همه چیز فقط روی همین گوشی می‌مونه و هیچ چیزی به اینترنت فرستاده نمیشه."),
             style = MaterialTheme.typography.bodyLarge,
             color = g.textDim,
             textAlign = TextAlign.Center,
@@ -110,10 +111,10 @@ fun OnboardingScreen(onDone: () -> Unit) {
         StepCard(
             icon = Icons.Rounded.Sms,
             color = Color(0xFF34D399),
-            title = "۱. دسترسی پیامک",
-            text = "برای خوندن پیامک‌های قدیمی و جدید، و فهمیدن اینکه از کدوم سیم‌کارت اومدن.",
+            title = t("۱. دسترسی پیامک"),
+            text = t("برای خوندن پیامک‌های قدیمی و جدید، و فهمیدن اینکه از کدوم سیم‌کارت اومدن."),
             done = smsOk,
-            action = "اجازه بده",
+            action = t("اجازه بده"),
             onAction = {
                 smsLauncher.launch(
                     arrayOf(
@@ -128,27 +129,27 @@ fun OnboardingScreen(onDone: () -> Unit) {
         StepCard(
             icon = Icons.Rounded.NotificationsActive,
             color = g.accent,
-            title = "۲. دسترسی نوتیف‌ها",
-            text = "در صفحه‌ای که باز میشه «نوتیف» رو روشن کن. اگه خاکستری بود و روشن نشد: برو به اطلاعات اپ، منوی ⋮ بالا، و «Allow restricted settings» رو بزن، بعد دوباره امتحان کن.",
+            title = t("۲. دسترسی نوتیف‌ها"),
+            text = t("در صفحه‌ای که باز میشه «نوتیف» رو روشن کن. اگه خاکستری بود و روشن نشد: برو به اطلاعات اپ، منوی ⋮ بالا، و «Allow restricted settings» رو بزن، بعد دوباره امتحان کن."),
             done = notifOk,
-            action = "باز کردن تنظیمات",
+            action = t("باز کردن تنظیمات"),
             onAction = { Permissions.openNotificationAccess(context) },
-            secondary = "اطلاعات اپ",
+            secondary = t("اطلاعات اپ"),
             onSecondary = { Permissions.openAppInfo(context) },
         )
         StepCard(
             icon = Icons.Rounded.BatteryChargingFull,
             color = Color(0xFFFF8A3D),
-            title = "۳. باتری (پیشنهادی)",
-            text = "سامسونگ اپ‌ها رو در پس‌زمینه می‌خوابونه. با این گزینه نوتیفی از دست نمیره.",
+            title = t("۳. باتری (پیشنهادی)"),
+            text = t("سامسونگ اپ‌ها رو در پس‌زمینه می‌خوابونه. با این گزینه نوتیفی از دست نمیره."),
             done = batteryOk,
-            action = "اجازه بده",
+            action = t("اجازه بده"),
             onAction = { Permissions.askBattery(context) },
         )
 
         Spacer(Modifier.height(12.dp))
         GlassButton(
-            text = if (smsOk) "شروع اسکن" else "اول دسترسی پیامک لازمه",
+            text = if (smsOk) t("شروع اسکن") else t("اول دسترسی پیامک لازمه"),
             onClick = onDone,
             enabled = smsOk,
             modifier = Modifier.fillMaxWidth(),
