@@ -331,7 +331,14 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 text = if (item.source == Source.SMS) t("باز کردن گفتگو و جواب") else t("باز کردن در ") + item.appName,
                 primary = codeOf(item) == null,
                 icon = Icons.AutoMirrored.Rounded.Reply,
-                onClick = { openFailed = !repo.openSource(context, item) },
+                onClick = {
+                    // As the phone's SMS app, Notif opens its own conversation screen.
+                    if (item.source == Source.SMS && com.rez.notif.sms.DefaultSms.isDefault(context)) {
+                        com.rez.notif.ui.OpenRequests.open(com.rez.notif.ui.Screen.Conversation(item.sender))
+                    } else {
+                        openFailed = !repo.openSource(context, item)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
             if (repo.canReply(item)) {
@@ -392,7 +399,11 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                 })
             }
             Text(
-                t("حذف فقط از این اپه؛ پیامک‌های خود گوشی دست نمی‌خورن."),
+                if (repo.prefs.current.phoneDelete && com.rez.notif.sms.DefaultSms.isDefault(context)) {
+                    t("پیامک از خود گوشی هم پاک میشه (تا چند ثانیه می‌تونی برگردونی).")
+                } else {
+                    t("حذف فقط از این اپه؛ پیامک‌های خود گوشی دست نمی‌خورن.")
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = g.textDim,
                 modifier = Modifier.padding(top = 8.dp),

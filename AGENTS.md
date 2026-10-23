@@ -43,13 +43,16 @@ app/src/main/java/com/rez/notif/
           WalletVault.kt (password wallet key: Keystore AES-GCM, needs fingerprint/PIN every 60 s; clipboard wipe)
   wallet/ WalletModel.kt (WalletKind, WalletEntry, WalletCodec, PasswordGen; pure Kotlin, tested; keep Android out)
   widget/ NotifWidget.kt (RemoteViews home-screen widget; refreshed 2 s after data changes)
-  sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast)
+  sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast; skipped when we are default)
+         Phase 5 (default SMS app): DefaultSms.kt (role, send, write/delete in the phone's SMS store, threads),
+         SmsDeliverReceiver.kt (SMS_DELIVER: must write to the inbox, then notify via SmsNotifier),
+         MmsReceiver.kt + MmsPdu.kt (MMS is only recorded, not downloaded), HeadlessSmsSendService.kt
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE)
+    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5)
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 
@@ -67,6 +70,9 @@ app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatche
 6. Tidy-up: on resume, `NotifListener.clearNonEssential` cancels shade notifications that
    `Repository.keepInShade` rejects; `autoCleanIfDue` runs the chosen `CleanupRule`s once a day.
    Deleting only hides items in this app; the phone's SMS inbox is untouched.
+9. Default SMS app (phase 5): opt-in from Settings. Then SMS_DELIVER replaces SMS_RECEIVED, Notif writes every incoming
+   and sent SMS to the provider, `Repository.delete/cleanup` also delete on the phone when `phoneDelete` is on (undo
+   re-inserts), and `blockAdSms` keeps ads out of the phone inbox. Never skip the provider write: that loses messages.
 7. Password wallet: rows in `wallet` hold title+kind readable (inside SQLCipher) and the rest encrypted again with
    `WalletVault` (user-auth Keystore key). Backup decrypts them into a `wallet_export` table of the temp copy
    (the whole file is then password-locked); restore re-encrypts with this phone's key. Both need the wallet unlocked.

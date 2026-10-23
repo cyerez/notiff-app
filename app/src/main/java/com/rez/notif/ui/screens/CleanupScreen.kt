@@ -71,7 +71,11 @@ fun CleanupScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.CleaningServices, g.accent, size = 46.dp)
                         Spacer(Modifier.size(12.dp))
                         Text(
-                            t("چیزهای قدیمی و بی‌مصرف رو پیدا می‌کنم. افراد منتخب، ستاره‌دارها و ارزشمندها هیچ‌وقت پاک نمیشن. پیامک‌های خود گوشی هم دست نمی‌خورن."),
+                            if (repo.prefs.current.phoneDelete && com.rez.notif.sms.DefaultSms.isDefault(context)) {
+                                t("چیزهای قدیمی و بی‌مصرف رو پیدا می‌کنم. افراد منتخب، ستاره‌دارها و ارزشمندها هیچ‌وقت پاک نمیشن. پیامک‌های پاک‌شده از خود گوشی هم پاک میشن.")
+                            } else {
+                                t("چیزهای قدیمی و بی‌مصرف رو پیدا می‌کنم. افراد منتخب، ستاره‌دارها و ارزشمندها هیچ‌وقت پاک نمیشن. پیامک‌های خود گوشی هم دست نمی‌خورن.")
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = g.text,
                         )

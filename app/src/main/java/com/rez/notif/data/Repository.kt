@@ -18,6 +18,7 @@ import com.rez.notif.classify.Learner
 import com.rez.notif.classify.Priority
 import com.rez.notif.classify.VipMatcher
 import com.rez.notif.classify.VipPerson
+import com.rez.notif.sms.DefaultSms
 import com.rez.notif.sms.RawSms
 import com.rez.notif.sms.SmsReader
 import kotlinx.coroutines.Dispatchers
@@ -171,6 +172,26 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (db.insert(smsToItem(raw))) changed()
     }
 
+    /** What to do with a new SMS while Notif is the default SMS app. */
+    data class SmsDecision(val notify: Boolean, val code: String?, val isAd: Boolean, val block: Boolean)
+
+    /** Stores a new SMS (default SMS app mode) and decides: notify, show only a code, or stay quiet. */
+    fun receiveSms(raw: RawSms): SmsDecision {
+        val item = smsToItem(raw)
+        if (db.insert(item)) changed()
+        val category = Category.of(item.category)
+        val vip = vipPeople().firstOrNull { it.id == item.vipId }
+        val code = codeFor(category, raw.body)
+        val hide = hideNow(category, vip, raw.date, code != null)
+        val s = prefs.current
+        return SmsDecision(
+            notify = !hide,
+            code = code,
+            isAd = item.isAd,
+            block = item.isAd && s.hideAds && s.blockAdSms,
+        )
+    }
+
     /** Stores a notification. Returns true when the listener should remove it from the status bar (an ad). */
     /** What the listener should do with a notification: hide it, and maybe show the code with a copy button. */
     data class Decision(val hide: Boolean, val code: String?)
@@ -320,9 +341,11 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     suspend fun markRead(items: List<Item>) = withContext(Dispatchers.IO) {
-        val ids = items.filter { !it.isRead }.map { it.id }
+        val unread = items.filter { !it.isRead }
+        val ids = unread.map { it.id }
         if (ids.isNotEmpty()) {
             db.markRead(ids)
+            unread.filter { it.source == Source.SMS }.map { it.sender }.distinct().forEach { DefaultSms.markRead(context, it) }
             changed()
         }
     }
@@ -338,13 +361,39 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     suspend fun delete(items: List<Item>): List<Long> = withContext(Dispatchers.IO) {
         val ids = items.map { it.id }
         db.delete(ids)
+        removeFromPhone(ids)
         changed()
         ids
     }
 
     suspend fun undoDelete(ids: List<Long>) = withContext(Dispatchers.IO) {
         db.delete(ids, deleted = false)
+        putBackOnPhone(ids)
         changed()
+    }
+
+    /** SMS we removed from the phone's inbox, kept for a while so "undo" can put them back. */
+    private val removedFromPhone = java.util.concurrent.ConcurrentHashMap<Long, Item>()
+
+    /** Phase 5: when Notif is the default SMS app and the user wants it, deleting also deletes on the phone. */
+    private fun removeFromPhone(ids: List<Long>) {
+        if (!prefs.current.phoneDelete || ids.isEmpty() || !DefaultSms.isDefault(context)) return
+        if (removedFromPhone.size > 5000) removedFromPhone.clear()
+        db.smsByIds(ids).forEach { item ->
+            if (DefaultSms.deleteFromPhone(context, item.sender, item.body, item.timestamp) > 0) removedFromPhone[item.id] = item
+        }
+    }
+
+    private fun putBackOnPhone(ids: List<Long>) {
+        ids.forEach { id ->
+            val item = removedFromPhone.remove(id) ?: return@forEach
+            DefaultSms.writeInbox(
+                context,
+                RawSms(-1, item.sender, item.body, item.timestamp, DefaultSms.subIdForSlot(context, item.simSlot)),
+                sentAt = item.timestamp,
+                read = true,
+            )
+        }
     }
 
     /** Everything from the same SMS sender, or the same app. */
@@ -355,6 +404,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             db.ids(ItemQuery(source = Source.NOTIFICATION, packageName = item.packageName, includeAds = true))
         }
         db.delete(ids)
+        removeFromPhone(ids)
         changed()
         ids
     }
@@ -376,6 +426,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         rules.forEach { rule ->
             val ids = db.ids(cleanupQuery(rule))
             db.delete(ids)
+            removeFromPhone(ids)
             n += ids.size
         }
         if (n > 0) changed()
@@ -595,9 +646,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     /** Sends [text] as an answer. Returns false if it could not be sent. */
     fun reply(item: Item, text: String): Boolean = try {
         if (item.source == Source.SMS) {
-            val sm = smsManagerFor(item.simSlot)
-            sm.sendMultipartTextMessage(item.sender, null, sm.divideMessage(text), null, null)
-            true
+            DefaultSms.send(context, item.sender, text, item.simSlot)
         } else {
             val a = replyActions[item.sourceKey] ?: return false
             val inputs = a.remoteInputs ?: return false
@@ -609,18 +658,6 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         }
     } catch (e: Exception) {
         false
-    }
-
-    private fun smsManagerFor(simSlot: Int): android.telephony.SmsManager {
-        val base = checkNotNull(context.getSystemService(android.telephony.SmsManager::class.java)) { "no SMS on this device" }
-        if (simSlot <= 0) return base
-        return try {
-            val subs = context.getSystemService(android.telephony.SubscriptionManager::class.java) ?: return base
-            val sub = subs.activeSubscriptionInfoList?.firstOrNull { it.simSlotIndex == simSlot - 1 } ?: return base
-            base.createForSubscriptionId(sub.subscriptionId)
-        } catch (e: SecurityException) {
-            base
-        }
     }
 
     private fun sendPending(pi: PendingIntent): Boolean = try {

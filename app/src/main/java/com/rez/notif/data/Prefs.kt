@@ -43,6 +43,10 @@ data class Settings(
     val accent: Accent = Accent.NEON_BLUE,
     val style: AppStyle = AppStyle.GLASS,
     val season: Season = Season.AUTO,
+    /** Phase 5 (Notif is the default SMS app): ad SMS never reach the phone's inbox; they stay only in "hidden ads". */
+    val blockAdSms: Boolean = false,
+    /** Phase 5: deleting in Notif also deletes the SMS from the phone (undo puts it back). */
+    val phoneDelete: Boolean = true,
     val language: Lang = Lang.FA,
     val animations: Boolean = true,
     /** Hide every new notification from the status bar right away; it lives on inside the app. */
@@ -99,6 +103,8 @@ class Prefs(context: Context) {
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
         style = runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.GLASS),
+        blockAdSms = sp.getBoolean("blockAdSms", false),
+        phoneDelete = sp.getBoolean("phoneDelete", true),
         season = runCatching { Season.valueOf(sp.getString("season", null)!!) }.getOrDefault(Season.AUTO),
         language = runCatching { Lang.valueOf(sp.getString("language", null)!!) }.getOrDefault(Lang.FA),
         animations = sp.getBoolean("animations", true),
@@ -127,6 +133,8 @@ class Prefs(context: Context) {
             .putString("accent", s.accent.name)
             .putString("style", s.style.name)
             .putString("season", s.season.name)
+            .putBoolean("blockAdSms", s.blockAdSms)
+            .putBoolean("phoneDelete", s.phoneDelete)
             .putString("language", s.language.name)
             .putBoolean("animations", s.animations)
             .putBoolean("hideAll", s.hideAll)

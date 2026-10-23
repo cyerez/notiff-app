@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,6 +26,7 @@ import com.rez.notif.data.Repository
 import com.rez.notif.security.AppLock
 import com.rez.notif.ui.components.GlassBackground
 import com.rez.notif.ui.screens.CategoryScreen
+import com.rez.notif.ui.screens.ConversationScreen
 import com.rez.notif.ui.screens.BackupScreen
 import com.rez.notif.ui.screens.CleanupScreen
 import com.rez.notif.ui.screens.LearnedScreen
@@ -58,6 +60,13 @@ sealed interface Screen {
     data object Wallet : Screen
     data object Vip : Screen
     data class VipPerson(val id: Long, val name: String) : Screen
+    data class Conversation(val address: String, val draft: String = "") : Screen
+}
+
+/** Screens asked for from outside the UI tree: a tapped SMS notification, "send message" from another app. */
+object OpenRequests {
+    val pending = kotlinx.coroutines.flow.MutableStateFlow<Screen?>(null)
+    fun open(s: Screen) { pending.value = s }
 }
 
 /** Simple back stack: the last screen is shown. */
@@ -84,6 +93,14 @@ fun AppRoot() {
         )
     }
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
+    val request by OpenRequests.pending.collectAsState()
+    LaunchedEffect(request) {
+        val r = request ?: return@LaunchedEffect
+        OpenRequests.pending.value = null
+        if (!repo.prefs.current.firstScanDone) return@LaunchedEffect
+        // The same conversation twice in a row is just one screen.
+        if (nav.current != r) nav.go(r)
+    }
 
     val unlocked by AppLock.unlocked.collectAsState()
     // Changing the language rebuilds every screen so all texts switch at once.
@@ -120,6 +137,7 @@ fun AppRoot() {
                         Screen.Wallet -> WalletScreen(nav)
                         Screen.Vip -> VipScreen(nav)
                         is Screen.VipPerson -> VipPersonScreen(screen.id, screen.name, nav)
+                        is Screen.Conversation -> ConversationScreen(screen.address, screen.draft, nav)
                     }
                 }
             }

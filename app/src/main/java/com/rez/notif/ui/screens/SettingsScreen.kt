@@ -62,6 +62,9 @@ import com.rez.notif.ui.components.pressable
 import com.rez.notif.ui.components.softShadow
 import com.rez.notif.ui.components.tint
 import com.rez.notif.ui.theme.LocalGlass
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.rez.notif.sms.DefaultSms
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -166,6 +169,9 @@ fun SettingsScreen(nav: Navigator) {
                     }
                 }
             }
+
+            item { SectionTitle(t("اپ پیامک گوشی")) }
+            item { SmsAppCard() }
 
             item { SectionTitle(t("امنیت و پشتیبان")) }
             item {
@@ -285,5 +291,51 @@ private fun AccentDot(a: Accent, selected: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** Phase 5: make Notif the phone's SMS app (or go back), and what that turns on. */
+@Composable
+private fun SmsAppCard() {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val s by repo.prefs.state.collectAsState()
+    var isDefault by remember { mutableStateOf(DefaultSms.isDefault(context)) }
+    val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        isDefault = DefaultSms.isDefault(context)
+    }
+    GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+        if (!isDefault) {
+            Text(t("نوتیف به جای پیام‌رسان سامسونگ"), style = MaterialTheme.typography.titleSmall, color = g.text)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                t("اگه نوتیف اپ پیامک گوشی بشه: پیامک‌ها مستقیم اینجا میان و از همینجا جواب میدی، حذف واقعاً از گوشی پاک می‌کنه و تبلیغ‌ها رو میشه کامل بلاک کرد. پیام‌های MMS (عکس و صدا) باز نمیشن. هر وقت خواستی برمی‌گردی به پیام‌رسان قبلی."),
+                style = MaterialTheme.typography.bodySmall,
+                color = g.textDim,
+            )
+            Spacer(Modifier.height(10.dp))
+            GlassButton(t("نوتیف رو اپ پیامک گوشی کن"), onClick = {
+                DefaultSms.requestIntent(context)?.let { roleLauncher.launch(it) }
+            })
+        } else {
+            Text(t("نوتیف الان اپ پیامک گوشیه."), style = MaterialTheme.typography.titleSmall, color = g.text)
+            Spacer(Modifier.height(10.dp))
+            ToggleRow(
+                t("حذف از گوشی هم"),
+                t("حذف و پاک‌سازی در نوتیف، پیامک رو از خود گوشی هم پاک می‌کنه. تا چند ثانیه با «برگردون» برمی‌گرده."),
+                s.phoneDelete,
+            ) { v -> repo.prefs.update { it.copy(phoneDelete = v) } }
+            Spacer(Modifier.height(10.dp))
+            ToggleRow(
+                t("بلاک کامل پیامک تبلیغاتی"),
+                t("پیامک تبلیغاتی اصلاً وارد صندوق پیامک گوشی نمیشه؛ فقط در «تبلیغات مخفی‌شده» همین اپ می‌مونه."),
+                s.blockAdSms,
+            ) { v -> repo.prefs.update { it.copy(blockAdSms = v) } }
+            Spacer(Modifier.height(10.dp))
+            GlassButton(t("برگشت به پیام‌رسان قبلی"), primary = false, onClick = {
+                runCatching { roleLauncher.launch(DefaultSms.chooseOtherIntent()) }
+            })
+        }
     }
 }

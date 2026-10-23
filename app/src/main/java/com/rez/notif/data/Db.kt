@@ -256,6 +256,15 @@ class Db private constructor(
         }
     }
 
+    /** SMS items by id, deleted or not (to remove them from, or put them back in, the phone's inbox). */
+    fun smsByIds(ids: List<Long>): List<Item> = ids.chunked(500).flatMap { chunk ->
+        readableDatabase.rawQuery("SELECT * FROM items WHERE source = 'SMS' AND id IN (${chunk.joinToString(",")})", null).use { c ->
+            val l = ArrayList<Item>(c.count)
+            while (c.moveToNext()) l += c.toItem()
+            l
+        }
+    }
+
     /** Ids matching a query (used by cleanup and "delete all from sender"). */
     fun ids(q: ItemQuery): List<Long> {
         val (where, args) = whereOf(q)

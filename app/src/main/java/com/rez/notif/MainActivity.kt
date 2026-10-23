@@ -1,5 +1,6 @@
 package com.rez.notif
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,7 +10,11 @@ import com.rez.notif.notif.NotifListener
 import com.rez.notif.notif.SummaryNotifier
 import com.rez.notif.security.AppLock
 import com.rez.notif.security.WalletVault
+import com.rez.notif.sms.HeadlessSmsSendService
+import com.rez.notif.sms.SmsNotifier
 import com.rez.notif.ui.AppRoot
+import com.rez.notif.ui.OpenRequests
+import com.rez.notif.ui.Screen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -17,6 +22,28 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent { AppRoot() }
+        handle(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handle(intent)
+    }
+
+    /** Opens a conversation for a tapped SMS notification, or for "send message" from another app. */
+    private fun handle(intent: Intent?) {
+        intent ?: return
+        intent.getStringExtra(SmsNotifier.EXTRA_ADDRESS)?.let {
+            intent.removeExtra(SmsNotifier.EXTRA_ADDRESS)
+            OpenRequests.open(Screen.Conversation(it))
+            return
+        }
+        if (intent.action == Intent.ACTION_SENDTO || intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_VIEW) {
+            val to = HeadlessSmsSendService.recipients(intent.data).firstOrNull() ?: return
+            val draft = intent.getStringExtra("sms_body") ?: intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            OpenRequests.open(Screen.Conversation(to, draft))
+        }
     }
 
     override fun onStart() {
