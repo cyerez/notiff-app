@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Glass bell with a neon ring -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#5CF2FF"
+        android:strokeWidth="3"
+        android:pathData="M54,22a32,32 0,1 1,0 64a32,32 0,1 1,0 -64z" />
+    <path
+        android:fillColor="#E6FFFFFF"
+        android:pathData="M54,36c-7.2,0 -12,5.4 -12,12.5v8.5l-4,6v2h32v-2l-4,-6v-8.5c0,-7.1 -4.8,-12.5 -12,-12.5z" />
+    <path
+        android:fillColor="#5CF2FF"
+        android:pathData="M49,68a5,5 0,0 0,10 0z" />
+    <path
+        android:fillColor="#FF8A3D"
+        android:pathData="M64,34m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+</vector>
