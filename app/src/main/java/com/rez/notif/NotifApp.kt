@@ -1,7 +1,12 @@
 package com.rez.notif
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import com.rez.notif.data.RelockMode
+import com.rez.notif.security.AppLock
 import com.rez.notif.data.Db
 import com.rez.notif.data.Prefs
 import com.rez.notif.data.Repository
@@ -10,6 +15,20 @@ import com.rez.notif.data.Repository
 class NotifApp : Application() {
 
     val repository: Repository by lazy { Repository(this, Db.open(this), Prefs(this)) }
+
+    override fun onCreate() {
+        super.onCreate()
+        // "Lock when the screen turns off" needs to hear the screen going off while the app is in the background.
+        registerReceiver(
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val s = repository.prefs.current
+                    if (s.appLock && s.relock == RelockMode.SCREEN_OFF) AppLock.lockNow()
+                }
+            },
+            IntentFilter(Intent.ACTION_SCREEN_OFF),
+        )
+    }
 
     companion object {
         fun repo(context: Context): Repository = (context.applicationContext as NotifApp).repository

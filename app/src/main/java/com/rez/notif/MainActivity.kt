@@ -20,9 +20,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        AppLock.onReturn()
+        AppLock.onReturn(NotifApp.repo(this).prefs.current.relock)
         // While the lock is on, the recent-apps preview stays blank.
         setRecentsScreenshotEnabled(!NotifApp.repo(this).prefs.current.appLock)
+    }
+
+    override fun onDestroy() {
+        // Closed for real (swiped away from recent apps), not just rotated: lock again.
+        if (isFinishing && !isChangingConfigurations) AppLock.lockNow()
+        super.onDestroy()
     }
 
     override fun onStop() {

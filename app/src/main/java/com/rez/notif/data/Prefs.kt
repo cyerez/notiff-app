@@ -45,6 +45,7 @@ data class Settings(
     val lastSeen: Long = 0,
     /** Ask for fingerprint / phone PIN when opening the app. */
     val appLock: Boolean = false,
+    val relock: RelockMode = RelockMode.APP_CLOSED,
     /** On opening the app, clear status-bar notifications except main categories and chosen people. */
     val clearOnOpen: Boolean = true,
     /** Run the smart cleanup once a day on opening the app. */
@@ -52,6 +53,13 @@ data class Settings(
     val cleanupRules: Set<String> = CleanupRule.entries.filter { it.defaultOn }.map { it.name }.toSet(),
     val lastAutoClean: Long = 0,
 )
+
+/** When the fingerprint lock comes back after unlocking once. */
+enum class RelockMode(val label: String) {
+    APP_CLOSED("فقط وقتی اپ رو کامل ببندی"),
+    SCREEN_OFF("وقتی صفحه گوشی خاموش بشه"),
+    AFTER_30S("۳۰ ثانیه بعد از بیرون رفتن"),
+}
 
 /** Smart cleanup rules: what counts as clutter, and from what age. Chosen people, starred and valuable are never touched. */
 enum class CleanupRule(val label: String, val category: String, val days: Int, val defaultOn: Boolean) {
@@ -86,6 +94,7 @@ class Prefs(context: Context) {
         summary = sp.getBoolean("summary", true),
         lastSeen = sp.getLong("lastSeen", 0),
         appLock = sp.getBoolean("appLock", false),
+        relock = runCatching { RelockMode.valueOf(sp.getString("relock", null)!!) }.getOrDefault(RelockMode.APP_CLOSED),
         clearOnOpen = sp.getBoolean("clearOnOpen", true),
         autoClean = sp.getBoolean("autoClean", false),
         cleanupRules = sp.getStringSet("cleanupRules", null)?.toSet() ?: Settings().cleanupRules,
@@ -110,6 +119,7 @@ class Prefs(context: Context) {
             .putBoolean("summary", s.summary)
             .putLong("lastSeen", s.lastSeen)
             .putBoolean("appLock", s.appLock)
+            .putString("relock", s.relock.name)
             .putBoolean("clearOnOpen", s.clearOnOpen)
             .putBoolean("autoClean", s.autoClean)
             .putStringSet("cleanupRules", s.cleanupRules)

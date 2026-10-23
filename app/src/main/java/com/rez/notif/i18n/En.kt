@@ -3,6 +3,11 @@ package com.rez.notif.i18n
 /** English for every Persian text in the app. Keys are the Persian text exactly as written in the code. */
 internal object En {
     val map: Map<String, String> = hashMapOf(
+        "فقط وقتی اپ رو کامل ببندی" to "Only when you fully close the app",
+        "وقتی صفحه گوشی خاموش بشه" to "When the phone screen turns off",
+        "۳۰ ثانیه بعد از بیرون رفتن" to "30 seconds after leaving",
+        "دوباره قفل بشه" to "Lock again",
+        "موقع باز کردن اپ یه بار اثر انگشت یا رمز گوشی می‌خواد." to "Asks once for your fingerprint or phone PIN when you open the app.",
         "  ·  آخرین: " to "  ·  last: ",
         "  ·  سیم " to "  ·  SIM ",
         "  تبلیغ" to "  ads",

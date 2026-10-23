@@ -44,6 +44,7 @@ import com.rez.notif.NotifApp
 import com.rez.notif.classify.Category
 import com.rez.notif.data.Accent
 import com.rez.notif.data.AppStyle
+import com.rez.notif.data.RelockMode
 import com.rez.notif.data.ThemeMode
 import com.rez.notif.i18n.Lang
 import com.rez.notif.security.AppLock
@@ -160,11 +161,20 @@ fun SettingsScreen(nav: Navigator) {
             item { SectionTitle(t("امنیت و پشتیبان")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    ToggleRow(t("قفل با اثر انگشت"), t("موقع باز کردن اپ، اثر انگشت یا رمز گوشی می‌خواد. اگه بیشتر از ۳۰ ثانیه از اپ بیرون باشی دوباره قفل میشه."), s.appLock) { v ->
+                    ToggleRow(t("قفل با اثر انگشت"), t("موقع باز کردن اپ یه بار اثر انگشت یا رمز گوشی می‌خواد."), s.appLock) { v ->
                         // Ask for the finger first, so nobody can turn the lock on or off without it.
                         (context as? Activity)?.let { a ->
                             AppLock.authenticate(a, if (v) t("روشن کردن قفل") else t("خاموش کردن قفل")) { ok ->
                                 if (ok) repo.prefs.update { it.copy(appLock = v) }
+                            }
+                        }
+                    }
+                    if (s.appLock) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(t("دوباره قفل بشه"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            RelockMode.entries.forEach { m ->
+                                GlassChip(t(m.label), s.relock == m, { repo.prefs.update { it.copy(relock = m) } })
                             }
                         }
                     }

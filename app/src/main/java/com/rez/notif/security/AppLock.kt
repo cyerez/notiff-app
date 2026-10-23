@@ -5,6 +5,7 @@ import android.app.Activity
 import android.hardware.biometrics.BiometricManager.Authenticators
 import android.hardware.biometrics.BiometricPrompt
 import android.os.CancellationSignal
+import com.rez.notif.data.RelockMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * and nothing is stored by us: the phone checks the finger and only tells us "ok".
  */
 object AppLock {
-    /** After leaving the app for this long, it locks again. */
+    /** With [RelockMode.AFTER_30S]: after leaving the app for this long, it locks again. */
     private const val RELOCK_AFTER_MS = 30_000L
 
     private val _unlocked = MutableStateFlow(false)
@@ -23,9 +24,12 @@ object AppLock {
 
     fun onLeave() { leftAt = System.currentTimeMillis() }
 
-    fun onReturn() {
-        if (_unlocked.value && System.currentTimeMillis() - leftAt > RELOCK_AFTER_MS) _unlocked.value = false
+    fun onReturn(mode: RelockMode) {
+        if (mode == RelockMode.AFTER_30S && _unlocked.value && System.currentTimeMillis() - leftAt > RELOCK_AFTER_MS) _unlocked.value = false
     }
+
+    /** Screen turned off, or the app was closed from recent apps. */
+    fun lockNow() { _unlocked.value = false }
 
     /** Shows the system prompt. Fingerprint, face, or the phone's own PIN/pattern all work. */
     fun authenticate(activity: Activity, title: String = t("باز کردن نوتیف"), onResult: (Boolean) -> Unit = {}) {
