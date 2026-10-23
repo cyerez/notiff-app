@@ -135,6 +135,13 @@ class PriorityTest {
 
     @Test fun vipBeatsEverything() = assertTrue(p(Category.APPS, vip = true) > p(Category.BANK))
     @Test fun missedCallIsImportant() = assertTrue(p(Category.MISSED) >= Priority.IMPORTANT)
+
+    @Test fun questionInChatIsImportant() {
+        assertTrue(Priority.isQuestion("فردا میای؟"))
+        assertTrue(!Priority.isQuestion("باشه ممنون"))
+        val chat = Priority.score(Priority.Input(Category.SOCIAL, false, false, false, false, 3_600_000L, isQuestion = true))
+        assertTrue(chat >= Priority.IMPORTANT)
+    }
     @Test fun adsAreNever() = assertEquals(0, p(Category.ADS))
     @Test fun oldThingsFade() = assertTrue(p(Category.PERSONAL, hours = 30) < p(Category.PERSONAL))
 }

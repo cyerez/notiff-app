@@ -424,6 +424,10 @@ class Db private constructor(
         q.packageName?.let { where += "package_name = ?"; args += it }
         if (q.excludeKept) where += "vip_id = 0 AND is_starred = 0 AND is_valuable = 0"
         if (q.onlyUnread) where += "is_read = 0"
+        if (q.categories.isNotEmpty()) {
+            where += "category IN (" + q.categories.joinToString(",") { "?" } + ")"
+            args += q.categories
+        }
         if (q.excludeCategories.isNotEmpty()) {
             where += "category NOT IN (" + q.excludeCategories.joinToString(",") { "?" } + ")"
             args += q.excludeCategories

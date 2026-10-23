@@ -72,6 +72,8 @@ data class ItemQuery(
     /** Leave out what must never be auto-deleted: chosen people, starred, valuable. */
     val excludeKept: Boolean = false,
     val onlyUnread: Boolean = false,
+    /** Any of these categories (a home tab's group). */
+    val categories: Set<String> = emptySet(),
     /** With [text]: also match senders ending in these digits (numbers of contacts whose name matches). */
     val textSenderTails: List<String> = emptyList(),
     /** Categories to leave out (for "today without the clutter"). */

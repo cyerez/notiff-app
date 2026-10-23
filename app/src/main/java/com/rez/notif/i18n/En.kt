@@ -328,5 +328,15 @@ internal object En {
         "کیف پسورد و متن از عکس" to "Password wallet and picture to text",
         "تبلیغ، پیام اپراتور و سیستم، و کدهای تأیید کهنه اینجا نشون داده نمیشن." to "Ads, operator and system messages, and old login codes are left out here.",
         "هر چی هنوز باز نکردی. با دکمه بالا همه خونده میشن." to "Everything you haven't opened yet. The button at the top marks it all read.",
+        "امروز هنوز چیزی نیومده." to "Nothing yet today.",
+        "اینجا چیزی نیست." to "Nothing here.",
+        "بانک و کد" to "Bank & codes",
+        "بقیه" to "More",
+        "بقیه امروز" to "Rest of today",
+        "خانه" to "Home",
+        "منتظر تو" to "Waiting for you",
+        "پیام‌ها" to "Messages",
+        "چیز مهمی منتظرت نیست." to "Nothing important is waiting for you.",
+        "کد تازه" to "New code",
     )
 }

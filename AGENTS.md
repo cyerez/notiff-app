@@ -56,7 +56,7 @@ app/src/main/java/com/rez/notif/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home, Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

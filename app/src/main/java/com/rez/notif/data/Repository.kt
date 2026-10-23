@@ -146,15 +146,42 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     // ---------- important & while you were away ----------
 
     /** Unread things of the last two days that matter most (chosen people, missed calls, personal, money). */
+    private fun scoreOf(it: Item, now: Long) = Priority.score(
+        Priority.Input(
+            Category.of(it.category), it.vipId > 0, it.isValuable, it.isStarred, it.isRead, now - it.timestamp,
+            isQuestion = Priority.isQuestion(it.body),
+        ),
+    )
+
     suspend fun important(): List<Item> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         db.query(ItemQuery(sinceMillis = now - 48 * 3_600_000L, limit = 400))
             .filter { !it.isRead }
-            .map { it to Priority.score(Priority.Input(Category.of(it.category), it.vipId > 0, it.isValuable, it.isStarred, it.isRead, now - it.timestamp)) }
+            .map { it to scoreOf(it, now) }
             .filter { it.second >= Priority.IMPORTANT }
             .sortedByDescending { it.second }
             .take(5)
             .map { it.first }
+    }
+
+    /** The home tab: a fresh login code, what needs you (chosen people, questions, missed calls…), and the rest of today. */
+    data class HomeFeed(val code: Item?, val needsYou: List<Item>, val recent: List<Item>)
+
+    suspend fun homeFeed(): HomeFeed = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val items = db.query(ItemQuery(sinceMillis = now - 48 * 3_600_000L, limit = 800))
+        val code = items.firstOrNull { it.category == Category.OTP.id && now - it.timestamp < 10 * 60_000L }
+        val needsYou = items
+            .filter { !it.isRead && it.category != Category.OTP.id }
+            .map { it to scoreOf(it, now) }
+            .filter { it.second >= Priority.IMPORTANT }
+            .sortedByDescending { it.first.timestamp }
+            .take(15)
+            .map { it.first }
+        val shown = needsYou.map { it.id }.toSet() + listOfNotNull(code?.id)
+        val since = dayStart().coerceAtMost(now - 12 * 3_600_000L)
+        val recent = items.filter { it.timestamp >= since && it.id !in shown && !isClutter(it, now) }.take(30)
+        HomeFeed(code, needsYou, recent)
     }
 
     /** What counts as clutter in "today": ads, operator and system messages, and login codes older than an hour. */

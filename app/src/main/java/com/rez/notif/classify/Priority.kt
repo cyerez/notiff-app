@@ -12,7 +12,17 @@ object Priority {
         val isStarred: Boolean,
         val isRead: Boolean,
         val ageMillis: Long,
+        /** Someone asked something ("?" or "؟" in a personal message or chat). */
+        val isQuestion: Boolean = false,
     )
+
+    /** A message that is waiting for an answer. */
+    fun isQuestion(text: String): Boolean {
+        val t = text.trim()
+        if (t.isEmpty()) return false
+        if ('?' in t || '؟' in t) return true
+        return t.startsWith("آیا") || t.startsWith("کی ") || t.startsWith("کجایی")
+    }
 
     /** Items scoring at least this show in "Important". */
     const val IMPORTANT = 50
@@ -29,6 +39,7 @@ object Priority {
             Category.SHOPPING, Category.SERVICES -> 15
             else -> 5
         }
+        if (i.isQuestion && (i.category == Category.PERSONAL || i.category == Category.SOCIAL || i.category == Category.EMAIL)) s += 25
         if (i.isVip) s += 60
         if (i.isValuable || i.isStarred) s += 20
         if (!i.isRead) s += 15
