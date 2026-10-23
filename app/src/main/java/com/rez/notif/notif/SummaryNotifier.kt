@@ -21,13 +21,19 @@ import com.rez.notif.ui.components.fa
  */
 object SummaryNotifier {
     private const val CHANNEL = "summary"
+    private const val DIGEST_CHANNEL = "digest"
     private const val ID = 1
 
-    fun update(context: Context) {
+    /**
+     * Live mode: called after every hidden notification. Digest mode (the user picked summary hours):
+     * live calls do nothing, and the alarm calls this with [digest] at each chosen hour.
+     */
+    fun update(context: Context, digest: Boolean = false) {
         val repo = NotifApp.repo(context)
         val s = repo.prefs.current
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         if (!s.hideAll || !s.summary) { nm.cancel(ID); return }
+        if (s.digestHours.isNotEmpty() && !digest) return
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
 
         com.rez.notif.sms.ContactNames.ensure(context)
@@ -40,6 +46,13 @@ object SummaryNotifier {
                 description = t("یک نوتیف آروم به جای همه نوتیف‌های مخفی‌شده")
             },
         )
+        if (digest) {
+            nm.createNotificationChannel(
+                NotificationChannel(DIGEST_CHANNEL, t("خلاصه در ساعت‌های مشخص"), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = t("خلاصه نوتیف‌ها فقط در ساعت‌هایی که انتخاب کردی")
+                },
+            )
+        }
         val byCategory = items.groupBy { it.category }.entries.sortedByDescending { it.value.size }
         val summary = byCategory.joinToString(t("، ")) { t(Category.of(it.key).label) + " " + fa(it.value.size) }
         val style = Notification.InboxStyle().setSummaryText(summary)
@@ -53,14 +66,14 @@ object SummaryNotifier {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val n = Notification.Builder(context, CHANNEL)
+        val n = Notification.Builder(context, if (digest) DIGEST_CHANNEL else CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_notif)
             .setContentTitle(fa(items.size) + t(" مورد تازه"))
             .setContentText(summary)
             .setStyle(style)
             .setNumber(items.size)
             .setContentIntent(open)
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(!digest)
             .setShowWhen(true)
             .setWhen(items.first().timestamp)
             .build()

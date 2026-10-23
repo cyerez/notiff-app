@@ -36,6 +36,8 @@ import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -271,7 +273,12 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
     var confirmSenderDelete by remember { mutableStateOf(false) }
     val who = if (item.source == Source.SMS) senderLabel(item.sender) else item.appName
 
-    LaunchedEffect(item.id) { repo.markRead(listOf(item)) }
+    LaunchedEffect(item.id) {
+        repo.markRead(listOf(item))
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.rez.notif.notif.Reminders.seen(context, item.id) }
+    }
+    var remindAt by remember(item.id) { mutableStateOf<Long?>(null) }
+    LaunchedEffect(item.id) { remindAt = repo.reminderAt(item.id) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -352,6 +359,26 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
             }
 
             Spacer(Modifier.height(20.dp))
+            Text(t("بعداً یادم بنداز"), style = MaterialTheme.typography.titleMedium, color = g.text)
+            Spacer(Modifier.height(8.dp))
+            val at = remindAt
+            if (at != null) {
+                GlassChip(t("یادآوری: ") + fullTime(at) + "  ✕", selected = true, onClick = {
+                    remindAt = null
+                    scope.launch { repo.cancelReminder(item) }
+                })
+            } else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    com.rez.notif.notif.Reminders.choices().forEach { (label, time) ->
+                        GlassChip(label, selected = false, icon = Icons.Rounded.Alarm, onClick = {
+                            remindAt = time
+                            scope.launch { repo.remind(item, time) }
+                        })
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
             Text(t("دسته"), style = MaterialTheme.typography.titleMedium, color = g.text)
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -393,6 +420,15 @@ fun ItemSheet(item: Item, onDismiss: () -> Unit, onDeleted: (List<Long>) -> Unit
                         scope.launch { repo.addVip(name, numbers) }
                     })
                 }
+                GlassButton(t("ساختن قانون"), icon = Icons.Rounded.Tune, primary = false, onClick = {
+                    val rule = com.rez.notif.classify.Rule(
+                        name = who,
+                        apps = setOf(if (item.source == Source.SMS) "sms" else item.packageName),
+                        sender = if (item.source == Source.SMS) item.sender else "",
+                    )
+                    onDismiss()
+                    com.rez.notif.ui.OpenRequests.open(com.rez.notif.ui.Screen.RuleEdit(rule))
+                })
                 GlassButton(t("حذف"), icon = Icons.Rounded.Delete, primary = false, onClick = {
                     scope.launch {
                         onDeleted(repo.delete(listOf(item)))

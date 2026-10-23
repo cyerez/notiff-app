@@ -19,6 +19,8 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.rez.notif.NotifApp
@@ -63,12 +65,17 @@ sealed interface Screen {
     data class VipPerson(val id: Long, val name: String) : Screen
     data class Conversation(val address: String, val draft: String = "") : Screen
     data class Ocr(val uri: String? = null) : Screen
+    data object Rules : Screen
+    data class RuleEdit(val rule: com.rez.notif.classify.Rule) : Screen
 }
 
 /** Screens asked for from outside the UI tree: a tapped SMS notification, "send message" from another app. */
 object OpenRequests {
     val pending = kotlinx.coroutines.flow.MutableStateFlow<Screen?>(null)
     fun open(s: Screen) { pending.value = s }
+    /** An item to show in its detail sheet over whatever screen is open (a tapped reminder). */
+    val item = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
+    fun openItem(id: Long) { item.value = id }
 }
 
 /** Simple back stack: the last screen is shown. */
@@ -141,9 +148,19 @@ fun AppRoot() {
                         is Screen.VipPerson -> VipPersonScreen(screen.id, screen.name, nav)
                         is Screen.Conversation -> ConversationScreen(screen.address, screen.draft, nav)
                         is Screen.Ocr -> OcrScreen(screen.uri, nav)
+                        Screen.Rules -> com.rez.notif.ui.screens.RulesScreen(nav)
+                        is Screen.RuleEdit -> com.rez.notif.ui.screens.RuleEditScreen(screen.rule, nav)
                     }
                 }
             }
+            val openItem by OpenRequests.item.collectAsState()
+            var shown by remember { mutableStateOf<com.rez.notif.data.Item?>(null) }
+            LaunchedEffect(openItem) {
+                val id = openItem ?: return@LaunchedEffect
+                OpenRequests.item.value = null
+                if (repo.prefs.current.firstScanDone) shown = repo.item(id)
+            }
+            shown?.let { com.rez.notif.ui.components.ItemSheet(it, onDismiss = { shown = null }) }
         }
     } }
 }

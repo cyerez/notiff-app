@@ -30,8 +30,11 @@ app/src/main/java/com/rez/notif/
     Priority.kt          importance score for the "Important" section
     Learner.kt           small offline naive Bayes; sorts what rules left in "Other"
     Vip.kt               chosen people ("افراد منتخب") + VipMatcher (number or name match)
+    Rules.kt             the user's own rules (app/sender/words or regex/category/hours -> action); first match wins;
+                         one-line codec stored in Db `rules`; templates. Pure Kotlin, tested
+    Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v3: items, sender_overrides, vip, wallet. Reads go through the
+    Db.kt                SQLiteOpenHelper v4: items, sender_overrides, vip, wallet, rules, reminders. Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
@@ -51,13 +54,15 @@ app/src/main/java/com/rez/notif/
          ContactNames.kt (READ_CONTACTS: number → name by last 10 digits; UI uses senderLabel(); VIPs are merged
          per contact by Repository.tidyVips)
          MmsReceiver.kt + MmsPdu.kt (MMS is only recorded, not downloaded), HeadlessSmsSendService.kt
-  notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
+  notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt (live, or only at
+         `digestHours`), Reminders.kt (remind later / until seen, Digest alarms, AlarmReceiver incl. boot;
+         inexact setAndAllowWhileIdle, no exact-alarm permission)
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 
@@ -81,6 +86,9 @@ app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatche
 7. Password wallet: rows in `wallet` hold title+kind readable (inside SQLCipher) and the rest encrypted again with
    `WalletVault` (user-auth Keystore key). Backup decrypts them into a `wallet_export` table of the temp copy
    (the whole file is then password-locked); restore re-encrypts with this phone's key. Both need the wallet unlocked.
+12. User rules (v1.4): `Repository.applyRule` runs MOVE/DELETE before storing; `hideNow(rule=)` gives ALERT/QUIET/
+    REMIND priority over hide-all and quiet hours (`quietFrom/quietTo`). The rule editor previews on the last 7 days
+    (`previewRule`) and MOVE/DELETE also re-sort the last 30 days on save. Weekly card in Stats offers "quiet this app".
 8. Hide-all (default on): `Repository.hideNow` decides per notification; the listener cancels it and
    `SummaryNotifier` posts one quiet summary (cleared, and `lastSeen` reset, when the app opens).
 10. Database is SQLCipher (`notif-secure.db`). `Db.open` moves the old plain `notif.db` once and deletes

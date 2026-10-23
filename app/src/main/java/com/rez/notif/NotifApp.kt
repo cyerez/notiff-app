@@ -28,6 +28,13 @@ class NotifApp : Application() {
             },
             IntentFilter(Intent.ACTION_SCREEN_OFF),
         )
+        // Reminders and summary hours survive app updates this way (and reboots through AlarmReceiver).
+        Thread {
+            runCatching {
+                com.rez.notif.notif.Reminders.arm(this)
+                com.rez.notif.notif.Digest.arm(this)
+            }
+        }.start()
     }
 
     companion object {

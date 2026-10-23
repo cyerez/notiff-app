@@ -78,6 +78,11 @@ data class Settings(
     val autoClean: Boolean = false,
     val cleanupRules: Set<String> = CleanupRule.entries.filter { it.defaultOn }.map { it.name }.toSet(),
     val lastAutoClean: Long = 0,
+    /** Quiet hours (-1 = off): only "always show" rules and fresh codes reach the status bar. */
+    val quietFrom: Int = -1,
+    val quietTo: Int = -1,
+    /** Hours of day for the summary notification; empty = live summary after every hidden notification. */
+    val digestHours: Set<Int> = emptySet(),
 )
 
 /** When the fingerprint lock comes back after unlocking once. */
@@ -132,6 +137,9 @@ class Prefs(context: Context) {
         autoClean = sp.getBoolean("autoClean", false),
         cleanupRules = sp.getStringSet("cleanupRules", null)?.toSet() ?: Settings().cleanupRules,
         lastAutoClean = sp.getLong("lastAutoClean", 0),
+        quietFrom = sp.getInt("quietFrom", -1),
+        quietTo = sp.getInt("quietTo", -1),
+        digestHours = sp.getStringSet("digestHours", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
     )
 
     fun update(change: (Settings) -> Settings) {
@@ -164,6 +172,9 @@ class Prefs(context: Context) {
             .putBoolean("autoClean", s.autoClean)
             .putStringSet("cleanupRules", s.cleanupRules)
             .putLong("lastAutoClean", s.lastAutoClean)
+            .putInt("quietFrom", s.quietFrom)
+            .putInt("quietTo", s.quietTo)
+            .putStringSet("digestHours", s.digestHours.map { it.toString() }.toSet())
             .apply()
         I18n.lang = s.language
         _state.value = s

@@ -144,13 +144,42 @@ fun SettingsScreen(nav: Navigator) {
                         ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
                             repo.prefs.update { it.copy(summary = v) }
                         }
+                        if (s.summary) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(t("خلاصه کی بیاد؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(t("اگه ساعت انتخاب کنی، خلاصه فقط همون ساعت‌ها با صدا میاد، نه بعد از هر نوتیف."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                            Spacer(Modifier.height(6.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                GlassChip(t("همون لحظه"), s.digestHours.isEmpty(), {
+                                    repo.prefs.update { it.copy(digestHours = emptySet()) }
+                                    com.rez.notif.notif.Digest.arm(context)
+                                })
+                                listOf(8, 13, 17, 21).forEach { h ->
+                                    GlassChip(t("ساعت ") + fa(h), h in s.digestHours, {
+                                        repo.prefs.update { st -> st.copy(digestHours = if (h in st.digestHours) st.digestHours - h else st.digestHours + h) }
+                                        com.rez.notif.notif.Digest.arm(context)
+                                    })
+                                }
+                            }
+                        }
                     }
                     Spacer(Modifier.height(10.dp))
                     ToggleRow(t("مرتب کردن نوتیف‌ها موقع ورود"), t("با باز کردن اپ، نوتیف‌های قبلی هم با همین قانون‌ها از نوار گوشی پاک میشن."), s.clearOnOpen) { v ->
                         repo.prefs.update { it.copy(clearOnOpen = v) }
                     }
                     Spacer(Modifier.height(10.dp))
+                    Text(t("ساعت سکوت"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                    Text(t("توی این ساعت‌ها فقط کد تأیید و قانون‌های «همیشه نشون بده» روی گوشی میان؛ بقیه بی‌صدا توی اپ جمع میشن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                    Spacer(Modifier.height(6.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(-1 to -1, 23 to 7, 0 to 8, 22 to 6).forEach { (from, to) ->
+                            val label = if (from < 0) t("خاموش") else fa(from) + t(" تا ") + fa(to)
+                            GlassChip(label, s.quietFrom == from && s.quietTo == to, { repo.prefs.update { it.copy(quietFrom = from, quietTo = to) } })
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassButton(t("قانون‌ها"), onClick = { nav.go(Screen.Rules) }, primary = false)
                         GlassButton(t("افراد منتخب"), onClick = { nav.go(Screen.Vip) }, primary = false)
                         GlassButton(t("پاک‌سازی هوشمند"), onClick = { nav.go(Screen.Cleanup) }, primary = false)
                     }
@@ -170,6 +199,7 @@ fun SettingsScreen(nav: Navigator) {
                 }
             }
 
+            item { BatteryCard() }
             item { SectionTitle(t("اپ پیامک گوشی")) }
             item { SmsAppCard() }
 
@@ -291,6 +321,41 @@ private fun AccentDot(a: Accent, selected: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+    }
+}
+
+/**
+ * Samsung puts apps to sleep, and then notifications stop being saved.
+ * Shows a warning with a one-tap fix only while the app is not exempt.
+ */
+@Composable
+private fun BatteryCard() {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val pm = context.getSystemService(android.os.PowerManager::class.java)
+    var exempt by remember { mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true) }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        exempt = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+    }
+    if (exempt) return
+    SectionTitle(t("کار در پس‌زمینه"))
+    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), glow = Category.ADS.tint) {
+        Text(t("گوشی ممکنه نوتیف رو بخوابونه و بعضی نوتیف‌ها ذخیره نشن."), style = MaterialTheme.typography.titleSmall, color = g.text)
+        Text(
+            t("دکمه زیر رو بزن و «اجازه» بده. توی سامسونگ اینم بزن: تنظیمات > مراقبت از دستگاه > باتری > محدودیت‌های پس‌زمینه > «برنامه‌های هرگز در حالت خواب» و نوتیف رو اضافه کن."),
+            style = MaterialTheme.typography.bodySmall,
+            color = g.textDim,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Spacer(Modifier.height(10.dp))
+        GlassButton(t("بیدار نگه داشتن نوتیف"), onClick = {
+            runCatching {
+                ask.launch(
+                    android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                        .setData(android.net.Uri.parse("package:" + context.packageName)),
+                )
+            }
+        }, modifier = Modifier.fillMaxWidth())
     }
 }
 

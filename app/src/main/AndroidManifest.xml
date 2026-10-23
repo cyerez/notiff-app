@@ -21,6 +21,8 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Reminders and summary hours come back after the phone restarts -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Open the SMS app and any launcher app -->
     <queries>
@@ -141,5 +143,14 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </service>
+        <!-- "Remind me later", reminder rules and summary hours -->
+        <receiver
+            android:name=".notif.AlarmReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

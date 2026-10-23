@@ -25,7 +25,7 @@ class I18nTest {
         // Persian labels of enums shown through t(x.label), read from the source (some enums use Android classes).
         val root = listOf(File("src/main/java"), File("app/src/main/java")).first { it.exists() }
         val enumEntry = Regex("^\\s*[A-Z_]+\\(\"([^\"]*[\\u0600-\\u06FF][^\"]*)\"", RegexOption.MULTILINE)
-        val files = listOf("ocr/Ocr.kt", "data/Prefs.kt", "ui/screens/HomeScreen.kt", "ui/screens/ListScreens.kt").map { File(root, "com/rez/notif/$it") }
+        val files = listOf("ocr/Ocr.kt", "data/Prefs.kt", "ui/screens/HomeScreen.kt", "ui/screens/ListScreens.kt", "classify/Rules.kt").map { File(root, "com/rez/notif/$it") }
         val missing = files.flatMap { f -> enumEntry.findAll(f.readText()).map { it.groupValues[1] }.toList() }.filter { it !in En.map }
         assertTrue("No English for: $missing", missing.isEmpty())
     }

@@ -34,6 +34,11 @@ class MainActivity : ComponentActivity() {
     /** Opens a conversation for a tapped SMS notification, or for "send message" from another app. */
     private fun handle(intent: Intent?) {
         intent ?: return
+        intent.getLongExtra(com.rez.notif.notif.Reminders.EXTRA_ITEM, 0L).takeIf { it > 0 }?.let {
+            intent.removeExtra(com.rez.notif.notif.Reminders.EXTRA_ITEM)
+            OpenRequests.openItem(it)
+            return
+        }
         intent.getStringExtra(SmsNotifier.EXTRA_ADDRESS)?.let {
             intent.removeExtra(SmsNotifier.EXTRA_ADDRESS)
             OpenRequests.open(Screen.Conversation(it))

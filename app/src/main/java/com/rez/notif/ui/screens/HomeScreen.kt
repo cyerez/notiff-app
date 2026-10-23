@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -226,6 +227,7 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        GlassChip(t("قانون‌ها"), false, { nav.go(Screen.Rules) }, icon = Icons.Rounded.Tune)
                         GlassChip(t("افراد منتخب"), false, { nav.go(Screen.Vip) }, color = VipColor, icon = Icons.Rounded.Favorite)
                         GlassChip(t("تبلیغات مخفی‌شده") + " " + fa(adCount), false, { nav.go(Screen.Special(SpecialList.ADS)) }, color = Category.ADS.tint, icon = Icons.Rounded.Campaign)
                         GlassChip(t("پاک‌سازی"), false, { nav.go(Screen.Cleanup) }, icon = Icons.Rounded.CleaningServices)
@@ -234,6 +236,9 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
                         GlassChip(t("آمار"), false, { nav.go(Screen.Stats) }, icon = Icons.Rounded.BarChart)
                     }
                 }
+            }
+            if (tab == HomeTab.MONEY && (pick == null || pick == Category.BANK)) {
+                item(key = "money") { MoneyCard() }
             }
             item(key = "filters") {
                 FlowRow(
@@ -257,6 +262,44 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
         }
     }
 }
+
+/** Last 30 days from bank SMS: money out, money in, and each bank's latest balance. Shown in toman. */
+@Composable
+private fun MoneyCard() {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val m by rememberLoaded(repo) { repo.moneySummary() }
+    val sum = m ?: return
+    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), glow = Category.BANK.tint, contentPadding = 14.dp) {
+        Text(t("۳۰ روز اخیر از پیامک‌های بانک"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(t("خرج و برداشت"), style = MaterialTheme.typography.labelMedium, color = g.textDim)
+                Text(toman(sum.out), style = MaterialTheme.typography.titleMedium, color = Category.ADS.tint, fontWeight = FontWeight.Bold)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(t("واریز"), style = MaterialTheme.typography.labelMedium, color = g.textDim)
+                Text(toman(sum.inn), style = MaterialTheme.typography.titleMedium, color = Category.PERSONAL.tint, fontWeight = FontWeight.Bold)
+            }
+        }
+        sum.accounts.take(4).forEach { a ->
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(t("مانده ") + senderLabel(a.sender), style = MaterialTheme.typography.bodySmall, color = g.text, modifier = Modifier.weight(1f))
+                Text(toman(a.balance) + "  ·  " + shortTime(a.time), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+            }
+        }
+        Text(
+            fa(sum.count) + t(" تراکنش. عددها از متن پیامک خونده شده و ممکنه کامل نباشه."),
+            style = MaterialTheme.typography.labelSmall,
+            color = g.textDim,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+/** Rial → "۱۲۵٬۰۰۰ تومان". */
+private fun toman(rial: Long): String = fa(String.format(java.util.Locale.US, "%,d", rial / 10)) + t(" تومان")
 
 // ---------- bottom bar ----------
 

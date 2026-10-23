@@ -71,6 +71,7 @@ fun StatsScreen(nav: Navigator) {
                     Tile(t("ارزشمند"), s.valuable, ValuableColor, Modifier.weight(1f))
                 }
             }
+            item { WeeklyCard(nav) }
             item { SectionTitle(t("هفت روز اخیر")) }
             item { WeekChart(s) }
             item { SectionTitle(t("۳۰ روز اخیر")) }
@@ -315,6 +316,39 @@ private fun Donut(s: Stats) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(compact(total), style = MaterialTheme.typography.headlineSmall, color = g.text)
             Text(t(" مورد").trim(), style = MaterialTheme.typography.labelSmall, color = g.textDim)
+        }
+    }
+}
+
+/** This week in numbers, and the noisiest apps with a one-tap "quiet it" rule. */
+@Composable
+private fun WeeklyCard(nav: Navigator) {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val w by rememberLoaded(repo) { repo.weekly() }
+    val week = w ?: return
+    com.rez.notif.ui.components.GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), glow = g.accent, contentPadding = 14.dp) {
+        Text(t("این هفته"), style = MaterialTheme.typography.titleSmall, color = g.text)
+        Text(
+            fa(week.total) + t(" مورد رسید؛ ") + fa(week.hidden) + t(" نوتیف رو از نوار گوشی جمع کردم و ") + fa(week.ads) + t(" تبلیغ رو مخفی کردم."),
+            style = MaterialTheme.typography.bodyMedium,
+            color = g.textDim,
+        )
+        if (week.noisy.isNotEmpty()) {
+            Text(t("پرسروصداترین‌ها:"), style = MaterialTheme.typography.labelMedium, color = g.text, modifier = Modifier.padding(top = 8.dp))
+            week.noisy.forEach { a ->
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(a.appName + "  ·  " + fa(a.total), style = MaterialTheme.typography.bodyMedium, color = g.text, modifier = Modifier.weight(1f))
+                    com.rez.notif.ui.components.GlassChip(t("بی‌صدا کن"), false, {
+                        nav.go(
+                            com.rez.notif.ui.Screen.RuleEdit(
+                                com.rez.notif.classify.Rule(name = a.appName, apps = setOf(a.packageName), action = com.rez.notif.classify.RuleAction.QUIET),
+                            ),
+                        )
+                    })
+                }
+            }
         }
     }
 }

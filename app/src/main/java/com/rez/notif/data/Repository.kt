@@ -16,6 +16,10 @@ import com.rez.notif.classify.Category
 import com.rez.notif.classify.Classifier
 import com.rez.notif.classify.Learner
 import com.rez.notif.classify.Priority
+import com.rez.notif.classify.Money
+import com.rez.notif.classify.Rule
+import com.rez.notif.classify.RuleAction
+import com.rez.notif.classify.Rules
 import com.rez.notif.classify.VipMatcher
 import com.rez.notif.classify.VipPerson
 import com.rez.notif.sms.ContactNames
@@ -46,6 +50,9 @@ data class NotificationIn(
 
 /** Everything the screens and the background parts need, in one place. */
 class Repository(private val context: Context, private val db: Db, val prefs: Prefs) {
+
+    /** For the background helpers (reminders) that talk to the database directly. */
+    val database: Db get() = db
 
     /** Goes up by one on every change, so screens know when to reload. */
     private val _version = MutableStateFlow(0L)
@@ -89,7 +96,9 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     private fun smsKey(address: String, body: String, date: Long): String =
         "sms:" + Classifier.normalize(address).replace(" ", "") + ":" + body.hashCode() + ":" + date / 600_000L
 
-    private fun smsToItem(raw: RawSms): Item {
+    private fun smsToItem(raw: RawSms): Item = applyRule(smsToItemPlain(raw)).first
+
+    private fun smsToItemPlain(raw: RawSms): Item {
         ContactNames.ensure(context)
         val vip = VipMatcher.match(vipPeople(), true, raw.address, "", raw.body)
         var r = vipSafe(Classifier.classify(Classifier.Input(isSms = true, sender = raw.address, title = "", body = raw.body), overrides()), vip)
@@ -223,7 +232,11 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (vip != null && r.category == Category.ADS) r.copy(category = Category.PERSONAL) else r
 
     fun addSms(raw: RawSms) {
-        if (db.insert(smsToItem(raw))) changed()
+        val (item, rule) = applyRule(smsToItemPlain(raw))
+        if (db.insert(item)) {
+            changed()
+            if (rule?.action == RuleAction.REMIND) remindNow(item.sourceKey)
+        }
     }
 
     /** What to do with a new SMS while Notif is the default SMS app. */
@@ -231,12 +244,15 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     /** Stores a new SMS (default SMS app mode) and decides: notify, show only a code, or stay quiet. */
     fun receiveSms(raw: RawSms): SmsDecision {
-        val item = smsToItem(raw)
-        if (db.insert(item)) changed()
+        val (item, rule) = applyRule(smsToItemPlain(raw))
+        if (db.insert(item)) {
+            changed()
+            if (rule?.action == RuleAction.REMIND) remindNow(item.sourceKey)
+        }
         val category = Category.of(item.category)
         val vip = vipPeople().firstOrNull { it.id == item.vipId }
         val code = codeFor(category, raw.body)
-        val hide = hideNow(category, vip, raw.date, code != null)
+        val hide = hideNow(category, vip, raw.date, code != null, rule)
         val s = prefs.current
         return SmsDecision(
             notify = !hide,
@@ -255,8 +271,10 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             // The SMS itself is stored by SmsReceiver. Here we only decide whether to hide its notification.
             val vip = VipMatcher.match(vipPeople(), true, n.title, "", n.text)
             val r = vipSafe(Classifier.classify(Classifier.Input(true, n.title, "", n.text), overrides()), vip)
-            val code = codeFor(r.category, n.text)
-            return Decision(hideNow(r.category, vip, n.postTime, code != null), code)
+            val rule = Rules.first(rules(), Rules.Input(true, "", n.title, n.text, r.category.id, hourOf(n.postTime)))
+            val cat = if (rule?.action == RuleAction.MOVE) Category.of(rule.target) else r.category
+            val code = codeFor(cat, n.text)
+            return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code)
         }
         val vip = VipMatcher.match(vipPeople(), false, n.title, n.title, n.text)
         val r = vipSafe(
@@ -269,7 +287,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val key = "n:" + n.packageName + ":" + (n.title + "|" + n.text).hashCode() + ":" + n.postTime / 600_000L
         n.contentIntent?.let { contentIntents[key] = it }
         n.reply?.let { replyActions[key] = it }
-        val inserted = db.insert(
+        val (stored, rule) = applyRule(
             Item(
                 source = Source.NOTIFICATION,
                 sourceKey = key,
@@ -285,9 +303,13 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
                 vipId = vip?.id ?: 0,
             ),
         )
-        if (inserted) changed()
-        val code = codeFor(r.category, n.title + "\n" + n.text)
-        return Decision(hideNow(r.category, vip, n.postTime, code != null), code)
+        if (db.insert(stored)) {
+            changed()
+            if (rule?.action == RuleAction.REMIND) remindNow(stored.sourceKey)
+        }
+        val cat = Category.of(stored.category)
+        val code = codeFor(cat, n.title + "\n" + n.text)
+        return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code)
     }
 
     /** A code to show with a copy button, only when we are hiding notifications and replacing codes. */
@@ -298,13 +320,164 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     /** Should this notification leave the status bar right away? */
-    private fun hideNow(category: Category, vip: VipPerson?, postTime: Long, replacedByOurCode: Boolean = false): Boolean {
+    private fun hideNow(category: Category, vip: VipPerson?, postTime: Long, replacedByOurCode: Boolean = false, rule: Rule? = null): Boolean {
         val s = prefs.current
-        if (!s.hideAll) return s.hideAds && category == Category.ADS
-        if (s.keepVip && vip != null) return false
+        val freshCode = s.keepOtp && category == Category.OTP && System.currentTimeMillis() - postTime < 10 * 60_000L
+        // The user's own rules come first.
+        when (rule?.action) {
+            RuleAction.ALERT -> return freshCode && replacedByOurCode
+            RuleAction.QUIET, RuleAction.DELETE, RuleAction.REMIND -> return !(freshCode && !replacedByOurCode)
+            else -> {}
+        }
+        if (!s.hideAll) return (s.hideAds && category == Category.ADS) || (inQuietHours(postTime) && !freshCode)
         // A fresh code stays visible: either as our own copy-button notification, or the original.
-        if (s.keepOtp && category == Category.OTP && System.currentTimeMillis() - postTime < 10 * 60_000L) return replacedByOurCode
+        if (freshCode) return replacedByOurCode
+        if (s.keepVip && vip != null && !inQuietHours(postTime)) return false
         return true
+    }
+
+    /** Inside the user's quiet hours (only rules marked "always show" and fresh codes get through). */
+    fun inQuietHours(time: Long = System.currentTimeMillis()): Boolean {
+        val s = prefs.current
+        return s.quietFrom >= 0 && s.quietTo >= 0 && s.quietFrom != s.quietTo && Rules.inHours(s.quietFrom, s.quietTo, hourOf(time))
+    }
+
+    private fun hourOf(t: Long) = Calendar.getInstance().apply { timeInMillis = t }.get(Calendar.HOUR_OF_DAY)
+
+    // ---------- the user's rules ----------
+
+    @Volatile private var rulesCache: List<Rule>? = null
+    private fun rules(): List<Rule> = rulesCache ?: db.rules().also { rulesCache = it }
+
+    private fun ruleInput(i: Item) = Rules.Input(
+        isSms = i.source == Source.SMS,
+        packageName = i.packageName,
+        sender = i.sender,
+        text = i.title + "\n" + i.body,
+        category = i.category,
+        hour = hourOf(i.timestamp),
+    )
+
+    /** Applies "move" and "delete" rules before an item is stored; also returns the rule that matched. */
+    private fun applyRule(item: Item, list: List<Rule> = rules()): Pair<Item, Rule?> {
+        val r = Rules.first(list, ruleInput(item)) ?: return item to null
+        val out = when (r.action) {
+            RuleAction.MOVE -> Category.of(r.target).let { item.copy(category = it.id, isAd = it == Category.ADS) }
+            RuleAction.DELETE -> item.copy(category = Category.ADS.id, isAd = true)
+            else -> item
+        }
+        return out to r
+    }
+
+    private fun remindNow(sourceKey: String) {
+        val id = db.idOf(sourceKey) ?: return
+        com.rez.notif.notif.Reminders.schedule(context, id, System.currentTimeMillis(), repeats = 3)
+    }
+
+    suspend fun userRules(): List<Rule> = withContext(Dispatchers.IO) { rules() }
+
+    suspend fun saveRule(r: Rule): Long = withContext(Dispatchers.IO) {
+        db.saveRule(r).also { rulesCache = null; changed() }
+    }
+
+    suspend fun deleteRule(id: Long) = withContext(Dispatchers.IO) {
+        db.deleteRule(id); rulesCache = null; changed()
+    }
+
+    suspend fun moveRule(id: Long, up: Boolean) = withContext(Dispatchers.IO) {
+        val ids = rules().map { it.id }.toMutableList()
+        val i = ids.indexOf(id)
+        val j = if (up) i - 1 else i + 1
+        if (i < 0 || j !in ids.indices) return@withContext
+        ids[i] = ids[j].also { ids[j] = ids[i] }
+        db.reorderRules(ids); rulesCache = null; changed()
+    }
+
+    /** What a rule would have caught in the last 7 days: the count and a few examples. Nothing is changed. */
+    data class RulePreview(val count: Int, val examples: List<Item>)
+
+    suspend fun previewRule(r: Rule): RulePreview = withContext(Dispatchers.IO) {
+        val since = System.currentTimeMillis() - 7 * 86_400_000L
+        val hits = db.query(ItemQuery(sinceMillis = since, includeAds = true, limit = 5000))
+            .filter { Rules.matches(r.copy(enabled = true), ruleInput(it)) }
+        RulePreview(hits.size, hits.take(4))
+    }
+
+    /** Runs "move" and "delete" rules over what is already stored (after the user saves a rule). */
+    suspend fun applyRulesToPast(r: Rule): Int = withContext(Dispatchers.IO) {
+        if (r.action != RuleAction.MOVE && r.action != RuleAction.DELETE) return@withContext 0
+        val since = System.currentTimeMillis() - 30 * 86_400_000L
+        var n = 0
+        db.query(ItemQuery(sinceMillis = since, includeAds = true, limit = 20000)).forEach { i ->
+            if (i.vipId > 0 || i.isStarred) return@forEach
+            val (out, hit) = applyRule(i, listOf(r.copy(enabled = true)))
+            if (hit != null && out.category != i.category) { db.updateCategory(i.id, out.category, out.isAd); n++ }
+        }
+        if (n > 0) changed()
+        n
+    }
+
+    /** Apps that notified in the last 30 days, busiest first (for the rule editor). */
+    suspend fun knownApps(): List<AppCount> = withContext(Dispatchers.IO) {
+        db.query(ItemQuery(source = Source.NOTIFICATION, sinceMillis = System.currentTimeMillis() - 30 * 86_400_000L, includeAds = true, limit = 8000))
+            .groupBy { it.packageName }
+            .map { (pkg, l) -> AppCount(l.first().appName, pkg, l.size) }
+            .sortedByDescending { it.total }
+            .take(16)
+    }
+
+    // ---------- remind me later ----------
+
+    suspend fun remind(item: Item, at: Long) = withContext(Dispatchers.IO) {
+        com.rez.notif.notif.Reminders.schedule(context, item.id, at, repeats = 0)
+        changed()
+    }
+
+    suspend fun cancelReminder(item: Item) = withContext(Dispatchers.IO) {
+        com.rez.notif.notif.Reminders.cancel(context, item.id)
+        changed()
+    }
+
+    suspend fun reminderAt(itemId: Long): Long? = withContext(Dispatchers.IO) {
+        db.reminders().firstOrNull { it.first == itemId }?.second
+    }
+
+    // ---------- bank summary ----------
+
+    data class BankAccount(val sender: String, val balance: Long, val time: Long)
+    data class MoneySummary(val out: Long, val inn: Long, val count: Int, val accounts: List<BankAccount>, val since: Long)
+
+    /** Spending and income of the last 30 days from bank SMS, and the latest balance of each bank. Rial. */
+    suspend fun moneySummary(): MoneySummary? = withContext(Dispatchers.IO) {
+        val since = System.currentTimeMillis() - 30 * 86_400_000L
+        val items = db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = since, limit = 3000))
+        var out = 0L; var inn = 0L; var count = 0
+        val accounts = LinkedHashMap<String, BankAccount>()
+        for (i in items) { // newest first
+            val tx = Money.parse(i.body) ?: continue
+            out += tx.out; inn += tx.inn
+            if (tx.out > 0 || tx.inn > 0) count++
+            val b = tx.balance
+            if (b != null && i.sender !in accounts) accounts[i.sender] = BankAccount(i.sender, b, i.timestamp)
+        }
+        if (count == 0 && accounts.isEmpty()) null else MoneySummary(out, inn, count, accounts.values.toList(), since)
+    }
+
+    // ---------- weekly report ----------
+
+    data class Weekly(val total: Int, val hidden: Int, val ads: Int, val noisy: List<AppCount>)
+
+    /** This week in numbers, and the noisiest apps (with a one-tap rule to quiet them). */
+    suspend fun weekly(): Weekly = withContext(Dispatchers.IO) {
+        val since = System.currentTimeMillis() - 7 * 86_400_000L
+        val items = db.query(ItemQuery(sinceMillis = since, includeAds = true, limit = 20000))
+        val notifs = items.filter { it.source == Source.NOTIFICATION }
+        val noisy = notifs.filter { it.vipId == 0L && it.category !in setOf(Category.OTP.id, Category.BANK.id, Category.PERSONAL.id) }
+            .groupBy { it.packageName }
+            .map { (pkg, l) -> AppCount(l.first().appName, pkg, l.size) }
+            .sortedByDescending { it.total }
+            .take(3)
+        Weekly(items.size, if (prefs.current.hideAll) notifs.size else notifs.count { it.isAd }, items.count { it.isAd }, noisy)
     }
 
     /** What arrived after the app was last opened (for the summary notification). Ads are left out. */
@@ -516,6 +689,12 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         } else {
             Classifier.classify(Classifier.Input(false, title, title, text, packageName), overrides())
         }
+        val rule = Rules.first(rules(), Rules.Input(isSmsApp, packageName, title, text, r.category.id, hourOf(postTime)))
+        when (rule?.action) {
+            RuleAction.ALERT -> return true
+            RuleAction.QUIET, RuleAction.DELETE, RuleAction.REMIND -> return false
+            else -> {}
+        }
         if (prefs.current.hideAll) return !hideNow(r.category, vip, postTime)
         if (vip != null) return true
         if (r.isValuable) return true
@@ -632,6 +811,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         }
         overrides = null
         vipCache = null
+        rulesCache = null
         changed()
     }
 

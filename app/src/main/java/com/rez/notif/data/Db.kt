@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 3
+        const val VERSION = 4
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -128,6 +128,7 @@ class Db private constructor(
         )
         createV2(db)
         createV3(db)
+        createV4(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -150,6 +151,12 @@ class Db private constructor(
         db.execSQL("CREATE TABLE wallet (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, kind TEXT NOT NULL, data BLOB NOT NULL, updated INTEGER NOT NULL)")
     }
 
+    /** Version 4: the user's own rules, and "remind me later". */
+    private fun createV4(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS rules (id INTEGER PRIMARY KEY AUTOINCREMENT, pos INTEGER NOT NULL, data TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS reminders (item_id INTEGER PRIMARY KEY, at INTEGER NOT NULL, repeats INTEGER NOT NULL DEFAULT 0)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -158,6 +165,7 @@ class Db private constructor(
             db.execSQL("UPDATE items SET is_read = 1 WHERE timestamp < ?", arrayOf<Any>(System.currentTimeMillis() - 86_400_000L))
         }
         if (oldVersion < 3) createV3(db)
+        if (oldVersion < 4) createV4(db)
     }
 
     // ---------- password wallet ----------
@@ -187,6 +195,56 @@ class Db private constructor(
     fun walletDelete(id: Long) {
         writableDatabase.delete("wallet", "id = ?", arrayOf(id.toString()))
     }
+
+    // ---------- rules and reminders ----------
+
+    fun rules(): List<com.rez.notif.classify.Rule> =
+        readableDatabase.rawQuery("SELECT id, data FROM rules ORDER BY pos, id", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.Rule>()
+            while (c.moveToNext()) com.rez.notif.classify.Rules.decode(c.getLong(0), c.getString(1))?.let { l += it }
+            l
+        }
+
+    fun saveRule(r: com.rez.notif.classify.Rule): Long {
+        val db = writableDatabase
+        val data = com.rez.notif.classify.Rules.encode(r)
+        if (r.id > 0) {
+            db.execSQL("UPDATE rules SET data = ? WHERE id = ?", arrayOf<Any>(data, r.id))
+            return r.id
+        }
+        val pos = db.rawQuery("SELECT COALESCE(MAX(pos), 0) + 1 FROM rules", null).use { it.moveToFirst(); it.getInt(0) }
+        return db.insert("rules", null, ContentValues().apply { put("pos", pos); put("data", data) })
+    }
+
+    fun deleteRule(id: Long) {
+        writableDatabase.delete("rules", "id = ?", arrayOf(id.toString()))
+    }
+
+    /** Saves the rules' order (first match wins). */
+    fun reorderRules(ids: List<Long>) {
+        val db = writableDatabase
+        ids.forEachIndexed { i, id -> db.execSQL("UPDATE rules SET pos = ? WHERE id = ?", arrayOf<Any>(i, id)) }
+    }
+
+    fun putReminder(itemId: Long, at: Long, repeats: Int) {
+        writableDatabase.insertWithOnConflict(
+            "reminders", null,
+            ContentValues().apply { put("item_id", itemId); put("at", at); put("repeats", repeats) },
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
+    }
+
+    fun removeReminder(itemId: Long) {
+        writableDatabase.delete("reminders", "item_id = ?", arrayOf(itemId.toString()))
+    }
+
+    /** (item id, time, repeats left), soonest first. */
+    fun reminders(): List<Triple<Long, Long, Int>> =
+        readableDatabase.rawQuery("SELECT item_id, at, repeats FROM reminders ORDER BY at", null).use { c ->
+            val l = ArrayList<Triple<Long, Long, Int>>()
+            while (c.moveToNext()) l += Triple(c.getLong(0), c.getLong(1), c.getInt(2))
+            l
+        }
 
     // ---------- writes ----------
 
@@ -403,6 +461,11 @@ class Db private constructor(
     }
 
     // ---------- reads ----------
+
+    fun idOf(sourceKey: String): Long? =
+        readableDatabase.rawQuery("SELECT id FROM live_items WHERE source_key = ?", arrayOf(sourceKey)).use { c ->
+            if (c.moveToFirst()) c.getLong(0) else null
+        }
 
     fun get(id: Long): Item? =
         readableDatabase.rawQuery("SELECT * FROM live_items WHERE id = ?", arrayOf(id.toString())).use { c ->
