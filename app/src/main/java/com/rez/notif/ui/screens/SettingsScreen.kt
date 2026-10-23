@@ -206,6 +206,12 @@ fun SettingsScreen(nav: Navigator) {
                             repo.prefs.update { it.copy(firstScanDone = false) }
                             nav.reset(Screen.Scan)
                         }, primary = false)
+                        GlassButton(t("مرتب کردن «سایر» با مدل هوشمند"), onClick = {
+                            scope.launch {
+                                val n = repo.relabelOthersNow()
+                                syncMsg = fa(n) + t(" پیامک از «سایر» به دسته درست رفت")
+                            }
+                        }, primary = false)
                         GlassButton(t("دسترسی‌ها"), onClick = { nav.go(Screen.Onboarding) }, primary = false)
                         GlassButton(t("پاک کردن همه"), onClick = { confirmWipe = true }, primary = false)
                     }

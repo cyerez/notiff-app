@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         AppLock.onLeave()
+        // Time away (and the summary notification) counts from when the user left the app.
+        NotifApp.repo(this).let { r -> if (r.prefs.current.firstScanDone) r.prefs.update { it.copy(lastSeen = System.currentTimeMillis()) } }
         super.onStop()
     }
 
@@ -42,11 +44,16 @@ class MainActivity : ComponentActivity() {
         val repo = NotifApp.repo(this)
         if (!repo.prefs.current.firstScanDone) return
         // Everything new is now in front of the user: reset the summary notification.
-        repo.prefs.update { it.copy(lastSeen = System.currentTimeMillis()) }
+        val now = System.currentTimeMillis()
+        repo.prefs.update {
+            val away = if (it.lastSeen > 0 && now - it.lastSeen > 2 * 3_600_000L) it.lastSeen else it.awaySince
+            it.copy(lastSeen = now, awaySince = away)
+        }
         SummaryNotifier.clear(this)
         lifecycleScope.launch {
             if (hasSmsPermission()) runCatching { repo.syncSms() }
             runCatching { repo.autoCleanIfDue() }
+            runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repo.ensureLearner() } }
         }
         // Opening the app tidies the status bar (see Repository.keepInShade).
         if (repo.prefs.current.clearOnOpen) NotifListener.instance?.clearNonEssential()

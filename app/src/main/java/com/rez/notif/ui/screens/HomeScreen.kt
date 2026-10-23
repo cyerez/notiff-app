@@ -1,5 +1,9 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.ui.components.ItemRow
+import com.rez.notif.data.Repository
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
 import com.rez.notif.i18n.t
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -93,6 +97,8 @@ fun HomeScreen(nav: Navigator) {
         )
     }
     val recent by rememberLoaded(repo) { repo.items(ItemQuery(limit = 40)) }
+    val important by rememberLoaded(repo) { repo.important() }
+    val away by rememberLoaded(repo, settings.awaySince) { repo.awaySummary() }
 
     val counts = data?.counts.orEmpty().associateBy { it.category }
     val unreadAll = data?.counts.orEmpty().filter { it.category != Category.ADS.id }.sumOf { it.unread }
@@ -117,7 +123,15 @@ fun HomeScreen(nav: Navigator) {
             empty = t("هنوز چیزی نیومده."),
             editMode = edit,
             onEditModeChange = { edit = it },
-        ) {
+        ) { openItem ->
+            away?.let { a ->
+                item { AwayCard(a) { repo.prefs.update { it.copy(awaySince = 0) } } }
+            }
+            val top = important.orEmpty()
+            if (top.isNotEmpty()) {
+                item { SectionTitle(t("مهم‌ها")) }
+                top.forEach { i -> item { ItemRow(i, onClick = { openItem(i) }) } }
+            }
             item {
                 // Three big tiles, like the "Inbox / To-Do / Notifications" sample.
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -213,6 +227,37 @@ private fun SummaryTile(label: String, value: String, color: Color, modifier: Mo
         Spacer(Modifier.height(10.dp))
         NeonNumber(value, color, size = 58.dp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(4.dp))
+    }
+}
+
+/** "While you were away": shown after 2+ hours away, until closed. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AwayCard(a: Repository.Away, onClose: () -> Unit) {
+    val g = LocalGlass.current
+    val hours = ((System.currentTimeMillis() - a.since) / 3_600_000L).toInt().coerceAtLeast(2)
+    GlassCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), glow = g.accent2) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NeonIcon(Icons.Rounded.History, g.accent2, size = 40.dp)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(t("وقتی نبودی"), style = MaterialTheme.typography.titleMedium, color = g.text)
+                Text(
+                    fa(hours) + t(" ساعت") + "  ·  " + fa(a.total) + t(" مورد") +
+                        (if (a.vip > 0) "  ·  " + fa(a.vip) + t(" از افراد منتخب") else ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = g.textDim,
+                )
+            }
+            IconBubble(Icons.Rounded.Close, onClose)
+        }
+        Spacer(Modifier.height(10.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            a.byCategory.filter { it.first != Category.ADS }.take(6).forEach { (c, n) ->
+                Badge(n, c.tint)
+                Text(t(c.label), style = MaterialTheme.typography.labelMedium, color = g.text, modifier = Modifier.padding(end = 8.dp))
+            }
+        }
     }
 }
 

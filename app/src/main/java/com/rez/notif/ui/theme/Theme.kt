@@ -61,6 +61,28 @@ fun GlassColors.soft(c: Color): Color = if (pastel > 0f) lerp(c, paper, pastel) 
 fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings.style) {
     AppStyle.GLASS -> glassColors(dark, settings.accent, settings.animations)
     AppStyle.PEACH -> peachColors(dark, settings.animations)
+    AppStyle.SEASONS -> if (dark) peachColors(true, settings.animations).copy(style = AppStyle.SEASONS) else seasonColors(settings.animations)
+}
+
+/** 0 spring, 1 summer, 2 autumn, 3 winter, by the Persian calendar. */
+fun persianSeason(): Int {
+    val cal = android.icu.util.Calendar.getInstance(android.icu.util.ULocale("fa_IR@calendar=persian"))
+    return cal.get(android.icu.util.Calendar.MONTH) / 3
+}
+
+private fun seasonColors(animations: Boolean): GlassColors {
+    val (scene, accent, accent2) = when (persianSeason()) {
+        0 -> Triple(Spring, Color(0xFF3FA06D), Color(0xFFF08DB0))
+        1 -> Triple(Summer, Color(0xFFF08A24), Color(0xFF2FB3C9))
+        2 -> Triple(Autumn, Color(0xFFD2603A), Color(0xFFE3A23C))
+        else -> Triple(Winter, Color(0xFF5B84C4), Color(0xFF8FB3E0))
+    }
+    return peachColors(false, animations).copy(
+        accent = accent, accent2 = accent2, scene = scene, style = AppStyle.SEASONS,
+        bgTop = scene.skyTop, bgBottom = scene.groundFront,
+        text = Color(0xFF3B3940), textDim = Color(0xFF7A7682),
+        glassTop = Color(0xFFFFFDFB).copy(alpha = 0.88f), glassBottom = Color(0xFFFBF8F5).copy(alpha = 0.8f),
+    )
 }
 
 private fun peachColors(dark: Boolean, animations: Boolean): GlassColors = if (dark) {

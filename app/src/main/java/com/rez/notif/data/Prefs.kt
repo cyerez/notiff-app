@@ -13,6 +13,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class AppStyle(val label: String) {
     GLASS("شیشه‌ای نئونی"),
     PEACH("کوهستان هلویی"),
+    SEASONS("فصل‌ها (خودکار)"),
 }
 
 /** Accent colors of the glass theme (taken from the sample designs). */
@@ -43,6 +44,8 @@ data class Settings(
     val summary: Boolean = true,
     /** When the app was last opened; the summary counts what came after it. */
     val lastSeen: Long = 0,
+    /** Start of the last long absence (2+ hours), for the "while you were away" card; 0 = none. */
+    val awaySince: Long = 0,
     /** Ask for fingerprint / phone PIN when opening the app. */
     val appLock: Boolean = false,
     val relock: RelockMode = RelockMode.APP_CLOSED,
@@ -93,6 +96,7 @@ class Prefs(context: Context) {
         keepVip = sp.getBoolean("keepVip", false),
         summary = sp.getBoolean("summary", true),
         lastSeen = sp.getLong("lastSeen", 0),
+        awaySince = sp.getLong("awaySince", 0),
         appLock = sp.getBoolean("appLock", false),
         relock = runCatching { RelockMode.valueOf(sp.getString("relock", null)!!) }.getOrDefault(RelockMode.APP_CLOSED),
         clearOnOpen = sp.getBoolean("clearOnOpen", true),
@@ -118,6 +122,7 @@ class Prefs(context: Context) {
             .putBoolean("keepVip", s.keepVip)
             .putBoolean("summary", s.summary)
             .putLong("lastSeen", s.lastSeen)
+            .putLong("awaySince", s.awaySince)
             .putBoolean("appLock", s.appLock)
             .putString("relock", s.relock.name)
             .putBoolean("clearOnOpen", s.clearOnOpen)

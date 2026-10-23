@@ -296,6 +296,29 @@ class Db private constructor(
         writableDatabase.delete("sender_overrides", "sender_key = ?", arrayOf(senderKey))
     }
 
+    /** Recent categorized messages for the small offline model: (text, category id). */
+    fun trainingSamples(limit: Int = 6000): List<Pair<String, String>> =
+        readableDatabase.rawQuery(
+            "SELECT title, body, category FROM live_items WHERE category != 'other' AND is_ad = 0 OR category = 'ads' " +
+                "ORDER BY timestamp DESC LIMIT ?",
+            arrayOf(limit.toString()),
+        ).use { c ->
+            val l = ArrayList<Pair<String, String>>()
+            while (c.moveToNext()) l += (c.getString(0) + " " + c.getString(1)) to c.getString(2)
+            l
+        }
+
+    /** SMS the rules left in "Other" (not chosen people): (id, text). */
+    fun uncategorizedSms(): List<Pair<Long, String>> =
+        readableDatabase.rawQuery(
+            "SELECT id, body FROM live_items WHERE category = 'other' AND source = 'SMS' AND vip_id = 0",
+            null,
+        ).use { c ->
+            val l = ArrayList<Pair<Long, String>>()
+            while (c.moveToNext()) l += c.getLong(0) to c.getString(1)
+            l
+        }
+
     fun overrides(): Map<String, String> {
         val out = HashMap<String, String>()
         readableDatabase.rawQuery("SELECT sender_key, category FROM sender_overrides", null).use { c ->

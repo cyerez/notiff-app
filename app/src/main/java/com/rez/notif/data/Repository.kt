@@ -10,6 +10,8 @@ import com.rez.notif.backup.BackupCrypto
 import com.rez.notif.classify.Analyzer
 import com.rez.notif.classify.Category
 import com.rez.notif.classify.Classifier
+import com.rez.notif.classify.Learner
+import com.rez.notif.classify.Priority
 import com.rez.notif.classify.VipMatcher
 import com.rez.notif.classify.VipPerson
 import com.rez.notif.sms.RawSms
@@ -80,7 +82,8 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     private fun smsToItem(raw: RawSms): Item {
         val vip = VipMatcher.match(vipPeople(), true, raw.address, "", raw.body)
-        val r = vipSafe(Classifier.classify(Classifier.Input(isSms = true, sender = raw.address, title = "", body = raw.body), overrides()), vip)
+        var r = vipSafe(Classifier.classify(Classifier.Input(isSms = true, sender = raw.address, title = "", body = raw.body), overrides()), vip)
+        if (r.category == Category.OTHER && vip == null) learner?.guess(raw.body)?.let { r = r.copy(category = it.category) }
         return Item(
             source = Source.SMS,
             sourceKey = smsKey(raw.address, raw.body, raw.date),
@@ -95,6 +98,64 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             isAd = r.category == Category.ADS,
             isValuable = r.isValuable,
             vipId = vip?.id ?: 0,
+        )
+    }
+
+    // ---------- small offline model ----------
+
+    @Volatile private var learner: Learner? = null
+    @Volatile private var learnerStale = true
+
+    /** (Re)trains the model from what is already sorted, including the user's own changes. Cheap; runs on resume. */
+    fun ensureLearner() {
+        if (!learnerStale && learner != null) return
+        learner = Learner.train(db.trainingSamples().map { (text, cat) -> text to Category.of(cat) })
+        learnerStale = false
+    }
+
+    /** Lets the model sort what the rules left in "Other". Returns how many moved. */
+    fun relabelOthers(): Int {
+        ensureLearner()
+        val m = learner ?: return 0
+        var moved = 0
+        for ((id, text) in db.uncategorizedSms()) {
+            val g = m.guess(text) ?: continue
+            db.updateCategory(id, g.category.id, g.category == Category.ADS)
+            moved++
+        }
+        if (moved > 0) changed()
+        return moved
+    }
+
+    suspend fun relabelOthersNow(): Int = withContext(Dispatchers.IO) { relabelOthers() }
+
+    // ---------- important & while you were away ----------
+
+    /** Unread things of the last two days that matter most (chosen people, missed calls, personal, money). */
+    suspend fun important(): List<Item> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        db.query(ItemQuery(sinceMillis = now - 48 * 3_600_000L, limit = 400))
+            .filter { !it.isRead }
+            .map { it to Priority.score(Priority.Input(Category.of(it.category), it.vipId > 0, it.isValuable, it.isStarred, it.isRead, now - it.timestamp)) }
+            .filter { it.second >= Priority.IMPORTANT }
+            .sortedByDescending { it.second }
+            .take(5)
+            .map { it.first }
+    }
+
+    data class Away(val since: Long, val total: Int, val byCategory: List<Pair<Category, Int>>, val vip: Int)
+
+    /** What came in while the user was away (set when the app opens after 2+ hours). */
+    suspend fun awaySummary(): Away? = withContext(Dispatchers.IO) {
+        val since = prefs.current.awaySince
+        if (since <= 0) return@withContext null
+        val items = db.query(ItemQuery(sinceMillis = since, limit = 2000))
+        if (items.isEmpty()) return@withContext null
+        Away(
+            since = since,
+            total = items.size,
+            byCategory = items.groupBy { Category.of(it.category) }.map { it.key to it.value.size }.sortedByDescending { it.second },
+            vip = items.count { it.vipId > 0 },
         )
     }
 
@@ -192,6 +253,8 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
                 )
             }
             db.insertAll(smoothed)
+            // The small model learns from what the rules sorted and tries the leftovers in "Other".
+            runCatching { relabelOthers() }
             // Notifications caught so far also count toward the suggestions.
             val notifMsgs = db.query(ItemQuery(source = Source.NOTIFICATION, includeAds = true, limit = 5000))
                 .map { Analyzer.Msg(it.sourceKey, it.appName, it.title + " " + it.body, Category.of(it.category)) }
@@ -243,6 +306,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         } else {
             db.updateCategory(item.id, category.id, isAd)
         }
+        learnerStale = true
         changed()
     }
 

@@ -3,6 +3,13 @@ package com.rez.notif.i18n
 /** English for every Persian text in the app. Keys are the Persian text exactly as written in the code. */
 internal object En {
     val map: Map<String, String> = hashMapOf(
+        "فصل‌ها (خودکار)" to "Seasons (automatic)",
+        "مهم‌ها" to "Important",
+        "وقتی نبودی" to "While you were away",
+        " ساعت" to " h",
+        " از افراد منتخب" to " from chosen people",
+        "مرتب کردن «سایر» با مدل هوشمند" to "Sort \"Other\" with the smart model",
+        " پیامک از «سایر» به دسته درست رفت" to " SMS moved from \"Other\" to the right category",
         "۳۰ روز اخیر" to "Last 30 days",
         "ساعت‌های شلوغ" to "Busy hours",
         "پیامک هر سیم‌کارت" to "SMS per SIM card",

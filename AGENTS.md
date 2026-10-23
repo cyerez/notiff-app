@@ -27,6 +27,8 @@ app/src/main/java/com/rez/notif/
     Category.kt          built-in categories (ids are stored in the DB: never rename)
     Classifier.kt        rule-based "first brain" (keywords, sender patterns, packages)
     Analyzer.kt          first-scan pass: sender-majority smoothing + category suggestions
+    Priority.kt          importance score for the "Important" section
+    Learner.kt           small offline naive Bayes; sorts what rules left in "Other"
     Vip.kt               chosen people ("افراد منتخب") + VipMatcher (number or name match)
   data/
     Db.kt                SQLiteOpenHelper v2: items, sender_overrides, vip. Reads go through the
@@ -38,6 +40,7 @@ app/src/main/java/com/rez/notif/
          user-facing Persian string in t(...) and add its English to En.kt (I18nTest fails otherwise).
   backup/ BackupCrypto.kt (password -> PBKDF2 -> AES-256-GCM; pure Kotlin, tested)
   security/ AppLock.kt (system BiometricPrompt; relocks after 30 s away), DbKey.kt (DB key wrapped by Keystore)
+  widget/ NotifWidget.kt (RemoteViews home-screen widget; refreshed 2 s after data changes)
   sms/   SmsReader.kt (inbox via content provider), SmsReceiver.kt (new SMS broadcast)
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt
   ui/

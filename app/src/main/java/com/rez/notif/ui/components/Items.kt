@@ -168,7 +168,8 @@ fun ItemList(
     empty: String = t("چیزی اینجا نیست."),
     editMode: Boolean = false,
     onEditModeChange: (Boolean) -> Unit = {},
-    header: LazyListScope.() -> Unit = {},
+    /** Extra rows above the list; call the given function to open an item's detail sheet. */
+    header: LazyListScope.(openItem: (Item) -> Unit) -> Unit = {},
 ) {
     val g = LocalGlass.current
     val context = LocalContext.current
@@ -188,7 +189,7 @@ fun ItemList(
 
     Box(modifier) {
         LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
-            header()
+            header { open = it }
             if (items.isEmpty()) item { EmptyState(empty) }
             items(items, key = { it.id }) { item ->
                 ItemRow(

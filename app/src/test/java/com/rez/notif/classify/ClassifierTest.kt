@@ -128,3 +128,35 @@ class CodeExtractTest {
 
     @Test fun notOtp() = assertEquals(null, Classifier.extractCode("سلام فردا ساعت 1830 میام"))
 }
+
+class PriorityTest {
+    private fun p(c: Category, vip: Boolean = false, read: Boolean = false, hours: Long = 0) =
+        Priority.score(Priority.Input(c, vip, false, false, read, hours * 3_600_000L))
+
+    @Test fun vipBeatsEverything() = assertTrue(p(Category.APPS, vip = true) > p(Category.BANK))
+    @Test fun missedCallIsImportant() = assertTrue(p(Category.MISSED) >= Priority.IMPORTANT)
+    @Test fun adsAreNever() = assertEquals(0, p(Category.ADS))
+    @Test fun oldThingsFade() = assertTrue(p(Category.PERSONAL, hours = 30) < p(Category.PERSONAL))
+}
+
+class LearnerTest {
+    private val train = (1..12).map { "سفارش شما ارسال شد پیگیری مرسوله پست $it" to Category.SHOPPING } +
+        (1..12).map { "جلسه فردا با تیم ساعت $it در دفتر" to Category.PERSONAL } +
+        (1..12).map { "قبض گاز شما صادر شد مبلغ $it" to Category.SERVICES }
+
+    @Test fun learnsWords() {
+        val m = Learner.train(train)
+        assertEquals(Category.SHOPPING, m.guess("مرسوله شما توسط پست ارسال شد")?.category)
+        assertEquals(Category.PERSONAL, m.guess("فردا جلسه داریم با تیم")?.category)
+    }
+
+    @Test fun unsureReturnsNull() {
+        val m = Learner.train(train)
+        assertEquals(null, m.guess("هوا امروز خیلی خوبه"))
+    }
+
+    @Test fun tooFewExamplesAreIgnored() {
+        val m = Learner.train(listOf("یک دو سه" to Category.BANK))
+        assertEquals(null, m.guess("یک دو سه"))
+    }
+}

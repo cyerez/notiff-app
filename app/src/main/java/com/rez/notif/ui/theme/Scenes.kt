@@ -28,6 +28,7 @@ data class ScenePalette(
     val ground: Color,
     val groundFront: Color,
     val night: Boolean,
+    val snow: Boolean = false,
 )
 
 val PeachDay = ScenePalette(
@@ -35,6 +36,32 @@ val PeachDay = ScenePalette(
     far = Color(0xFFF2BDA8), mid = Color(0xFFE59B87), forest = Color(0xFF4E6B66), forestBack = Color(0xFF7E8F86),
     lake = Color(0xFFA9D6D1), lakeShine = Color(0xFFEAF6F3), ground = Color(0xFFF0B49E), groundFront = Color(0xFFE39D89),
     night = false,
+)
+
+/** Seasons, picked by the Persian calendar (Farvardin = spring). Same landscape, new colors. */
+val Spring = ScenePalette(
+    skyTop = Color(0xFFE6F4FA), skyBottom = Color(0xFFCDE9F2), sun = Color(0xFFFFD27A), cloud = Color(0xFFFFFFFF),
+    far = Color(0xFFB9DDB6), mid = Color(0xFF8CC79A), forest = Color(0xFF3F7F5F), forestBack = Color(0xFF77A88A),
+    lake = Color(0xFF9ED8E6), lakeShine = Color(0xFFF2FBFD), ground = Color(0xFFF4C6D7), groundFront = Color(0xFFA9D8A0),
+    night = false,
+)
+val Summer = ScenePalette(
+    skyTop = Color(0xFFFFF1D6), skyBottom = Color(0xFFFFD9A0), sun = Color(0xFFFF9F43), cloud = Color(0xFFFFFBF2),
+    far = Color(0xFFE9C38B), mid = Color(0xFFD9A066), forest = Color(0xFF4F7A52), forestBack = Color(0xFF86A776),
+    lake = Color(0xFF6FC7D9), lakeShine = Color(0xFFE8F8FB), ground = Color(0xFFF2CF8C), groundFront = Color(0xFFE4B66F),
+    night = false,
+)
+val Autumn = ScenePalette(
+    skyTop = Color(0xFFFBE2CC), skyBottom = Color(0xFFF3B98E), sun = Color(0xFFE9774A), cloud = Color(0xFFFFF4EA),
+    far = Color(0xFFD9967A), mid = Color(0xFFB86B52), forest = Color(0xFFA6492E), forestBack = Color(0xFFD08A3E),
+    lake = Color(0xFF9CB8C0), lakeShine = Color(0xFFEAF1F2), ground = Color(0xFFE8A367), groundFront = Color(0xFFC9784B),
+    night = false,
+)
+val Winter = ScenePalette(
+    skyTop = Color(0xFFE8EEF7), skyBottom = Color(0xFFC9D6EA), sun = Color(0xFFF6F2E9), cloud = Color(0xFFFFFFFF),
+    far = Color(0xFFDDE6F2), mid = Color(0xFFB7C6DD), forest = Color(0xFF3E5A6E), forestBack = Color(0xFF7D92A8),
+    lake = Color(0xFFB9CFE3), lakeShine = Color(0xFFFFFFFF), ground = Color(0xFFF4F7FB), groundFront = Color(0xFFE1E8F2),
+    night = false, snow = true,
 )
 
 val PeachNight = ScenePalette(
@@ -125,6 +152,17 @@ fun DrawScope.peachMountains(p: ScenePalette, t: Float) {
     pine(w * 0.16f, h * 0.79f, h * 0.085f, p.forestBack)
     pine(w * 0.9f, h * 0.78f, h * 0.13f, p.forest)
     pine(w * 0.81f, h * 0.79f, h * 0.08f, p.forestBack)
+
+    // Gentle snowfall: flakes slide down as [t] moves.
+    if (p.snow) {
+        var seed = 11
+        fun rnd(): Float { seed = (seed * 1103515245 + 12345) and 0x7fffffff; return (seed % 10_000) / 10_000f }
+        repeat(70) {
+            val x = w * rnd()
+            val y = (h * rnd() + h * 0.25f * t) % h
+            drawCircle(Color.White.copy(alpha = 0.85f), radius = 1.5f + 2.5f * rnd(), center = Offset(x, y))
+        }
+    }
 }
 
 /** A flat mountain: a lit left face and a shaded right face, like folded paper. */
