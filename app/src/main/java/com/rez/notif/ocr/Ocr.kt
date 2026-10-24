@@ -57,7 +57,22 @@ object Ocr {
             check(api.init(dataDir(context).absolutePath, lang.code)) { "OCR could not start" }
             api.setPageSegMode(TessBaseAPI.PageSegMode.PSM_AUTO)
             api.setImage(prepare(bitmap))
-            return api.getUTF8Text()?.trim().orEmpty()
+            val plain = api.getUTF8Text()?.trim().orEmpty()
+            // Line by line with confidence, so noise can be dropped and wrapped lines joined.
+            val tidy = runCatching {
+                val lines = ArrayList<com.rez.notif.classify.OcrTidy.Line>()
+                val level = TessBaseAPI.PageIteratorLevel.RIL_TEXTLINE
+                val it = api.resultIterator ?: return@runCatching ""
+                it.begin()
+                do {
+                    val text = it.getUTF8Text(level) ?: continue
+                    val r = it.getBoundingRect(level)
+                    lines += com.rez.notif.classify.OcrTidy.Line(text, it.confidence(level), r.top, r.bottom)
+                } while (it.next(level))
+                it.delete()
+                com.rez.notif.classify.OcrTidy.tidy(lines)
+            }.getOrDefault("")
+            return tidy.ifBlank { plain }
         } finally {
             api.recycle()
         }

@@ -130,6 +130,8 @@ fun OcrScreen(startUri: String?, nav: Navigator) {
                         { if (!busy) text = it },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
                         enabled = !busy,
+                        // Each line picks its own direction, so English sentences keep their dot at the end.
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Content),
                     )
                 }
                 item {
