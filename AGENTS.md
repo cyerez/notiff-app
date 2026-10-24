@@ -34,6 +34,7 @@ app/src/main/java/com/rez/notif/
                          one-line codec stored in Db `rules`; templates. Pure Kotlin, tested
     Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
     Bills.kt             due date (+ amount) of bill/installment SMS; Jalali->Gregorian. Pure Kotlin, tested
+    Records.kt           tab-separated escaped text records with a header line; the transfer file format (see TransferScreen). Pure Kotlin, tested
     Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
     Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was
                          present each day, balances + fewest transfers; one-text codec stored in Db `trips`. Pure Kotlin, tested
@@ -70,7 +71,7 @@ app/src/main/java/com/rez/notif/
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Transfer (chosen categories/VIP/starred -> password-locked .notifmsg file; import merges by source_key and can write SMS into the phone inbox when default SMS app), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

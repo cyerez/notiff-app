@@ -922,6 +922,76 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         added to found.size
     }
 
+    // ---------- move messages to another phone ----------
+
+    /** What to take: these categories, plus (optionally) chosen people and starred/valuable ones, since [sinceMillis]. Ads never. */
+    data class TransferChoice(val categories: Set<String>, val vip: Boolean, val kept: Boolean, val sinceMillis: Long?)
+
+    private suspend fun transferItems(c: TransferChoice): List<Item> = withContext(Dispatchers.IO) {
+        db.query(ItemQuery(sinceMillis = c.sinceMillis, limit = 500_000)).filter { i ->
+            !i.isAd && (i.category in c.categories || (c.vip && i.vipId > 0) || (c.kept && (i.isStarred || i.isValuable)))
+        }
+    }
+
+    suspend fun transferCount(c: TransferChoice): Int = transferItems(c).size
+
+    /** Writes the chosen messages (and the chosen people) to [uri], locked with [password]. Returns how many messages. */
+    suspend fun exportTransfer(uri: Uri, password: CharArray, c: TransferChoice): Int = withContext(Dispatchers.IO) {
+        val items = transferItems(c)
+        val vips = db.vips()
+        val vipName = vips.associate { it.id to it.name }
+        val rows = ArrayList<List<String>>()
+        vips.forEach { v -> rows += listOf("V", v.name, v.numbers.joinToString(",")) }
+        items.forEach { i ->
+            rows += listOf(
+                "I", i.source.name, i.sourceKey, i.packageName, i.appName, i.sender, i.title, i.body, i.timestamp.toString(),
+                i.simSlot.toString(), i.category, b(i.isValuable), b(i.isStarred), b(i.isRead), vipName[i.vipId].orEmpty(),
+            )
+        }
+        val locked = BackupCrypto.encrypt(com.rez.notif.classify.Records.encode(rows).toByteArray(Charsets.UTF_8), password)
+        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(locked) } ?: error("cannot write file")
+        items.size
+    }
+
+    private fun b(v: Boolean) = if (v) "1" else "0"
+
+    data class TransferResult(val added: Int, val total: Int, val inbox: Int)
+
+    /**
+     * Adds the messages in a transfer file to this phone; what is already here is skipped. With [toInbox] (and Notif as
+     * the phone's SMS app), new SMS are also written into the phone's own messages. Throws BackupCrypto / Records errors.
+     */
+    suspend fun importTransfer(uri: Uri, password: CharArray, toInbox: Boolean): TransferResult = withContext(Dispatchers.IO) {
+        val data = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("cannot read file")
+        val rows = com.rez.notif.classify.Records.decode(BackupCrypto.decrypt(data, password).toString(Charsets.UTF_8))
+        val vipIds = db.vips().associate { it.name to it.id }.toMutableMap()
+        rows.filter { it.firstOrNull() == "V" && it.size >= 3 }.forEach { r ->
+            if (r[1] !in vipIds) vipIds[r[1]] = db.addVip(r[1], r[2].split(',').filter { it.isNotBlank() })
+        }
+        vipCache = null
+        val inbox = toInbox && com.rez.notif.sms.DefaultSms.isDefault(context)
+        var added = 0; var total = 0; var wrote = 0
+        rows.filter { it.firstOrNull() == "I" && it.size >= 15 }.forEach { r ->
+            total++
+            val item = runCatching {
+                Item(
+                    source = Source.valueOf(r[1]), sourceKey = r[2], packageName = r[3], appName = r[4], sender = r[5], title = r[6],
+                    body = r[7], timestamp = r[8].toLong(), simSlot = r[9].toIntOrNull() ?: 0, category = r[10],
+                    isValuable = r[11] == "1", isStarred = r[12] == "1", isRead = r[13] == "1", vipId = vipIds[r[14]] ?: 0,
+                )
+            }.getOrNull() ?: return@forEach
+            if (db.insert(item)) {
+                added++
+                if (inbox && item.source == Source.SMS) {
+                    com.rez.notif.sms.DefaultSms.writeInbox(context, com.rez.notif.sms.RawSms(0, item.sender, item.body, item.timestamp, -1), item.timestamp, read = true)
+                    wrote++
+                }
+            }
+        }
+        changed()
+        TransferResult(added, total, wrote)
+    }
+
     // ---------- backup ----------
 
     /** Writes a password-locked copy of everything in the app to [uri]. */
