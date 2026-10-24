@@ -38,6 +38,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -83,10 +85,15 @@ fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
             .background(Brush.verticalGradient(listOf(g.bgTop, g.bgBottom))),
     ) {
         val scene = g.scene
+        // The picture is faded so it doesn't pull the eye away from the messages (Settings > appearance).
+        val dim = androidx.compose.ui.platform.LocalContext.current.let { c ->
+            remember { com.rez.notif.NotifApp.repo(c) }.prefs.state.collectAsState().value.backdropDim
+        }
+        val pictureAlpha = when (dim) { 0 -> 1f; 2 -> 0.22f; else -> 0.5f }
         if (scene != null) {
-            Canvas(Modifier.fillMaxSize()) { peachMountains(scene, drift) }
+            Canvas(Modifier.fillMaxSize().alpha(pictureAlpha)) { peachMountains(scene, drift) }
         } else if (g.backdrop != Backdrop.BLOBS) {
-            Canvas(Modifier.fillMaxSize()) { drawBackdrop(g.backdrop, g, drift) }
+            Canvas(Modifier.fillMaxSize().alpha(pictureAlpha)) { drawBackdrop(g.backdrop, g, drift) }
         } else Canvas(Modifier.fillMaxSize().blur(90.dp)) {
             val w = size.width
             val h = size.height

@@ -557,5 +557,9 @@ internal object En {
         "امروز سررسیده" to "Due today",
         " روز دیگه سررسیده" to " days until due",
         "میس‌کال‌ها و پیام افراد منتخب هیچ‌وقت از نوار برداشته نمیشن و تا نخونی توی خانه می‌مونن." to "Missed calls and messages from chosen people are never taken off the bar and stay on Home until read.",
+        "تصویر پس‌زمینه" to "Background picture",
+        "کامل" to "Full",
+        "کم‌رنگ" to "Soft",
+        "خیلی کم‌رنگ" to "Very soft",
     )
 }

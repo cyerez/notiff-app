@@ -17,7 +17,7 @@ import com.rez.notif.ui.components.fa
 
 /**
  * When every notification is hidden, this one quiet notification says what arrived
- * ("۵ مورد تازه: بانک ۲، تلگرام ۳"). Tapping it opens the app. It goes away when the app opens.
+ * (an icon with a count for each app). Tapping it opens the app. It goes away when the app opens.
  */
 object SummaryNotifier {
     private const val CHANNEL = "summary"
@@ -55,11 +55,10 @@ object SummaryNotifier {
         }
         val byCategory = items.groupBy { it.category }.entries.sortedByDescending { it.value.size }
         val summary = byCategory.joinToString(t("، ")) { t(Category.of(it.key).label) + " " + fa(it.value.size) }
-        val style = Notification.InboxStyle().setSummaryText(summary)
-        items.take(6).forEach { i ->
-            val who = if (i.sender.isBlank()) i.appName else com.rez.notif.sms.ContactNames.label(i.sender)
-            style.addLine("$who: " + i.body.replace('\n', ' ').take(70))
-        }
+        // One icon per app with its count, instead of lines of text.
+        val byApp = items.groupBy { appOf(context, it) }.entries.sortedByDescending { it.value.size }.map { it.key to it.value.size }
+        val small = iconsView(context, byApp, null, rows = 1)
+        val big = iconsView(context, byApp, fa(items.size) + t(" مورد تازه"), rows = 2)
         val open = PendingIntent.getActivity(
             context,
             0,
@@ -70,7 +69,9 @@ object SummaryNotifier {
             .setSmallIcon(R.drawable.ic_stat_notif)
             .setContentTitle(fa(items.size) + t(" مورد تازه"))
             .setContentText(summary)
-            .setStyle(style)
+            .setStyle(Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(small)
+            .setCustomBigContentView(big)
             .setNumber(items.size)
             .setContentIntent(open)
             .setOnlyAlertOnce(!digest)
@@ -78,6 +79,42 @@ object SummaryNotifier {
             .setWhen(items.first().timestamp)
             .build()
         nm.notify(ID, n)
+    }
+
+    private const val PER_ROW = 7
+
+    private fun iconsView(context: Context, apps: List<Pair<String, Int>>, title: String?, rows: Int): android.widget.RemoteViews {
+        val v = android.widget.RemoteViews(context.packageName, R.layout.summary_notif)
+        if (title == null) v.setViewVisibility(R.id.summary_title, android.view.View.GONE) else v.setTextViewText(R.id.summary_title, title)
+        v.removeAllViews(R.id.summary_icons)
+        v.removeAllViews(R.id.summary_icons2)
+        apps.take(PER_ROW * rows).forEachIndexed { i, (pkg, count) ->
+            val cell = android.widget.RemoteViews(context.packageName, R.layout.summary_icon)
+            val icon = iconOf(context, pkg)
+            if (icon != null) cell.setImageViewBitmap(R.id.summary_app, icon) else cell.setImageViewResource(R.id.summary_app, R.mipmap.ic_launcher)
+            cell.setTextViewText(R.id.summary_count, fa(count))
+            v.addView(if (i < PER_ROW) R.id.summary_icons else R.id.summary_icons2, cell)
+        }
+        return v
+    }
+
+    /** SMS are shown with the phone's messages app icon. */
+    private fun appOf(context: Context, i: com.rez.notif.data.Item): String =
+        if (i.source == com.rez.notif.data.Source.SMS || i.packageName.isBlank()) {
+            android.provider.Telephony.Sms.getDefaultSmsPackage(context)?.takeIf { it != context.packageName } ?: "com.samsung.android.messaging"
+        } else i.packageName
+
+    private val icons = HashMap<String, android.graphics.Bitmap?>()
+
+    private fun iconOf(context: Context, pkg: String): android.graphics.Bitmap? = icons.getOrPut(pkg) {
+        runCatching {
+            val d = context.packageManager.getApplicationIcon(pkg)
+            val size = 96
+            val b = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            d.setBounds(0, 0, size, size)
+            d.draw(android.graphics.Canvas(b))
+            b
+        }.getOrNull()
     }
 
     fun clear(context: Context) {

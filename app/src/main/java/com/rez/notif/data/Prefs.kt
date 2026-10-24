@@ -58,6 +58,8 @@ data class Settings(
     val phoneDelete: Boolean = true,
     val language: Lang = Lang.FA,
     val animations: Boolean = true,
+    /** How strong the background picture is: 0 full, 1 soft, 2 very soft. */
+    val backdropDim: Int = 1,
     /** Hide every new notification from the status bar right away; it lives on inside the app. */
     val hideAll: Boolean = true,
     /** Exceptions while hideAll is on. */
@@ -141,6 +143,7 @@ class Prefs(context: Context) {
         season = runCatching { Season.valueOf(sp.getString("season", null)!!) }.getOrDefault(Season.AUTO),
         language = runCatching { Lang.valueOf(sp.getString("language", null)!!) }.getOrDefault(Lang.FA),
         animations = sp.getBoolean("animations", true),
+        backdropDim = sp.getInt("backdropDim", 1),
         hideAll = sp.getBoolean("hideAll", true),
         keepOtp = sp.getBoolean("keepOtp", true),
         keepVip = sp.getBoolean("keepVip", false),
@@ -186,6 +189,7 @@ class Prefs(context: Context) {
             .putBoolean("phoneDelete", s.phoneDelete)
             .putString("language", s.language.name)
             .putBoolean("animations", s.animations)
+            .putInt("backdropDim", s.backdropDim)
             .putBoolean("hideAll", s.hideAll)
             .putBoolean("keepOtp", s.keepOtp)
             .putBoolean("keepVip", s.keepVip)

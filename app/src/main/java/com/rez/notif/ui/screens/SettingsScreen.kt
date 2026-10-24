@@ -118,6 +118,14 @@ fun SettingsScreen(nav: Navigator) {
                     ToggleRow(t("انیمیشن‌ها"), t("پس‌زمینه متحرک و حرکت‌های کوچک"), s.animations) { v ->
                         repo.prefs.update { it.copy(animations = v) }
                     }
+                    Spacer(Modifier.height(10.dp))
+                    Text(t("تصویر پس‌زمینه"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to t("کامل"), 1 to t("کم‌رنگ"), 2 to t("خیلی کم‌رنگ")).forEach { (d, label) ->
+                            GlassChip(label, s.backdropDim == d, { repo.prefs.update { it.copy(backdropDim = d) } })
+                        }
+                    }
                 }
             }
 
