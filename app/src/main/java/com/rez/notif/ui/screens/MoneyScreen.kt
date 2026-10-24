@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -71,6 +72,8 @@ fun MoneyScreen(nav: Navigator) {
     val s by repo.prefs.state.collectAsState()
     val bills by rememberLoaded(repo) { repo.upcomingBills() }
     val mine by rememberLoaded(repo) { repo.myBills() }
+    val thisMonth = remember { repo.thisMonth() }
+    val paidNow = mine.orEmpty().filter { repo.isPaid(it.id, thisMonth) }.map { it.id }.toSet()
     var editingBill by remember { mutableStateOf<com.rez.notif.data.Db.MyBill?>(null) }
     var open by remember { mutableStateOf<Item?>(null) }
     var scanNote by remember { mutableStateOf<String?>(null) }
@@ -134,6 +137,11 @@ fun MoneyScreen(nav: Navigator) {
                             }
                             if (b.amount > 0) Text(toman(b.amount * 10), style = MaterialTheme.typography.labelMedium, color = g.text)
                         }
+                        val paid = paidNow.contains(b.id)
+                        Spacer(Modifier.height(6.dp))
+                        GlassChip(if (paid) t("این ماه پرداخت شد ✓") else t("پرداختش کردم"), paid, {
+                            scope.launch { repo.setPaid(b.id, thisMonth, !paid) }
+                        }, color = Category.PERSONAL.tint)
                     }
                 }
             }
@@ -340,6 +348,18 @@ fun MoneySummaryCard(onOpen: (() -> Unit)?) {
                 Text(toman(a.balance) + "  ·  " + shortTime(a.time), style = MaterialTheme.typography.bodySmall, color = g.textDim)
             }
         }
+        if (sum.internal > 0) {
+            Text(
+                toman(sum.internal) + t(" جابه‌جایی بین حساب‌های خودت حساب نشده."),
+                style = MaterialTheme.typography.bodySmall,
+                color = g.textDim,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+        if (onOpen == null && sum.byKind.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            KindBreakdown(sum.byKind.map { it.first to it.second / 10 })
+        }
         Text(
             fa(sum.count) + t(" تراکنش. عددها از متن پیامک خونده شده و ممکنه کامل نباشه."),
             style = MaterialTheme.typography.labelSmall,
@@ -347,4 +367,40 @@ fun MoneySummaryCard(onOpen: (() -> Unit)?) {
             modifier = Modifier.padding(top = 6.dp),
         )
     }
+}
+
+/** Money per kind of bank transaction (toman): card transfers, online, store, ATM... with a small bar each. */
+@Composable
+fun KindBreakdown(byKind: List<Pair<com.rez.notif.classify.Spending.Kind, Long>>) {
+    val g = LocalGlass.current
+    val outs = byKind.filter { !it.first.isIncome }
+    val ins = byKind.filter { it.first.isIncome }
+    val max = (byKind.maxOfOrNull { it.second } ?: 1L).coerceAtLeast(1L)
+    @Composable
+    fun rows(list: List<Pair<com.rez.notif.classify.Spending.Kind, Long>>, color: Color) {
+        list.forEach { (k, amount) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(t(k.label), style = MaterialTheme.typography.bodySmall, color = g.text, modifier = Modifier.weight(1f))
+                androidx.compose.foundation.layout.Box(
+                    Modifier.weight(0.8f).height(6.dp).padding(horizontal = 6.dp)
+                        .background(g.textDim.copy(alpha = 0.15f), androidx.compose.foundation.shape.RoundedCornerShape(3.dp)),
+                ) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.fillMaxWidth((amount.toFloat() / max).coerceIn(0.02f, 1f)).height(6.dp)
+                            .background(color, androidx.compose.foundation.shape.RoundedCornerShape(3.dp)),
+                    )
+                }
+                Text(fa(String.format(java.util.Locale.US, "%,d", amount)), style = MaterialTheme.typography.labelSmall, color = g.text)
+            }
+        }
+    }
+    if (outs.isNotEmpty()) {
+        Text(t("خرج‌ها به تفکیک"), style = MaterialTheme.typography.labelMedium, color = g.textDim)
+        rows(outs, Category.ADS.tint)
+    }
+    if (ins.isNotEmpty()) {
+        Text(t("واریزها به تفکیک"), style = MaterialTheme.typography.labelMedium, color = g.textDim, modifier = Modifier.padding(top = 6.dp))
+        rows(ins, Category.PERSONAL.tint)
+    }
+    Text(t("عددها به تومان"), style = MaterialTheme.typography.labelSmall, color = g.textDim, modifier = Modifier.padding(top = 2.dp))
 }

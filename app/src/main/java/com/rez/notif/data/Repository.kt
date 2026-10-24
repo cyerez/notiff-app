@@ -546,7 +546,17 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     /** One month: the user's lines, their installments (Money screen), and what bank SMS say really went out/in (toman). */
-    data class BudgetView(val month: com.rez.notif.classify.Budget.Month, val bankOut: Long, val bankIn: Long, val bills: List<Db.MyBill>)
+    data class BudgetView(
+        val month: com.rez.notif.classify.Budget.Month,
+        /** From bank SMS this month, own transfers left out (toman). */
+        val bankOut: Long,
+        val bankIn: Long,
+        val bankInternal: Long,
+        val byKind: List<Pair<com.rez.notif.classify.Spending.Kind, Long>>,
+        val bills: List<Db.MyBill>,
+        /** Bills ticked as paid this month. */
+        val paid: Set<Long>,
+    )
 
     suspend fun budget(month: Int): BudgetView = withContext(Dispatchers.IO) {
         val bills = db.myBills().filter { it.amount > 0 }
@@ -554,13 +564,21 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val start = (Bills.toMillis(month / 100, month % 100, 1) ?: 0L) - 9 * 3_600_000L
         val next = com.rez.notif.classify.Budget.next(month)
         val end = (Bills.toMillis(next / 100, next % 100, 1) ?: Long.MAX_VALUE) - 9 * 3_600_000L
-        var out = 0L; var inn = 0L
-        if (start > 0) {
-            db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = start, limit = 5000))
-                .filter { it.timestamp < end }
-                .forEach { i -> Money.parse(i.body)?.let { out += it.out; inn += it.inn } }
-        }
-        BudgetView(m, out / 10, inn / 10, bills)
+        val s = if (start > 0) com.rez.notif.classify.Spending.summarize(bankTagged(start, end).second) else null
+        val paid = bills.filter { isPaid(it.id, month) }.map { it.id }.toSet()
+        BudgetView(
+            m, (s?.out ?: 0) / 10, (s?.inn ?: 0) / 10, (s?.internal ?: 0) / 10,
+            s?.byKind.orEmpty().map { it.first to it.second / 10 }, bills, paid,
+        )
+    }
+
+    fun isPaid(billId: Long, month: Int) = "$billId:$month" in prefs.current.paidBills
+
+    /** Ticks (or unticks) a hand-entered installment as paid for [month]; its reminders for that month stay quiet. */
+    suspend fun setPaid(billId: Long, month: Int, paid: Boolean) = withContext(Dispatchers.IO) {
+        val key = "$billId:$month"
+        prefs.update { it.copy(paidBills = if (paid) it.paidBills + key else it.paidBills - key) }
+        changed()
     }
 
     suspend fun saveBudgetLine(b: com.rez.notif.classify.BudgetLine) = withContext(Dispatchers.IO) { db.saveBudgetLine(b); changed() }
@@ -598,22 +616,36 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     // ---------- bank summary ----------
 
     data class BankAccount(val sender: String, val balance: Long, val time: Long)
-    data class MoneySummary(val out: Long, val inn: Long, val count: Int, val accounts: List<BankAccount>, val since: Long)
+    data class MoneySummary(
+        val out: Long, val inn: Long, val count: Int, val accounts: List<BankAccount>, val since: Long,
+        /** Moved between the user's own accounts (rial); not in [out] or [inn]. */
+        val internal: Long = 0,
+        /** Money per kind of transaction (rial), biggest first. */
+        val byKind: List<Pair<com.rez.notif.classify.Spending.Kind, Long>> = emptyList(),
+    )
+
+    /** Bank SMS between [since] and [until], read and tagged (own transfers, card transfer, online, store...). */
+    private fun bankTagged(since: Long, until: Long = Long.MAX_VALUE): Pair<List<Item>, List<com.rez.notif.classify.Spending.Tagged>> {
+        val items = db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = since, limit = 5000)).filter { it.timestamp < until }
+        val txs = items.mapNotNull { i ->
+            val tx = Money.parse(i.body) ?: return@mapNotNull null
+            if (tx.out == 0L && tx.inn == 0L) null else com.rez.notif.classify.Spending.Tx(i.id, i.timestamp, i.sender, i.body, tx.out, tx.inn)
+        }
+        return items to com.rez.notif.classify.Spending.tag(txs)
+    }
 
     /** Spending and income of the last 30 days from bank SMS, and the latest balance of each bank. Rial. */
     suspend fun moneySummary(): MoneySummary? = withContext(Dispatchers.IO) {
         val since = System.currentTimeMillis() - 30 * 86_400_000L
-        val items = db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = since, limit = 3000))
-        var out = 0L; var inn = 0L; var count = 0
+        val (items, tagged) = bankTagged(since)
         val accounts = LinkedHashMap<String, BankAccount>()
         for (i in items) { // newest first
-            val tx = Money.parse(i.body) ?: continue
-            out += tx.out; inn += tx.inn
-            if (tx.out > 0 || tx.inn > 0) count++
-            val b = tx.balance
-            if (b != null && i.sender !in accounts) accounts[i.sender] = BankAccount(i.sender, b, i.timestamp)
+            val b = Money.parse(i.body)?.balance ?: continue
+            if (i.sender !in accounts) accounts[i.sender] = BankAccount(i.sender, b, i.timestamp)
         }
-        if (count == 0 && accounts.isEmpty()) null else MoneySummary(out, inn, count, accounts.values.toList(), since)
+        val s = com.rez.notif.classify.Spending.summarize(tagged)
+        if (tagged.isEmpty() && accounts.isEmpty()) null
+        else MoneySummary(s.out, s.inn, s.count, accounts.values.toList(), since, s.internal, s.byKind)
     }
 
     // ---------- weekly report ----------

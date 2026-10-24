@@ -101,6 +101,8 @@ data class Settings(
     val codeOverlay: Boolean = true,
     /** Messages the user said are not bills ("این قسط نیست"), by item id. */
     val ignoredBills: Set<String> = emptySet(),
+    /** Hand-entered installments ticked as paid: "billId:yyyymm" (Persian month). */
+    val paidBills: Set<String> = emptySet(),
 )
 
 /** When the fingerprint lock comes back after unlocking once. */
@@ -168,6 +170,7 @@ class Prefs(context: Context) {
         codeSeconds = sp.getInt("codeSeconds", 20),
         codeOverlay = sp.getBoolean("codeOverlay", true),
         ignoredBills = sp.getStringSet("ignoredBills", emptySet())?.toSet() ?: emptySet(),
+        paidBills = sp.getStringSet("paidBills", emptySet())?.toSet() ?: emptySet(),
         digestHours = sp.getStringSet("digestHours", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
     )
 
@@ -214,6 +217,7 @@ class Prefs(context: Context) {
             .putInt("codeSeconds", s.codeSeconds)
             .putBoolean("codeOverlay", s.codeOverlay)
             .putStringSet("ignoredBills", s.ignoredBills)
+            .putStringSet("paidBills", s.paidBills)
             .putStringSet("digestHours", s.digestHours.map { it.toString() }.toSet())
             .apply()
         I18n.lang = s.language

@@ -91,14 +91,32 @@ fun BudgetScreen(nav: Navigator) {
             val v = view ?: return@LazyColumn
             val m = v.month
             item { SummaryCard(m) }
-            if (v.bankOut > 0 || v.bankIn > 0) {
+            if (v.bills.isNotEmpty()) {
                 item {
+                    val paidSum = v.bills.filter { it.id in v.paid }.sumOf { it.amount }
                     Text(
-                        t("طبق پیامک‌های بانک در این ماه: ") + t("خرج ") + tm(v.bankOut) + t("، واریز ") + tm(v.bankIn),
+                        t("قسط‌های این ماه: ") + tm(paidSum) + t(" پرداخت شده، ") + tm(m.installments - paidSum) + t(" مونده"),
                         style = MaterialTheme.typography.bodySmall,
                         color = g.textDim,
                         modifier = Modifier.padding(horizontal = 22.dp, vertical = 2.dp),
                     )
+                }
+            }
+            if (v.bankOut > 0 || v.bankIn > 0) {
+                item {
+                    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), contentPadding = 12.dp) {
+                        Text(t("از پیامک‌های بانک در این ماه"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Text(
+                            t("خرج ") + tm(v.bankOut) + t("، واریز ") + tm(v.bankIn),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = g.textDim,
+                        )
+                        if (v.bankInternal > 0) {
+                            Text(tm(v.bankInternal) + t(" جابه‌جایی بین حساب‌های خودت حساب نشده."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        KindBreakdown(v.byKind)
+                    }
                 }
             }
 
@@ -127,6 +145,11 @@ fun BudgetScreen(nav: Navigator) {
                             }
                             Text(tm(b.amount), style = MaterialTheme.typography.labelMedium, color = OutColor)
                         }
+                        val paid = b.id in v.paid
+                        Spacer(Modifier.height(6.dp))
+                        GlassChip(if (paid) t("پرداخت شد ✓") else t("پرداختش کردم"), paid, {
+                            scope.launch { repo.setPaid(b.id, month, !paid) }
+                        }, color = InColor)
                     }
                 }
             }

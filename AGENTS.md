@@ -34,6 +34,8 @@ app/src/main/java/com/rez/notif/
                          one-line codec stored in Db `rules`; templates. Pure Kotlin, tested
     Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
     Bills.kt             due date (+ amount) of bill/installment SMS; Jalali->Gregorian. Pure Kotlin, tested
+    Spending.kt          bank SMS transactions -> kinds (card transfer, online, store, ATM, bills, salary...); an out + in of the
+                         same amount within 30 min = own accounts (INTERNAL, left out of totals). Pure Kotlin, tested
     Records.kt           tab-separated escaped text records with a header line; the transfer file format (see TransferScreen). Pure Kotlin, tested
     Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
     Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was

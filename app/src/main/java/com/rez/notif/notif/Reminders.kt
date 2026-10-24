@@ -84,6 +84,16 @@ object Reminders {
         val b = db.myBill(billId) ?: return
         val due = com.rez.notif.classify.Bills.nextMonthly(b.day, 0, at - 60_000L)
         val daysLeft = Math.floorDiv(due - at - 3_600_000L + 86_399_999L, 86_400_000L).toInt().coerceAtLeast(0)
+        // Ticked as paid for this due month: no more reminders, just move on to the due day / next month.
+        val dc = java.util.Calendar.getInstance().apply { timeInMillis = due }
+        val (jy, jm, _) = com.rez.notif.classify.Bills.gregorianToJalali(dc.get(java.util.Calendar.YEAR), dc.get(java.util.Calendar.MONTH) + 1, dc.get(java.util.Calendar.DAY_OF_MONTH))
+        if (NotifApp.repo(context).isPaid(billId, jy * 100 + jm)) {
+            if (daysLeft > 0) { db.putReminder(-billId, due, 0); arm(context); return }
+            if (b.remaining == 1) { db.deleteMyBill(billId); return }
+            if (b.remaining > 1) db.saveMyBill(b.copy(remaining = b.remaining - 1))
+            scheduleBill(context, b)
+            return
+        }
         val whenText = if (daysLeft <= 0) t("امروز سررسیده") else com.rez.notif.ui.components.fa(daysLeft) + t(" روز دیگه سررسیده")
         post(
             context, notifId(-billId), t("قسط و قبض: ") + b.title,
