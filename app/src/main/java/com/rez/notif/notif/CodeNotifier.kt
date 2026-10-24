@@ -25,14 +25,23 @@ import com.rez.notif.ui.components.fa
  */
 object CodeNotifier {
     private const val CHANNEL = "codes"
+    private const val CHANNEL_QUIET = "codes_quiet"
     private const val EXTRA_CODE = "code"
     const val ACTION_COPY = "com.rez.notif.COPY_CODE"
 
     fun show(context: Context, code: String, from: String) {
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val s = com.rez.notif.NotifApp.repo(context).prefs.current
+        // With "appear on top", our own box stays up for the chosen seconds; the notification then waits quietly in the shade.
+        val boxed = s.codeOverlay && CodeOverlay.show(context, code, from, s.codeSeconds)
+        if (boxed) nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_QUIET, t("کدهای تأیید (بی‌صدا)"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = t("وقتی باکس کد روی صفحه نشون داده میشه")
+            },
+        )
         // Pops up on screen but stays silent: the original notification already made its sound.
-        nm.createNotificationChannel(
+        else nm.createNotificationChannel(
             NotificationChannel(CHANNEL, t("کدهای تأیید"), NotificationManager.IMPORTANCE_HIGH).apply {
                 setSound(null, null)
                 enableVibration(false)
@@ -46,7 +55,7 @@ object CodeNotifier {
             Intent(context, CopyCodeReceiver::class.java).setAction(ACTION_COPY).putExtra(EXTRA_CODE, code),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val n = Notification.Builder(context, CHANNEL)
+        val n = Notification.Builder(context, if (boxed) CHANNEL_QUIET else CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_notif)
             .setContentTitle(fa(code))
             .setContentText(from)

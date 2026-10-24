@@ -74,19 +74,28 @@ object Reminders {
         arm(context)
     }
 
-    /** Shows a hand-entered bill's reminder and sets the next month's one. */
+    /**
+     * Shows a hand-entered bill's reminder. It comes back every morning until the due day,
+     * then the next month's one is set.
+     */
     private fun fireBill(context: Context, billId: Long, at: Long) {
         val db = db(context)
         db.removeReminder(-billId)
         val b = db.myBill(billId) ?: return
-        val days = NotifApp.repo(context).prefs.current.billDaysBefore
-        val due = at + days * 86_400_000L
+        val due = com.rez.notif.classify.Bills.nextMonthly(b.day, 0, at - 60_000L)
+        val daysLeft = Math.floorDiv(due - at - 3_600_000L + 86_399_999L, 86_400_000L).toInt().coerceAtLeast(0)
+        val whenText = if (daysLeft <= 0) t("امروز سررسیده") else com.rez.notif.ui.components.fa(daysLeft) + t(" روز دیگه سررسیده")
         post(
             context, notifId(-billId), t("قسط و قبض: ") + b.title,
-            (if (b.amount > 0) com.rez.notif.ui.components.toman(b.amount * 10) + "  ·  " else "") +
-                t("سررسید ") + com.rez.notif.ui.components.fullTime(due),
+            (if (b.amount > 0) com.rez.notif.ui.components.toman(b.amount * 10) + "  ·  " else "") + whenText +
+                "  ·  " + com.rez.notif.ui.components.fullTime(due),
             null,
         )
+        if (daysLeft > 0) {
+            db.putReminder(-billId, minOf(at + 86_400_000L, due), 0)
+            arm(context)
+            return
+        }
         // Count down installments; the last one removes the bill.
         if (b.remaining == 1) { db.deleteMyBill(billId); return }
         if (b.remaining > 1) db.saveMyBill(b.copy(remaining = b.remaining - 1))
@@ -96,8 +105,11 @@ object Reminders {
     /** Sets the reminder for the next due date of a hand-entered bill. */
     fun scheduleBill(context: Context, b: Db.MyBill) {
         val days = NotifApp.repo(context).prefs.current.billDaysBefore
-        val due = com.rez.notif.classify.Bills.nextMonthly(b.day, days, System.currentTimeMillis())
-        db(context).putReminder(-b.id, due - days * 86_400_000L, 0)
+        val now = System.currentTimeMillis()
+        // This month's due date may already be inside the "days before" window: start reminding now.
+        val due = com.rez.notif.classify.Bills.nextMonthly(b.day, 0, now)
+        val at = due - days * 86_400_000L
+        db(context).putReminder(-b.id, if (at > now) at else now + 60_000L, 0)
         arm(context)
     }
 

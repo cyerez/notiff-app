@@ -1,5 +1,7 @@
 package com.rez.notif.ui.components
 
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.activity.result.contract.ActivityResultContracts
@@ -81,10 +83,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Swipe a row: toward the end = "read it" (marks read), toward the start = "remind me in an hour".
- * The row springs back; lists drop read items on their own.
+ * Swipe a row to the right = "read it", to the left = "remind me in an hour". The row springs back.
+ * Directions are physical (screen left/right), so they behave the same in Persian and English.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeActions(item: Item, enabled: Boolean = true, content: @Composable () -> Unit) {
     if (!enabled) { content(); return }
@@ -92,40 +93,52 @@ fun SwipeActions(item: Item, enabled: Boolean = true, content: @Composable () ->
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
     val scope = rememberCoroutineScope()
-    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(
-        confirmValueChange = { v ->
-            when (v) {
-                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> scope.launch { repo.markRead(listOf(item)) }
-                androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> scope.launch {
-                    repo.markRead(listOf(item))
-                    repo.remind(item, System.currentTimeMillis() + 3_600_000L)
-                    android.widget.Toast.makeText(context, t("یک ساعت دیگه یادت میندازم"), android.widget.Toast.LENGTH_SHORT).show()
-                }
-                else -> {}
-            }
-            false
-        },
-        positionalThreshold = { it * 0.3f },
-    )
-    androidx.compose.material3.SwipeToDismissBox(
-        state = state,
-        backgroundContent = {
-            val dir = state.dismissDirection
-            val toEnd = dir == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd
-            if (dir == androidx.compose.material3.SwipeToDismissBoxValue.Settled) return@SwipeToDismissBox
-            val color = if (toEnd) Category.PERSONAL.tint else Category.OTP.tint
+    val offset = remember { androidx.compose.animation.core.Animatable(0f) }
+    val threshold = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
+    val drag = androidx.compose.foundation.gestures.rememberDraggableState { d -> scope.launch { offset.snapTo(offset.value + d) } }
+    Box {
+        val x = offset.value
+        if (kotlin.math.abs(x) > 1f) {
+            val right = x > 0
+            val color = if (right) Category.PERSONAL.tint else Category.OTP.tint
+            val armed = kotlin.math.abs(x) > threshold
             Box(
-                Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 3.dp).background(color.copy(alpha = 0.25f), RoundedCornerShape(18.dp)).padding(horizontal = 22.dp),
-                contentAlignment = if (toEnd) Alignment.CenterStart else Alignment.CenterEnd,
+                Modifier.matchParentSize().padding(horizontal = 14.dp, vertical = 3.dp)
+                    .background(color.copy(alpha = if (armed) 0.45f else 0.2f), RoundedCornerShape(18.dp)).padding(horizontal = 22.dp),
+                contentAlignment = if (right) androidx.compose.ui.AbsoluteAlignment.CenterLeft else androidx.compose.ui.AbsoluteAlignment.CenterRight,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (toEnd) Icons.Rounded.DoneAll else Icons.Rounded.Alarm, null, tint = color)
+                    Icon(if (right) Icons.Rounded.DoneAll else Icons.Rounded.Alarm, null, tint = color)
                     Spacer(Modifier.size(8.dp))
-                    Text(if (toEnd) t("خوندم") else t("۱ ساعت دیگه"), color = g.text, style = MaterialTheme.typography.titleSmall)
+                    Text(if (right) t("خوندم") else t("۱ ساعت دیگه"), color = g.text, style = MaterialTheme.typography.titleSmall)
                 }
             }
-        },
-    ) { content() }
+        }
+        Box(
+            Modifier
+                .absoluteOffset { androidx.compose.ui.unit.IntOffset(offset.value.toInt(), 0) }
+                .draggable(
+                    drag,
+                    androidx.compose.foundation.gestures.Orientation.Horizontal,
+                    // draggable gives raw screen deltas (unlike scrollable, it does not flip for right-to-left).
+                    onDragStopped = {
+                        val v = offset.value
+                        when {
+                            v > threshold -> scope.launch {
+                                repo.markRead(listOf(item))
+                                android.widget.Toast.makeText(context, t("خونده شد"), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                            v < -threshold -> scope.launch {
+                                repo.markRead(listOf(item))
+                                repo.remind(item, System.currentTimeMillis() + 3_600_000L)
+                                android.widget.Toast.makeText(context, t("یک ساعت دیگه یادت میندازم"), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        offset.animateTo(0f)
+                    },
+                ),
+        ) { content() }
+    }
 }
 
 /** One SMS or notification in a list. */

@@ -90,7 +90,13 @@ data class Settings(
     val bigSpend: Long = 5_000_000,
     /** Remind bills and installments found in SMS, [billDaysBefore] days before the due date (0 = that morning). */
     val billReminders: Boolean = true,
-    val billDaysBefore: Int = 1,
+    val billDaysBefore: Int = 3,
+    /** Seconds a normal notification stays in the status bar before Notif tidies it away (0 = right away). Ads always go at once. */
+    val holdSeconds: Int = 30,
+    /** Seconds the "copy code" box stays on top of the screen. */
+    val codeSeconds: Int = 20,
+    /** Show the code box over other apps (needs "appear on top"); otherwise only the notification. */
+    val codeOverlay: Boolean = true,
     /** Messages the user said are not bills ("این قسط نیست"), by item id. */
     val ignoredBills: Set<String> = emptySet(),
 )
@@ -154,7 +160,10 @@ class Prefs(context: Context) {
         bigSpendOn = sp.getBoolean("bigSpendOn", false),
         bigSpend = sp.getLong("bigSpend", 5_000_000),
         billReminders = sp.getBoolean("billReminders", true),
-        billDaysBefore = sp.getInt("billDaysBefore", 1),
+        billDaysBefore = sp.getInt("billDaysBefore2", 3),
+        holdSeconds = sp.getInt("holdSeconds", 30),
+        codeSeconds = sp.getInt("codeSeconds", 20),
+        codeOverlay = sp.getBoolean("codeOverlay", true),
         ignoredBills = sp.getStringSet("ignoredBills", emptySet())?.toSet() ?: emptySet(),
         digestHours = sp.getStringSet("digestHours", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
     )
@@ -196,7 +205,10 @@ class Prefs(context: Context) {
             .putBoolean("bigSpendOn", s.bigSpendOn)
             .putLong("bigSpend", s.bigSpend)
             .putBoolean("billReminders", s.billReminders)
-            .putInt("billDaysBefore", s.billDaysBefore)
+            .putInt("billDaysBefore2", s.billDaysBefore)
+            .putInt("holdSeconds", s.holdSeconds)
+            .putInt("codeSeconds", s.codeSeconds)
+            .putBoolean("codeOverlay", s.codeOverlay)
             .putStringSet("ignoredBills", s.ignoredBills)
             .putStringSet("digestHours", s.digestHours.map { it.toString() }.toSet())
             .apply()

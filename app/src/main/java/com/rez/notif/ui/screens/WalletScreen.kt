@@ -1,5 +1,9 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.ui.components.pressable
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
 import com.rez.notif.ui.components.fa
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -107,6 +111,7 @@ fun WalletScreen(nav: Navigator) {
     var editing by remember { mutableStateOf<WalletEntry?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val secure = remember { WalletVault.deviceSecure(context) }
+    var openGroups by remember { mutableStateOf(setOf<String>()) }
     var importedFrom by remember { mutableStateOf<android.net.Uri?>(null) }
     var showImportHelp by remember { mutableStateOf(false) }
 
@@ -218,19 +223,45 @@ fun WalletScreen(nav: Navigator) {
                         )
                     }
                 }
-                items(list, key = { it.id }) { e ->
-                    GlassCard(Modifier.fillMaxWidth().padding(vertical = 5.dp), onClick = { shown = e }, contentPadding = 12.dp) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            NeonIcon(e.kind.icon, g.accent, size = 38.dp)
-                            Spacer(Modifier.size(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(e.title, style = MaterialTheme.typography.titleSmall, color = g.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    e.username.ifBlank { t(e.kind.label) },
-                                    style = MaterialTheme.typography.bodySmall, color = g.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                )
+                // Several accounts on one site (e.g. three Google logins) show as one row that opens up.
+                val groups = list.groupBy { e -> com.rez.notif.wallet.PasswordCsv.hostOf(e.url).ifBlank { e.title.trim() }.lowercase() }
+                groups.forEach { (key, members) ->
+                    if (members.size == 1) {
+                        val e = members.first()
+                        item(key = "e-" + e.id) { WalletRow(e, onOpen = { shown = e }, onCopy = { WalletVault.copy(context, e.secret); error = t("رمز کپی شد؛ ۴۵ ثانیه بعد از کلیپ‌بورد پاک میشه.") }) }
+                    } else {
+                        item(key = "g-" + key) {
+                            val expanded = key in openGroups || query.isNotBlank()
+                            GlassCard(
+                                Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                                onClick = { openGroups = if (key in openGroups) openGroups - key else openGroups + key },
+                                contentPadding = 12.dp,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    NeonIcon(Icons.Rounded.Key, g.accent, size = 38.dp)
+                                    Spacer(Modifier.size(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(members.first().title, style = MaterialTheme.typography.titleSmall, color = g.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(fa(members.size) + t(" حساب"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                                    }
+                                    Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = g.textDim)
+                                }
+                                if (expanded) {
+                                    members.forEach { e ->
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(top = 8.dp).pressable({ shown = e }),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                e.username.ifBlank { e.title },
+                                                style = MaterialTheme.typography.bodyMedium, color = g.text,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 50.dp),
+                                            )
+                                            if (e.secret.isNotEmpty()) IconBubble(Icons.Rounded.ContentCopy, { WalletVault.copy(context, e.secret); error = t("رمز کپی شد؛ ۴۵ ثانیه بعد از کلیپ‌بورد پاک میشه.") })
+                                        }
+                                    }
+                                }
                             }
-                            if (e.secret.isNotEmpty()) IconBubble(Icons.Rounded.ContentCopy, { WalletVault.copy(context, e.secret); error = t("رمز کپی شد؛ ۴۵ ثانیه بعد از کلیپ‌بورد پاک میشه.") })
                         }
                     }
                 }
@@ -252,6 +283,25 @@ fun WalletScreen(nav: Navigator) {
             editing = null
             guarded { repo.walletSave(updated); reload() }
         })
+    }
+}
+
+@Composable
+private fun WalletRow(e: WalletEntry, onOpen: () -> Unit, onCopy: () -> Unit) {
+    val g = LocalGlass.current
+    GlassCard(Modifier.fillMaxWidth().padding(vertical = 5.dp), onClick = onOpen, contentPadding = 12.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NeonIcon(e.kind.icon, g.accent, size = 38.dp)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(e.title, style = MaterialTheme.typography.titleSmall, color = g.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    e.username.ifBlank { t(e.kind.label) },
+                    style = MaterialTheme.typography.bodySmall, color = g.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (e.secret.isNotEmpty()) IconBubble(Icons.Rounded.ContentCopy, onCopy)
+        }
     }
 }
 

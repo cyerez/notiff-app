@@ -18,7 +18,7 @@ object SmsNotifier {
     const val EXTRA_ADDRESS = "open_sms_address"
 
     /**
-     * [stay] false: the notification rings and then leaves the status bar after a few seconds, the same
+     * [stay] false: the notification rings and then leaves the status bar after the user's hold time (Settings), the same
      * way hidden notifications behaved before (they live on inside the app and in the summary).
      */
     fun show(context: Context, address: String, body: String, stay: Boolean) {
@@ -47,7 +47,7 @@ object SmsNotifier {
             .setContentIntent(open)
             .setAutoCancel(true)
             .setShowWhen(true)
-        if (!stay) b.setTimeoutAfter(4_000)
+        if (!stay) b.setTimeoutAfter(maxOf(4, com.rez.notif.NotifApp.repo(context).prefs.current.holdSeconds) * 1000L)
         nm.notify(id, b.build())
     }
 

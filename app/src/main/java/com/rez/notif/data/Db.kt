@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 5
+        const val VERSION = 6
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -130,6 +130,7 @@ class Db private constructor(
         createV3(db)
         createV4(db)
         createV5(db)
+        createV6(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -163,6 +164,11 @@ class Db private constructor(
         db.execSQL("CREATE TABLE IF NOT EXISTS bills (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, amount INTEGER NOT NULL, day INTEGER NOT NULL, remaining INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
     }
 
+    /** Version 6: dong (shared costs) trips; the whole trip is one text field (see classify/Dong.kt). */
+    private fun createV6(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS trips (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, updated INTEGER NOT NULL)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -173,6 +179,7 @@ class Db private constructor(
         if (oldVersion < 3) createV3(db)
         if (oldVersion < 4) createV4(db)
         if (oldVersion < 5) createV5(db)
+        if (oldVersion < 6) createV6(db)
     }
 
     // ---------- password wallet ----------
@@ -275,6 +282,24 @@ class Db private constructor(
 
     fun deleteMyBill(id: Long) {
         writableDatabase.delete("bills", "id = ?", arrayOf(id.toString()))
+    }
+
+    // ---------- dong trips ----------
+
+    fun trips(): List<com.rez.notif.classify.DongTrip> =
+        readableDatabase.rawQuery("SELECT id, data, updated FROM trips ORDER BY updated DESC", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.DongTrip>()
+            while (c.moveToNext()) com.rez.notif.classify.Dong.decode(c.getLong(0), c.getString(1), c.getLong(2))?.let { l += it }
+            l
+        }
+
+    fun saveTrip(t: com.rez.notif.classify.DongTrip): Long {
+        val v = ContentValues().apply { put("data", com.rez.notif.classify.Dong.encode(t)); put("updated", System.currentTimeMillis()) }
+        return if (t.id > 0) { writableDatabase.update("trips", v, "id = ?", arrayOf(t.id.toString())); t.id } else writableDatabase.insert("trips", null, v)
+    }
+
+    fun deleteTrip(id: Long) {
+        writableDatabase.delete("trips", "id = ?", arrayOf(id.toString()))
     }
 
     // ---------- writes ----------

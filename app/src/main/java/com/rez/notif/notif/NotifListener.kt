@@ -59,6 +59,7 @@ class NotifListener : NotificationListenerService() {
 
     override fun onDestroy() {
         if (instance === this) instance = null
+        main.removeCallbacksAndMessages(null)
         worker.shutdown()
         super.onDestroy()
     }
@@ -103,9 +104,31 @@ class NotifListener : NotificationListenerService() {
         val decision = NotifApp.repo(this).addNotification(input)
         decision.code?.let { CodeNotifier.show(this, it, if (input.isSmsApp) title else input.appName) }
         if (decision.hide) {
-            try { cancelNotification(sbn.key) } catch (_: Exception) { }
-            SummaryNotifier.update(this)
+            val wait = sbn.postTime + decision.holdMs - System.currentTimeMillis()
+            if (wait <= 500) hide(sbn.key) else later(sbn.key, wait)
         }
+    }
+
+    private fun hide(key: String) {
+        try { cancelNotification(key) } catch (_: Exception) { }
+        SummaryNotifier.update(this)
+    }
+
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val pending = HashMap<String, Runnable>()
+
+    /** Leaves the notification up for [ms] so it can be read, then tidies it away. A newer post of the same notification restarts the wait. */
+    private fun later(key: String, ms: Long) {
+        main.post {
+            pending.remove(key)?.let(main::removeCallbacks)
+            val r = Runnable { pending.remove(key); worker.execute { hide(key) } }
+            pending[key] = r
+            main.postDelayed(r, ms)
+        }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        main.post { pending.remove(sbn.key)?.let(main::removeCallbacks) }
     }
 
     private val labels = HashMap<String, String>()

@@ -267,7 +267,8 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     /** Stores a notification. Returns true when the listener should remove it from the status bar (an ad). */
     /** What the listener should do with a notification: hide it, and maybe show the code with a copy button. */
-    data class Decision(val hide: Boolean, val code: String?)
+    /** [holdMs]: how long a hidden notification may stay in the status bar first (counted from when it was posted). */
+    data class Decision(val hide: Boolean, val code: String?, val holdMs: Long = 0)
 
     fun addNotification(n: NotificationIn): Decision {
         if (n.isSmsApp) {
@@ -277,7 +278,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             val rule = Rules.first(rules(), Rules.Input(true, "", n.title, n.text, r.category.id, hourOf(n.postTime)))
             val cat = if (rule?.action == RuleAction.MOVE) Category.of(rule.target) else r.category
             val code = codeFor(cat, n.text)
-            return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code)
+            return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code, holdFor(cat, code, rule, n.postTime))
         }
         val vip = VipMatcher.match(vipPeople(), false, n.title, n.title, n.text)
         val r = vipSafe(
@@ -313,7 +314,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         }
         val cat = Category.of(stored.category)
         val code = codeFor(cat, n.title + "\n" + n.text)
-        return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code)
+        return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code, holdFor(cat, code, rule, n.postTime))
     }
 
     /** A code to show with a copy button, only when we are hiding notifications and replacing codes. */
@@ -321,6 +322,12 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val s = prefs.current
         if (category != Category.OTP || !s.hideAll || !s.keepOtp) return null
         return Classifier.extractCode(text)
+    }
+
+    /** Normal messages stay a little while so they can be read; ads, codes we replaced and quiet hours go at once. */
+    private fun holdFor(category: Category, code: String?, rule: Rule?, postTime: Long): Long {
+        if (code != null || category == Category.ADS || rule?.action == RuleAction.DELETE || inQuietHours(postTime)) return 0
+        return prefs.current.holdSeconds * 1000L
     }
 
     /** Should this notification leave the status bar right away? */
@@ -523,6 +530,16 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         com.rez.notif.notif.Reminders.cancelBill(context, id)
         changed()
     }
+
+    // ---------- dong ----------
+
+    suspend fun trips(): List<com.rez.notif.classify.DongTrip> = withContext(Dispatchers.IO) { db.trips() }
+
+    suspend fun trip(id: Long): com.rez.notif.classify.DongTrip? = withContext(Dispatchers.IO) { db.trips().firstOrNull { it.id == id } }
+
+    suspend fun saveTrip(t: com.rez.notif.classify.DongTrip): Long = withContext(Dispatchers.IO) { db.saveTrip(t).also { changed() } }
+
+    suspend fun deleteTrip(id: Long) = withContext(Dispatchers.IO) { db.deleteTrip(id); changed() }
 
     /** After "days before" changes: move every hand-entered bill's reminder. */
     suspend fun rescheduleMyBills() = withContext(Dispatchers.IO) {

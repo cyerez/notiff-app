@@ -133,8 +133,23 @@ fun SettingsScreen(nav: Navigator) {
                     }
                     if (s.hideAll) {
                         Spacer(Modifier.height(10.dp))
+                        Text(t("نوتیف چقدر روی نوار بمونه؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Text(t("پیام‌های معمولی اول چند ثانیه می‌مونن که بخونیشون، بعد میرن توی اپ. تبلیغ همیشه فوری میره."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                        Spacer(Modifier.height(6.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(0, 15, 30, 60, 120).forEach { sec ->
+                                GlassChip(if (sec == 0) t("فوری") else if (sec < 60) fa(sec) + t(" ثانیه") else fa(sec / 60) + t(" دقیقه"), s.holdSeconds == sec, {
+                                    repo.prefs.update { it.copy(holdSeconds = sec) }
+                                })
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
                         ToggleRow(t("کد تأیید روی گوشی بمونه"), t("کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه."), s.keepOtp) { v ->
                             repo.prefs.update { it.copy(keepOtp = v) }
+                        }
+                        if (s.keepOtp) {
+                            Spacer(Modifier.height(10.dp))
+                            CodeBoxSettings(s.codeOverlay, s.codeSeconds, onOverlay = { v -> repo.prefs.update { it.copy(codeOverlay = v) } }, onSeconds = { sec -> repo.prefs.update { it.copy(codeSeconds = sec) } })
                         }
                         Spacer(Modifier.height(10.dp))
                         ToggleRow(t("افراد منتخب روی گوشی بمونن"), t("نوتیف‌های افراد منتخب مخفی نمیشن."), s.keepVip) { v ->
@@ -401,6 +416,36 @@ private fun SmsAppCard() {
             GlassButton(t("برگشت به پیام‌رسان قبلی"), primary = false, onClick = {
                 runCatching { roleLauncher.launch(DefaultSms.chooseOtherIntent()) }
             })
+        }
+    }
+}
+
+/** The "copy code" box on top of the screen: on/off, the "appear on top" permission, and how long it stays. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun CodeBoxSettings(on: Boolean, seconds: Int, onOverlay: (Boolean) -> Unit, onSeconds: (Int) -> Unit) {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    var allowed by remember { mutableStateOf(com.rez.notif.notif.CodeOverlay.allowed(context)) }
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
+        allowed = com.rez.notif.notif.CodeOverlay.allowed(context)
+    }
+    ToggleRow(t("باکس کپی کد بالای صفحه"), t("وقتی کد میاد یه باکس با دکمه «کپی کد» بالای صفحه می‌مونه، هر اپی باز باشه. با کشیدن به بالا یا × بسته میشه."), on, onOverlay)
+    if (!on) return
+    if (!allowed) {
+        Spacer(Modifier.height(6.dp))
+        Text(t("برای این کار اجازه «نمایش روی برنامه‌های دیگر» لازمه. تا وقتی ندی، کد مثل قبل فقط با نوتیف میاد."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+        Spacer(Modifier.height(6.dp))
+        GlassButton(t("دادن اجازه"), primary = false, onClick = {
+            ask.launch(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + context.packageName)))
+        })
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(t("باکس چند ثانیه بمونه؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(15, 20, 30, 45, 60).forEach { sec ->
+            GlassChip(fa(sec) + t(" ثانیه"), seconds == sec, { onSeconds(sec) })
         }
     }
 }

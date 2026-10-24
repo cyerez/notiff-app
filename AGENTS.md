@@ -34,8 +34,10 @@ app/src/main/java/com/rez/notif/
                          one-line codec stored in Db `rules`; templates. Pure Kotlin, tested
     Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
     Bills.kt             due date (+ amount) of bill/installment SMS; Jalali->Gregorian. Pure Kotlin, tested
+    Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was
+                         present each day, balances + fewest transfers; one-text codec stored in Db `trips`. Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v5: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids). Reads go through the
+    Db.kt                SQLiteOpenHelper v6: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong). Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
@@ -56,7 +58,9 @@ app/src/main/java/com/rez/notif/
          ContactNames.kt (READ_CONTACTS: number → name by last 10 digits; UI uses senderLabel(); VIPs are merged
          per contact by Repository.tidyVips)
          MmsReceiver.kt + MmsPdu.kt (MMS is only recorded, not downloaded), HeadlessSmsSendService.kt
-  notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt (live, or only at
+  notif/ NotifListener.kt (NotificationListenerService; hides notifications after Decision.holdMs = Settings holdSeconds,
+         ads/codes/quiet hours at once), CodeOverlay.kt (optional "copy code" box over other apps for codeSeconds,
+         needs SYSTEM_ALERT_WINDOW; falls back to the pop-up notification), SummaryNotifier.kt (live, or only at
          `digestHours`), BankAlerts.kt (low balance / big spend, from Repository.afterNew),
          CodeTile.kt (quick-settings "copy newest code"), Reminders.kt (remind later, bill reminders / until seen, Digest alarms, AlarmReceiver incl. boot;
          inexact setAndAllowWhileIdle, no exact-alarm permission)
@@ -65,7 +69,7 @@ app/src/main/java/com/rez/notif/
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

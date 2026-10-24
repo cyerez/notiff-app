@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Search
@@ -278,6 +279,7 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
                         GlassChip(t("تبلیغات مخفی‌شده") + " " + fa(adCount), false, { nav.go(Screen.Special(SpecialList.ADS)) }, color = Category.ADS.tint, icon = Icons.Rounded.Campaign)
                         GlassChip(t("پاک‌سازی"), false, { nav.go(Screen.Cleanup) }, icon = Icons.Rounded.CleaningServices)
                         GlassChip(t("کیف پسورد"), false, { nav.go(Screen.Wallet) }, color = ValuableColor, icon = Icons.Rounded.Key)
+                        GlassChip(t("حساب دنگ"), false, { nav.go(Screen.Dong) }, icon = Icons.Rounded.Groups)
                         GlassChip(t("متن از عکس"), false, { nav.go(Screen.Ocr()) }, icon = Icons.Rounded.DocumentScanner)
                         GlassChip(t("آمار"), false, { nav.go(Screen.Stats) }, icon = Icons.Rounded.BarChart)
                     }

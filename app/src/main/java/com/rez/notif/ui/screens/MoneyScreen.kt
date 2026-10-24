@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -77,6 +78,18 @@ fun MoneyScreen(nav: Navigator) {
         GlassTopBar(title = t("حساب و کتاب"), subtitle = t("از روی پیامک‌های بانک، روی همین گوشی"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item { MoneySummaryCard(onOpen = null) }
+            item {
+                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = { nav.go(com.rez.notif.ui.Screen.Dong) }, contentPadding = 12.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        NeonIcon(Icons.Rounded.Groups, g.accent, size = 36.dp)
+                        Spacer(Modifier.size(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(t("حساب دنگ"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(t("خرج سفر و دورهمی با دوستان: کی به کی چقدر بده"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                        }
+                    }
+                }
+            }
 
             item {
                 SectionTitle(t("قسط و قبض‌های من")) {
@@ -157,7 +170,7 @@ fun MoneyScreen(nav: Navigator) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(t("یادآوری قسط و قبض"), style = MaterialTheme.typography.titleSmall, color = g.text)
-                            Text(t("تاریخ سررسید رو از پیامک می‌خونم و قبلش یادت میندازم."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                            Text(t("قسط‌های خودت رو از چند روز قبل هر روز صبح یادت میندازم؛ سررسیدهای توی پیامک رو هم."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                         }
                         Switch(
                             checked = s.billReminders,
@@ -171,7 +184,7 @@ fun MoneyScreen(nav: Navigator) {
                     if (s.billReminders) {
                         Spacer(Modifier.height(8.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(0 to t("صبح همون روز"), 1 to t("۱ روز قبل"), 2 to t("۲ روز قبل"), 3 to t("۳ روز قبل")).forEach { (d, label) ->
+                            listOf(1 to t("۱ روز قبل"), 2 to t("۲ روز قبل"), 3 to t("۳ روز قبل"), 5 to t("۵ روز قبل")).forEach { (d, label) ->
                                 GlassChip(label, s.billDaysBefore == d, {
                                     repo.prefs.update { it.copy(billDaysBefore = d) }
                                     scope.launch { repo.rescheduleMyBills() }
