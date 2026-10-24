@@ -179,20 +179,23 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     suspend fun homeFeed(): HomeFeed = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        val items = db.query(ItemQuery(sinceMillis = now - 48 * 3_600_000L, limit = 800))
+        val week = db.query(ItemQuery(sinceMillis = now - 7 * 86_400_000L, limit = 2000))
+        val items = week.filter { now - it.timestamp < 48 * 3_600_000L }
         val code = items.firstOrNull { it.category == Category.OTP.id && now - it.timestamp < 10 * 60_000L }
-        val needsYou = items
+        // Missed calls and chosen people stay until read (a whole week); other important things for 48 hours.
+        val needsYou = week
             .filter { !it.isRead && it.category != Category.OTP.id }
-            .map { it to scoreOf(it, now) }
-            .filter { it.second >= Priority.IMPORTANT }
-            .sortedByDescending { it.first.timestamp }
-            .take(15)
-            .map { it.first }
+            .filter { neverMiss(it) || (now - it.timestamp < 48 * 3_600_000L && scoreOf(it, now) >= Priority.IMPORTANT) }
+            .sortedByDescending { it.timestamp }
+            .take(40)
         val shown = needsYou.map { it.id }.toSet() + listOfNotNull(code?.id)
         val since = dayStart().coerceAtMost(now - 12 * 3_600_000L)
         val recent = items.filter { it.timestamp >= since && it.id !in shown && !isClutter(it, now) }.take(30)
         HomeFeed(code, needsYou, recent)
     }
+
+    /** Missed calls and messages from chosen people: never hidden from the status bar, kept on Home until read. */
+    fun neverMiss(i: Item) = i.category == Category.MISSED.id || i.vipId > 0
 
     /** What counts as clutter in "today": ads, operator and system messages, and login codes older than an hour. */
     val clutterCategories = setOf(Category.OPERATOR.id, Category.SYSTEM.id)
@@ -340,6 +343,8 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             RuleAction.QUIET, RuleAction.DELETE, RuleAction.REMIND -> return !(freshCode && !replacedByOurCode)
             else -> {}
         }
+        // Missed calls and chosen people are never taken off the status bar (unless the user's own rule says so).
+        if (category == Category.MISSED || vip != null) return false
         if (!s.hideAll) return (s.hideAds && category == Category.ADS) || (inQuietHours(postTime) && !freshCode)
         // A fresh code stays visible: either as our own copy-button notification, or the original.
         if (freshCode) return replacedByOurCode

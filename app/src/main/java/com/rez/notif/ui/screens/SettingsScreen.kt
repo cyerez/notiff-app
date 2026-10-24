@@ -151,10 +151,8 @@ fun SettingsScreen(nav: Navigator) {
                             Spacer(Modifier.height(10.dp))
                             CodeBoxSettings(s.codeOverlay, s.codeSeconds, onOverlay = { v -> repo.prefs.update { it.copy(codeOverlay = v) } }, onSeconds = { sec -> repo.prefs.update { it.copy(codeSeconds = sec) } })
                         }
-                        Spacer(Modifier.height(10.dp))
-                        ToggleRow(t("افراد منتخب روی گوشی بمونن"), t("نوتیف‌های افراد منتخب مخفی نمیشن."), s.keepVip) { v ->
-                            repo.prefs.update { it.copy(keepVip = v) }
-                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(t("میس‌کال‌ها و پیام افراد منتخب هیچ‌وقت از نوار برداشته نمیشن و تا نخونی توی خانه می‌مونن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                         Spacer(Modifier.height(10.dp))
                         ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
                             repo.prefs.update { it.copy(summary = v) }

@@ -1,6 +1,5 @@
 package com.rez.notif.ui.screens
 
-import com.rez.notif.ui.components.SwipeActions
 import com.rez.notif.ui.components.styledShape
 import com.rez.notif.ui.components.softShadow
 import androidx.compose.foundation.border
@@ -143,7 +142,6 @@ private fun HomeTabContent(nav: Navigator) {
     val repo = remember { NotifApp.repo(context) }
     val settings by repo.prefs.state.collectAsState()
     val feed by rememberLoaded(repo) { repo.homeFeed() }
-    var showAllNeeds by remember { mutableStateOf(false) }
     val askContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         repo.prefs.update { it.copy(contactsAsked = true) }
         kotlin.concurrent.thread { ContactNames.refresh(context); repo.bump() }
@@ -156,7 +154,8 @@ private fun HomeTabContent(nav: Navigator) {
             IconBubble(Icons.Rounded.Key, { nav.go(Screen.Wallet) }, tint = ValuableColor)
             Spacer(Modifier.width(8.dp))
         }
-        ItemList(items = feed?.recent.orEmpty(), empty = t("امروز هنوز چیزی نیومده.")) { openItem ->
+        // Home shows only what needs you; the rest of today is one tap away.
+        ItemList(items = feed?.needsYou.orEmpty(), empty = t("چیز مهمی منتظرت نیست.")) { openItem ->
             if (settings.firstScanDone && !settings.contactsAsked && !ContactNames.allowed(context)) {
                 item {
                     GlassCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), glow = VipColor) {
@@ -176,29 +175,12 @@ private fun HomeTabContent(nav: Navigator) {
             }
             item(key = "stats") { StatsStrip(nav) }
             feed?.code?.let { c -> item(key = "code") { CodeCard(c.title, codeOf(c), c.timestamp) } }
-            val needs = feed?.needsYou.orEmpty()
-            item(key = "needs-title") { SectionTitle(t("منتظر تو")) }
-            if (feed != null && needs.isEmpty()) {
-                item(key = "needs-none") {
-                    Text(
-                        t("چیز مهمی منتظرت نیست."),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = g.textDim,
-                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 4.dp),
-                    )
+            item(key = "needs-title") {
+                SectionTitle(t("منتظر تو")) {
+                    val rest = feed?.recent?.size ?: 0
+                    if (rest > 0) GlassChip(t("بقیه امروز") + " " + fa(rest), false, { nav.go(Screen.Special(SpecialList.TODAY)) })
                 }
             }
-            // Five at most, so "the rest of today" stays in sight; the others are one tap away.
-            val shownNeeds = if (showAllNeeds) needs else needs.take(5)
-            shownNeeds.forEach { i -> item(key = "need-" + i.id) { SwipeActions(i) { ItemRow(i, onClick = { openItem(i) }) } } }
-            if (needs.size > shownNeeds.size) {
-                item(key = "needs-more") {
-                    Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        GlassChip(fa(needs.size - shownNeeds.size) + t(" مورد دیگه"), false, { showAllNeeds = true })
-                    }
-                }
-            }
-            item(key = "recent-title") { SectionTitle(t("بقیه امروز")) }
         }
     }
 }
