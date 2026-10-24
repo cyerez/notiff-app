@@ -35,7 +35,7 @@ app/src/main/java/com/rez/notif/
     Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
     Bills.kt             due date (+ amount) of bill/installment SMS; Jalali->Gregorian. Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v4: items, sender_overrides, vip, wallet, rules, reminders. Reads go through the
+    Db.kt                SQLiteOpenHelper v5: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids). Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
@@ -45,7 +45,8 @@ app/src/main/java/com/rez/notif/
   backup/ BackupCrypto.kt (password -> PBKDF2 -> AES-256-GCM; pure Kotlin, tested)
   security/ AppLock.kt (system BiometricPrompt; relocks after 30 s away), DbKey.kt (DB key wrapped by Keystore),
           WalletVault.kt (password wallet key: Keystore AES-GCM, needs fingerprint/PIN every 60 s; clipboard wipe)
-  wallet/ WalletModel.kt (WalletKind, WalletEntry, WalletCodec, PasswordGen; pure Kotlin, tested; keep Android out)
+  wallet/ WalletModel.kt (WalletKind, WalletEntry, WalletCodec, PasswordGen; pure Kotlin, tested; keep Android out),
+         PasswordCsv.kt (import of Google/Edge/Firefox/Bitwarden CSV exports by header names; tested)
   ocr/   Ocr.kt (offline picture-to-text with Tesseract4Android from JitPack; fas+eng language files are
          downloaded by CI into assets/tessdata, not kept in git). Share target: activity-alias .OcrShare
   widget/ NotifWidget.kt (RemoteViews home-screen widget; refreshed 2 s after data changes)

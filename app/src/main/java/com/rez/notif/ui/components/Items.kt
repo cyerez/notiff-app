@@ -1,5 +1,7 @@
 package com.rez.notif.ui.components
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.OutlinedTextField
@@ -77,6 +79,54 @@ import com.rez.notif.data.Source
 import com.rez.notif.ui.theme.LocalGlass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/**
+ * Swipe a row: toward the end = "read it" (marks read), toward the start = "remind me in an hour".
+ * The row springs back; lists drop read items on their own.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeActions(item: Item, enabled: Boolean = true, content: @Composable () -> Unit) {
+    if (!enabled) { content(); return }
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val scope = rememberCoroutineScope()
+    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { v ->
+            when (v) {
+                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> scope.launch { repo.markRead(listOf(item)) }
+                androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> scope.launch {
+                    repo.markRead(listOf(item))
+                    repo.remind(item, System.currentTimeMillis() + 3_600_000L)
+                    android.widget.Toast.makeText(context, t("یک ساعت دیگه یادت میندازم"), android.widget.Toast.LENGTH_SHORT).show()
+                }
+                else -> {}
+            }
+            false
+        },
+        positionalThreshold = { it * 0.3f },
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = state,
+        backgroundContent = {
+            val dir = state.dismissDirection
+            val toEnd = dir == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd
+            if (dir == androidx.compose.material3.SwipeToDismissBoxValue.Settled) return@SwipeToDismissBox
+            val color = if (toEnd) Category.PERSONAL.tint else Category.OTP.tint
+            Box(
+                Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 3.dp).background(color.copy(alpha = 0.25f), RoundedCornerShape(18.dp)).padding(horizontal = 22.dp),
+                contentAlignment = if (toEnd) Alignment.CenterStart else Alignment.CenterEnd,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (toEnd) Icons.Rounded.DoneAll else Icons.Rounded.Alarm, null, tint = color)
+                    Spacer(Modifier.size(8.dp))
+                    Text(if (toEnd) t("خوندم") else t("۱ ساعت دیگه"), color = g.text, style = MaterialTheme.typography.titleSmall)
+                }
+            }
+        },
+    ) { content() }
+}
 
 /** One SMS or notification in a list. */
 @Composable
@@ -205,7 +255,7 @@ fun ItemList(
             header { open = it }
             if (items.isEmpty()) item { EmptyState(empty) }
             items(items, key = { it.id }) { item ->
-                ItemRow(
+                SwipeActions(item, enabled = !selecting) { ItemRow(
                     item,
                     selected = if (selecting) item.id in selected else null,
                     onClick = {
@@ -216,7 +266,7 @@ fun ItemList(
                         }
                     },
                     onLongClick = { selected = selected + item.id },
-                )
+                ) }
             }
         }
 

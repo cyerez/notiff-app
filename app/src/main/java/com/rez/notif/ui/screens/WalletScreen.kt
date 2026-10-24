@@ -1,5 +1,9 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.ui.components.fa
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material.icons.rounded.FileDownload
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Arrangement
@@ -103,6 +107,8 @@ fun WalletScreen(nav: Navigator) {
     var editing by remember { mutableStateOf<WalletEntry?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val secure = remember { WalletVault.deviceSecure(context) }
+    var importedFrom by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showImportHelp by remember { mutableStateOf(false) }
 
     // No screenshots or screen recording of the wallet; lock it again when leaving the page.
     DisposableEffect(Unit) {
@@ -135,9 +141,24 @@ fun WalletScreen(nav: Navigator) {
         }
     }
 
+    // Password export (CSV) from Google / Edge / Firefox / Bitwarden...
+    val pickCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        guarded {
+            val (added, found) = repo.walletImport(uri)
+            error = if (found == 0) t("توی این فایل رمزی پیدا نکردم. فایل CSV خروجی رمزها رو انتخاب کن.")
+            else fa(added) + t(" رمز اضافه شد") + (if (found > added) " (" + fa(found - added) + t(" تا تکراری بود)") else "") +
+                t(". حالا فایل CSV رو پاک کن، چون رمزها توش باز نوشته شدن.")
+            importedFrom = uri
+            reload()
+        }
+    }
+
     Column {
         GlassTopBar(title = t("کیف پسورد"), subtitle = t("آفلاین، فقط روی همین گوشی"), onBack = nav::back) {
             if (open) {
+                IconBubble(Icons.Rounded.FileDownload, { showImportHelp = !showImportHelp })
+                Spacer(Modifier.size(8.dp))
                 IconBubble(Icons.Rounded.Add, { editing = WalletEntry(title = "", kind = WalletKind.LOGIN) }, tint = g.accent)
                 Spacer(Modifier.size(8.dp))
                 IconBubble(Icons.Rounded.Lock, { WalletVault.lock() })
@@ -150,6 +171,36 @@ fun WalletScreen(nav: Navigator) {
             )
             !open -> LockedState(t("کیف پسورد قفله"), ::unlock)
             else -> LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 80.dp)) {
+                if (showImportHelp || entries.isEmpty()) {
+                    item {
+                        GlassCard(Modifier.fillMaxWidth().padding(vertical = 6.dp), glow = g.accent, contentPadding = 14.dp) {
+                            Text(t("آوردن رمزها از گوگل، مایکروسافت و…"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(
+                                t("هیچ اپی اجازه نداره مستقیم رمزهای گوگل یا مایکروسافت رو بخونه. ولی می‌تونی ازشون یه فایل خروجی بگیری و اینجا واردش کنی:") + "\n" +
+                                    t("• گوگل: کروم > تنظیمات > Google Password Manager > تنظیمات > Export passwords") + "\n" +
+                                    t("• مایکروسافت اج: تنظیمات > Passwords > ⋯ > Export passwords") + "\n" +
+                                    t("• فایرفاکس، Bitwarden، 1Password و… هم فایل CSV میدن.") + "\n" +
+                                    t("فایل فقط روی همین گوشی خونده میشه. بعد از وارد کردن، فایل رو پاک کن."),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = g.textDim,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            Spacer(Modifier.size(10.dp))
+                            GlassButton(t("انتخاب فایل CSV"), icon = Icons.Rounded.FileDownload, onClick = {
+                                pickCsv.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*"))
+                            }, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+                importedFrom?.let { uri ->
+                    item {
+                        GlassButton(t("پاک کردن فایل CSV از گوشی"), icon = Icons.Rounded.Delete, primary = false, onClick = {
+                            val ok = runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
+                            error = if (ok) t("فایل پاک شد.") else t("نتونستم پاکش کنم؛ از My Files خودت پاکش کن.")
+                            importedFrom = null
+                        }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+                    }
+                }
                 item {
                     OutlinedTextField(
                         query, { query = it },

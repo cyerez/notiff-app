@@ -68,6 +68,8 @@ fun MoneyScreen(nav: Navigator) {
     val scope = rememberCoroutineScope()
     val s by repo.prefs.state.collectAsState()
     val bills by rememberLoaded(repo) { repo.upcomingBills() }
+    val mine by rememberLoaded(repo) { repo.myBills() }
+    var editingBill by remember { mutableStateOf<com.rez.notif.data.Db.MyBill?>(null) }
     var open by remember { mutableStateOf<Item?>(null) }
     var scanNote by remember { mutableStateOf<String?>(null) }
 
@@ -76,7 +78,41 @@ fun MoneyScreen(nav: Navigator) {
         LazyColumn(contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item { MoneySummaryCard(onOpen = null) }
 
-            item { SectionTitle(t("قسط و قبض‌های پیش رو")) }
+            item {
+                SectionTitle(t("قسط و قبض‌های من")) {
+                    GlassChip(t("+ تازه"), false, { editingBill = com.rez.notif.data.Db.MyBill(title = "", amount = 0, day = 1) })
+                }
+            }
+            val myList = mine.orEmpty()
+            if (mine != null && myList.isEmpty()) {
+                item {
+                    Text(
+                        t("قسط وام، اجاره، قبض یا هر پرداخت ماهانه رو خودت اضافه کن تا هر ماه سر موقع یادت بندازم."),
+                        color = g.textDim,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 22.dp),
+                    )
+                }
+            }
+            myList.forEach { b ->
+                item(key = "my-" + b.id) {
+                    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = { editingBill = b }, contentPadding = 12.dp) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(b.title, style = MaterialTheme.typography.titleSmall, color = g.text)
+                                Text(
+                                    t("روز ") + fa(b.day) + t(" هر ماه") + (if (b.remaining > 0) "  ·  " + fa(b.remaining) + t(" قسط مونده") else ""),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = g.textDim,
+                                )
+                            }
+                            if (b.amount > 0) Text(toman(b.amount * 10), style = MaterialTheme.typography.labelMedium, color = g.text)
+                        }
+                    }
+                }
+            }
+
+            item { SectionTitle(t("از پیامک‌ها پیدا کردم")) }
             val list = bills.orEmpty()
             if (bills != null && list.isEmpty()) {
                 item {
@@ -101,6 +137,8 @@ fun MoneyScreen(nav: Navigator) {
                                 bill.amount?.let { Text(toman(it), style = MaterialTheme.typography.labelSmall, color = g.text) }
                             }
                         }
+                        Spacer(Modifier.height(6.dp))
+                        GlassChip(t("این قسط نیست"), false, { scope.launch { repo.ignoreBill(item) } })
                     }
                 }
             }
@@ -134,7 +172,10 @@ fun MoneyScreen(nav: Navigator) {
                         Spacer(Modifier.height(8.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(0 to t("صبح همون روز"), 1 to t("۱ روز قبل"), 2 to t("۲ روز قبل"), 3 to t("۳ روز قبل")).forEach { (d, label) ->
-                                GlassChip(label, s.billDaysBefore == d, { repo.prefs.update { it.copy(billDaysBefore = d) } })
+                                GlassChip(label, s.billDaysBefore == d, {
+                                    repo.prefs.update { it.copy(billDaysBefore = d) }
+                                    scope.launch { repo.rescheduleMyBills() }
+                                })
                             }
                         }
                         Spacer(Modifier.height(10.dp))
@@ -159,6 +200,60 @@ fun MoneyScreen(nav: Navigator) {
         }
     }
     open?.let { ItemSheet(it, onDismiss = { open = null }) }
+    editingBill?.let { b ->
+        BillDialog(
+            b,
+            onDismiss = { editingBill = null },
+            onSave = { nb -> editingBill = null; scope.launch { repo.saveMyBill(nb) } },
+            onDelete = if (b.id > 0) ({ editingBill = null; scope.launch { repo.deleteMyBill(b.id) } }) else null,
+        )
+    }
+}
+
+/** Add or change a monthly payment: name, amount (toman), Persian day of month, installments left. */
+@Composable
+private fun BillDialog(start: com.rez.notif.data.Db.MyBill, onDismiss: () -> Unit, onSave: (com.rez.notif.data.Db.MyBill) -> Unit, onDelete: (() -> Unit)?) {
+    var title by remember { mutableStateOf(start.title) }
+    var amount by remember { mutableStateOf(if (start.amount > 0) start.amount.toString() else "") }
+    var day by remember { mutableStateOf(start.day.toString()) }
+    var left by remember { mutableStateOf(if (start.remaining > 0) start.remaining.toString() else "") }
+    fun num(v: String) = v.map { c -> if (c in '۰'..'۹') '0' + (c - '۰') else c }.filter { it.isDigit() }.joinToString("")
+    val dayN = day.toIntOrNull()
+    val ok = title.isNotBlank() && dayN != null && dayN in 1..31
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (start.id > 0) t("ویرایش قسط") else t("قسط یا قبض تازه")) },
+        text = {
+            Column {
+                OutlinedTextField(title, { title = it }, label = { Text(t("اسم (مثلاً وام مسکن)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    amount, { amount = num(it).take(13) }, label = { Text(t("مبلغ به تومان (اختیاری)")) }, singleLine = true,
+                    supportingText = { if (amount.isNotEmpty()) Text(toman((amount.toLongOrNull() ?: 0) * 10)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    day, { day = num(it).take(2) }, label = { Text(t("روز سررسید در هر ماه (۱ تا ۳۱)")) }, singleLine = true,
+                    isError = !(dayN != null && dayN in 1..31),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    left, { left = num(it).take(3) }, label = { Text(t("چند قسط مونده؟ (خالی = همیشگی)")) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(enabled = ok, onClick = {
+                onSave(start.copy(title = title.trim(), amount = amount.toLongOrNull() ?: 0, day = dayN ?: 1, remaining = left.toIntOrNull() ?: 0))
+            }) { Text(t("ذخیره")) }
+        },
+        dismissButton = {
+            Row {
+                if (onDelete != null) androidx.compose.material3.TextButton(onClick = onDelete) { Text(t("حذف"), color = Category.ADS.tint) }
+                androidx.compose.material3.TextButton(onClick = onDismiss) { Text(t("بی‌خیال")) }
+            }
+        },
+    )
 }
 
 @Composable

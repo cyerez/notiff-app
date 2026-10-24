@@ -1,5 +1,6 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.ui.components.SwipeActions
 import com.rez.notif.ui.components.styledShape
 import com.rez.notif.ui.components.softShadow
 import androidx.compose.foundation.border
@@ -188,7 +189,7 @@ private fun HomeTabContent(nav: Navigator) {
             }
             // Five at most, so "the rest of today" stays in sight; the others are one tap away.
             val shownNeeds = if (showAllNeeds) needs else needs.take(5)
-            shownNeeds.forEach { i -> item(key = "need-" + i.id) { ItemRow(i, onClick = { openItem(i) }) } }
+            shownNeeds.forEach { i -> item(key = "need-" + i.id) { SwipeActions(i) { ItemRow(i, onClick = { openItem(i) }) } } }
             if (needs.size > shownNeeds.size) {
                 item(key = "needs-more") {
                     Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {

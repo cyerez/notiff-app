@@ -87,3 +87,13 @@ class RulesMoneyTest {
         assertNull(Classifier.extractCode("کد تایید ورود شما\n۱۴۰۵ آبان"))
     }
 }
+
+class MoneySanityTest {
+    @Test fun accountNumberIsNotMoney() {
+        val t = Money.parse("برداشت از حساب 0101234567890\nمانده: 5,000,000")!!
+        assertEquals(0L, t.out)
+        assertEquals(5_000_000L, t.balance)
+    }
+
+    @Test fun plainNumberWithRial() = assertEquals(250_000L, Money.parse("خرید 250000 ریال")!!.out)
+}

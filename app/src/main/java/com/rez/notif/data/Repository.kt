@@ -471,7 +471,11 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     /** Sets a reminder before a bill's due date. Returns true when one was set. */
+    private fun mayBeBill(i: Item) =
+        !i.isAd && i.category != Category.ADS.id && i.category != Category.OPERATOR.id && i.id.toString() !in prefs.current.ignoredBills
+
     private fun scheduleBill(item: Item, existing: Set<Long> = emptySet()): Boolean {
+        if (!mayBeBill(item)) return false
         val b = Bills.parse(item.title + "\n" + item.body) ?: return false
         val now = System.currentTimeMillis()
         if (b.due < now - 3_600_000L) return false
@@ -493,9 +497,36 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     suspend fun upcomingBills(): List<Pair<Item, Bills.Bill>> = withContext(Dispatchers.IO) {
         val from = dayStart()
         db.query(ItemQuery(sinceMillis = System.currentTimeMillis() - 90 * 86_400_000L, limit = 5000))
+            .filter { mayBeBill(it) }
             .mapNotNull { i -> Bills.parse(i.title + "\n" + i.body)?.takeIf { it.due >= from }?.let { i to it } }
             .distinctBy { it.second.due to it.first.sender }
             .sortedBy { it.second.due }
+    }
+
+    /** "This is not a bill": hide it from the list and drop its reminder. */
+    suspend fun ignoreBill(item: Item) = withContext(Dispatchers.IO) {
+        prefs.update { it.copy(ignoredBills = it.ignoredBills + item.id.toString()) }
+        com.rez.notif.notif.Reminders.cancel(context, item.id)
+        changed()
+    }
+
+    suspend fun myBills(): List<Db.MyBill> = withContext(Dispatchers.IO) { db.myBills() }
+
+    suspend fun saveMyBill(b: Db.MyBill) = withContext(Dispatchers.IO) {
+        val id = db.saveMyBill(b)
+        com.rez.notif.notif.Reminders.scheduleBill(context, b.copy(id = id))
+        changed()
+    }
+
+    suspend fun deleteMyBill(id: Long) = withContext(Dispatchers.IO) {
+        db.deleteMyBill(id)
+        com.rez.notif.notif.Reminders.cancelBill(context, id)
+        changed()
+    }
+
+    /** After "days before" changes: move every hand-entered bill's reminder. */
+    suspend fun rescheduleMyBills() = withContext(Dispatchers.IO) {
+        db.myBills().forEach { com.rez.notif.notif.Reminders.scheduleBill(context, it) }
     }
 
     /** The newest login code from the last 30 minutes: (code, from). For the quick-settings tile. */
@@ -813,6 +844,25 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     suspend fun walletDelete(id: Long) = withContext(Dispatchers.IO) { db.walletDelete(id) }
+
+    /**
+     * Imports a password export (CSV from Google, Edge, Firefox, Bitwarden...). Skips what is already in the
+     * wallet. Returns (added, found). Needs the wallet open; throws WalletVault.Locked otherwise.
+     */
+    suspend fun walletImport(uri: Uri): Pair<Int, Int> = withContext(Dispatchers.IO) {
+        val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("cannot read file")
+        val found = com.rez.notif.wallet.PasswordCsv.parse(text)
+        val have = walletEntries().map { Triple(it.title, it.username, it.secret) }.toMutableSet()
+        var added = 0
+        for (e in found) {
+            val k = Triple(e.title, e.username, e.secret)
+            if (k in have) continue
+            db.walletPut(0, e.title.trim(), e.kind.name, WalletVault.encrypt(WalletCodec.encode(e)), System.currentTimeMillis())
+            have += k
+            added++
+        }
+        added to found.size
+    }
 
     // ---------- backup ----------
 

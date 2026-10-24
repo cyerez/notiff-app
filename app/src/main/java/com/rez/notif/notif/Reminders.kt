@@ -64,12 +64,69 @@ object Reminders {
         val now = System.currentTimeMillis()
         for ((id, at, repeats) in db.reminders()) {
             if (at > now + 30_000) break
+            // Negative ids are the user's own bills (Db.bills), not items.
+            if (id < 0) { fireBill(context, -id, at); continue }
             val item = db.get(id)
             if (item == null || (repeats > 0 && item.isRead)) { db.removeReminder(id); continue }
             show(context, item)
             if (repeats > 0) db.putReminder(id, now + REPEAT_GAP, repeats - 1) else db.removeReminder(id)
         }
         arm(context)
+    }
+
+    /** Shows a hand-entered bill's reminder and sets the next month's one. */
+    private fun fireBill(context: Context, billId: Long, at: Long) {
+        val db = db(context)
+        db.removeReminder(-billId)
+        val b = db.myBill(billId) ?: return
+        val days = NotifApp.repo(context).prefs.current.billDaysBefore
+        val due = at + days * 86_400_000L
+        post(
+            context, notifId(-billId), t("قسط و قبض: ") + b.title,
+            (if (b.amount > 0) com.rez.notif.ui.components.toman(b.amount * 10) + "  ·  " else "") +
+                t("سررسید ") + com.rez.notif.ui.components.fullTime(due),
+            null,
+        )
+        // Count down installments; the last one removes the bill.
+        if (b.remaining == 1) { db.deleteMyBill(billId); return }
+        if (b.remaining > 1) db.saveMyBill(b.copy(remaining = b.remaining - 1))
+        scheduleBill(context, b)
+    }
+
+    /** Sets the reminder for the next due date of a hand-entered bill. */
+    fun scheduleBill(context: Context, b: Db.MyBill) {
+        val days = NotifApp.repo(context).prefs.current.billDaysBefore
+        val due = com.rez.notif.classify.Bills.nextMonthly(b.day, days, System.currentTimeMillis())
+        db(context).putReminder(-b.id, due - days * 86_400_000L, 0)
+        arm(context)
+    }
+
+    fun cancelBill(context: Context, billId: Long) {
+        db(context).removeReminder(-billId)
+        arm(context)
+    }
+
+    private fun post(context: Context, id: Int, title: String, text: String, itemId: Long?) {
+        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, t("یادآوری‌ها"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = t("پیام‌هایی که گفتی بعداً یادت بندازم")
+            },
+        )
+        val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        if (itemId != null) intent.putExtra(EXTRA_ITEM, itemId)
+        val open = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        nm.notify(
+            id,
+            Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_notif)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build(),
+        )
     }
 
     private fun show(context: Context, item: com.rez.notif.data.Item) {
@@ -103,7 +160,7 @@ object Reminders {
         nm.notify(notifId(item.id), n)
     }
 
-    private fun notifId(itemId: Long) = 50_000 + (itemId % 1_000_000).toInt()
+    private fun notifId(itemId: Long) = if (itemId < 0) 60_000 + (-itemId % 10_000).toInt() else 50_000 + (itemId % 1_000_000).toInt()
 
     fun alarmIntent(context: Context, action: String): PendingIntent = PendingIntent.getBroadcast(
         context,

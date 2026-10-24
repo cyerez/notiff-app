@@ -12,7 +12,7 @@ object Money {
 
     fun parse(text: String): Tx? {
         val t = digits(text)
-        val balance = BALANCE.find(t)?.let { m -> amount(m.groupValues[2])?.let { if (m.groupValues[1] == "-") -it else it } }
+        val balance = BALANCE.find(t)?.let { m -> amount(m.groupValues[2])?.takeIf { it <= 100_000_000_000L }?.let { if (m.groupValues[1] == "-") -it else it } }
         val withoutBalance = BALANCE.find(t)?.let { t.removeRange(it.range) } ?: t
 
         var out = 0L
@@ -29,7 +29,7 @@ object Money {
         if (out == 0L && inn == 0L) {
             SIGNED.findAll(withoutBalance).forEach { m ->
                 val a = amount(m.groupValues[2]) ?: return@forEach
-                if (a < 1000) return@forEach
+                if (!sane(a)) return@forEach
                 if (m.groupValues[1] == "-") out = maxOf(out, a) else inn = maxOf(inn, a)
             }
         }
@@ -37,13 +37,22 @@ object Money {
         return Tx(out, inn, balance)
     }
 
-    /** The money amount on one line: after "مبلغ", else a number written with commas, else the first number. */
+    /**
+     * The money amount on one line: after "مبلغ", else a number written with commas, else a plain number only
+     * when the line says ریال/تومان (plain numbers are usually account or card numbers).
+     */
     private fun lineAmount(line: String): Long? {
-        Regex("مبلغ\\s*[:：]?\\s*$NUM").find(line)?.let { m -> amount(m.groupValues[1])?.let { return it } }
+        Regex("مبلغ\\s*[:：]?\\s*$NUM").find(line)?.let { m -> amount(m.groupValues[1])?.let { return it.takeIf(::sane) } }
         val nums = Regex(NUM).findAll(line).map { it.value }.filter { (amount(it) ?: 0) >= 1000 }.toList()
-        val pick = nums.firstOrNull { ',' in it || '٬' in it } ?: nums.firstOrNull()?.takeIf { it.length <= 12 } ?: return null
-        return amount(pick)
+        nums.firstOrNull { ',' in it || '٬' in it }?.let { return amount(it)?.takeIf(::sane) }
+        val money = "ریال" in line || "تومان" in line
+        val idLike = listOf("حساب", "کارت", "شماره", "شبا", "پیگیری", "مرجع").any { it in line }
+        if (!money || idLike) return null
+        return nums.firstOrNull { it.length <= 10 }?.let(::amount)?.takeIf(::sane)
     }
+
+    /** Over 10 billion toman in one SMS is a misread number, not money. */
+    private fun sane(rial: Long) = rial in 1000..100_000_000_000L
 
     private fun amount(s: String): Long? {
         val clean = s.replace(",", "").replace("٬", "").replace("،", "").replace(".", "")

@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 4
+        const val VERSION = 5
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -129,6 +129,7 @@ class Db private constructor(
         createV2(db)
         createV3(db)
         createV4(db)
+        createV5(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -157,6 +158,11 @@ class Db private constructor(
         db.execSQL("CREATE TABLE IF NOT EXISTS reminders (item_id INTEGER PRIMARY KEY, at INTEGER NOT NULL, repeats INTEGER NOT NULL DEFAULT 0)")
     }
 
+    /** Version 5: bills and installments the user entered by hand (amount in toman, Persian day of month). */
+    private fun createV5(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS bills (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, amount INTEGER NOT NULL, day INTEGER NOT NULL, remaining INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -166,6 +172,7 @@ class Db private constructor(
         }
         if (oldVersion < 3) createV3(db)
         if (oldVersion < 4) createV4(db)
+        if (oldVersion < 5) createV5(db)
     }
 
     // ---------- password wallet ----------
@@ -245,6 +252,30 @@ class Db private constructor(
             while (c.moveToNext()) l += Triple(c.getLong(0), c.getLong(1), c.getInt(2))
             l
         }
+
+    /** A bill or installment the user entered: due on Persian [day] each month; [remaining] 0 = no end. */
+    data class MyBill(val id: Long = 0, val title: String, val amount: Long, val day: Int, val remaining: Int = 0)
+
+    fun myBills(): List<MyBill> =
+        readableDatabase.rawQuery("SELECT id, title, amount, day, remaining FROM bills ORDER BY day", null).use { c ->
+            val l = ArrayList<MyBill>()
+            while (c.moveToNext()) l += MyBill(c.getLong(0), c.getString(1), c.getLong(2), c.getInt(3), c.getInt(4))
+            l
+        }
+
+    fun myBill(id: Long): MyBill? = myBills().firstOrNull { it.id == id }
+
+    fun saveMyBill(b: MyBill): Long {
+        val v = ContentValues().apply {
+            put("title", b.title); put("amount", b.amount); put("day", b.day); put("remaining", b.remaining)
+            put("created", System.currentTimeMillis())
+        }
+        return if (b.id > 0) { writableDatabase.update("bills", v, "id = ?", arrayOf(b.id.toString())); b.id } else writableDatabase.insert("bills", null, v)
+    }
+
+    fun deleteMyBill(id: Long) {
+        writableDatabase.delete("bills", "id = ?", arrayOf(id.toString()))
+    }
 
     // ---------- writes ----------
 

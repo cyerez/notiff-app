@@ -91,6 +91,8 @@ data class Settings(
     /** Remind bills and installments found in SMS, [billDaysBefore] days before the due date (0 = that morning). */
     val billReminders: Boolean = true,
     val billDaysBefore: Int = 1,
+    /** Messages the user said are not bills ("این قسط نیست"), by item id. */
+    val ignoredBills: Set<String> = emptySet(),
 )
 
 /** When the fingerprint lock comes back after unlocking once. */
@@ -153,6 +155,7 @@ class Prefs(context: Context) {
         bigSpend = sp.getLong("bigSpend", 5_000_000),
         billReminders = sp.getBoolean("billReminders", true),
         billDaysBefore = sp.getInt("billDaysBefore", 1),
+        ignoredBills = sp.getStringSet("ignoredBills", emptySet())?.toSet() ?: emptySet(),
         digestHours = sp.getStringSet("digestHours", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
     )
 
@@ -194,6 +197,7 @@ class Prefs(context: Context) {
             .putLong("bigSpend", s.bigSpend)
             .putBoolean("billReminders", s.billReminders)
             .putInt("billDaysBefore", s.billDaysBefore)
+            .putStringSet("ignoredBills", s.ignoredBills)
             .putStringSet("digestHours", s.digestHours.map { it.toString() }.toSet())
             .apply()
         I18n.lang = s.language
