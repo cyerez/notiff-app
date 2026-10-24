@@ -66,6 +66,7 @@ sealed interface Screen {
     data class Conversation(val address: String, val draft: String = "") : Screen
     data class Ocr(val uri: String? = null) : Screen
     data object Rules : Screen
+    data object Money : Screen
     data class RuleEdit(val rule: com.rez.notif.classify.Rule) : Screen
 }
 
@@ -149,6 +150,7 @@ fun AppRoot() {
                         is Screen.Conversation -> ConversationScreen(screen.address, screen.draft, nav)
                         is Screen.Ocr -> OcrScreen(screen.uri, nav)
                         Screen.Rules -> com.rez.notif.ui.screens.RulesScreen(nav)
+                        Screen.Money -> com.rez.notif.ui.screens.MoneyScreen(nav)
                         is Screen.RuleEdit -> com.rez.notif.ui.screens.RuleEditScreen(screen.rule, nav)
                     }
                 }

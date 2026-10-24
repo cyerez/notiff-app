@@ -83,6 +83,14 @@ data class Settings(
     val quietTo: Int = -1,
     /** Hours of day for the summary notification; empty = live summary after every hidden notification. */
     val digestHours: Set<Int> = emptySet(),
+    /** Bank alerts (toman): balance below [lowBalance], or one spend at least [bigSpend]. */
+    val lowBalanceOn: Boolean = false,
+    val lowBalance: Long = 1_000_000,
+    val bigSpendOn: Boolean = false,
+    val bigSpend: Long = 5_000_000,
+    /** Remind bills and installments found in SMS, [billDaysBefore] days before the due date (0 = that morning). */
+    val billReminders: Boolean = true,
+    val billDaysBefore: Int = 1,
 )
 
 /** When the fingerprint lock comes back after unlocking once. */
@@ -139,6 +147,12 @@ class Prefs(context: Context) {
         lastAutoClean = sp.getLong("lastAutoClean", 0),
         quietFrom = sp.getInt("quietFrom", -1),
         quietTo = sp.getInt("quietTo", -1),
+        lowBalanceOn = sp.getBoolean("lowBalanceOn", false),
+        lowBalance = sp.getLong("lowBalance", 1_000_000),
+        bigSpendOn = sp.getBoolean("bigSpendOn", false),
+        bigSpend = sp.getLong("bigSpend", 5_000_000),
+        billReminders = sp.getBoolean("billReminders", true),
+        billDaysBefore = sp.getInt("billDaysBefore", 1),
         digestHours = sp.getStringSet("digestHours", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
     )
 
@@ -174,6 +188,12 @@ class Prefs(context: Context) {
             .putLong("lastAutoClean", s.lastAutoClean)
             .putInt("quietFrom", s.quietFrom)
             .putInt("quietTo", s.quietTo)
+            .putBoolean("lowBalanceOn", s.lowBalanceOn)
+            .putLong("lowBalance", s.lowBalance)
+            .putBoolean("bigSpendOn", s.bigSpendOn)
+            .putLong("bigSpend", s.bigSpend)
+            .putBoolean("billReminders", s.billReminders)
+            .putInt("billDaysBefore", s.billDaysBefore)
             .putStringSet("digestHours", s.digestHours.map { it.toString() }.toSet())
             .apply()
         I18n.lang = s.language

@@ -17,6 +17,7 @@ import com.rez.notif.classify.Classifier
 import com.rez.notif.classify.Learner
 import com.rez.notif.classify.Priority
 import com.rez.notif.classify.Money
+import com.rez.notif.classify.Bills
 import com.rez.notif.classify.Rule
 import com.rez.notif.classify.RuleAction
 import com.rez.notif.classify.Rules
@@ -236,6 +237,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (db.insert(item)) {
             changed()
             if (rule?.action == RuleAction.REMIND) remindNow(item.sourceKey)
+            afterNew(item)
         }
     }
 
@@ -248,6 +250,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (db.insert(item)) {
             changed()
             if (rule?.action == RuleAction.REMIND) remindNow(item.sourceKey)
+            afterNew(item)
         }
         val category = Category.of(item.category)
         val vip = vipPeople().firstOrNull { it.id == item.vipId }
@@ -306,6 +309,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (db.insert(stored)) {
             changed()
             if (rule?.action == RuleAction.REMIND) remindNow(stored.sourceKey)
+            afterNew(stored)
         }
         val cat = Category.of(stored.category)
         val code = codeFor(cat, n.title + "\n" + n.text)
@@ -440,6 +444,66 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     suspend fun reminderAt(itemId: Long): Long? = withContext(Dispatchers.IO) {
         db.reminders().firstOrNull { it.first == itemId }?.second
+    }
+
+    // ---------- bank alerts and bill reminders ----------
+
+    /** A new SMS or notification just arrived: bank alerts and bill reminders. */
+    private fun afterNew(item: Item) {
+        if (item.isAd) return
+        val s = prefs.current
+        try {
+            if (item.category == Category.BANK.id && (s.lowBalanceOn || s.bigSpendOn)) {
+                Money.parse(item.body)?.let { tx ->
+                    val id = db.idOf(item.sourceKey)
+                    val who = if (item.source == Source.SMS) ContactNames.label(item.sender) else item.appName
+                    val bal = tx.balance
+                    when {
+                        s.bigSpendOn && tx.out / 10 >= s.bigSpend ->
+                            com.rez.notif.notif.BankAlerts.show(context, id, com.rez.notif.i18n.t("خرج بزرگ: ") + com.rez.notif.ui.components.toman(tx.out), who + (if (bal != null) com.rez.notif.i18n.t("  ·  مانده ") + com.rez.notif.ui.components.toman(bal) else ""))
+                        s.lowBalanceOn && bal != null && bal / 10 < s.lowBalance ->
+                            com.rez.notif.notif.BankAlerts.show(context, id, com.rez.notif.i18n.t("مانده کم: ") + com.rez.notif.ui.components.toman(bal), who)
+                    }
+                }
+            }
+            if (s.billReminders) scheduleBill(item)
+        } catch (_: Exception) { }
+    }
+
+    /** Sets a reminder before a bill's due date. Returns true when one was set. */
+    private fun scheduleBill(item: Item, existing: Set<Long> = emptySet()): Boolean {
+        val b = Bills.parse(item.title + "\n" + item.body) ?: return false
+        val now = System.currentTimeMillis()
+        if (b.due < now - 3_600_000L) return false
+        val id = (if (item.id > 0) item.id else db.idOf(item.sourceKey)) ?: return false
+        if (id in existing) return false
+        val at = b.due - prefs.current.billDaysBefore * 86_400_000L
+        com.rez.notif.notif.Reminders.schedule(context, id, maxOf(at, now + 60_000L), repeats = 0)
+        return true
+    }
+
+    /** Looks for bills in the last 60 days and sets reminders for the ones still ahead. */
+    suspend fun scanBills(): Int = withContext(Dispatchers.IO) {
+        val existing = db.reminders().map { it.first }.toSet()
+        db.query(ItemQuery(sinceMillis = System.currentTimeMillis() - 60 * 86_400_000L, limit = 5000))
+            .count { scheduleBill(it, existing) }
+    }
+
+    /** Bills and installments that are not yet due (from the last 90 days of messages), soonest first. */
+    suspend fun upcomingBills(): List<Pair<Item, Bills.Bill>> = withContext(Dispatchers.IO) {
+        val from = dayStart()
+        db.query(ItemQuery(sinceMillis = System.currentTimeMillis() - 90 * 86_400_000L, limit = 5000))
+            .mapNotNull { i -> Bills.parse(i.title + "\n" + i.body)?.takeIf { it.due >= from }?.let { i to it } }
+            .distinctBy { it.second.due to it.first.sender }
+            .sortedBy { it.second.due }
+    }
+
+    /** The newest login code from the last 30 minutes: (code, from). For the quick-settings tile. */
+    fun latestCode(): Pair<String, String>? {
+        val now = System.currentTimeMillis()
+        return db.query(ItemQuery(category = Category.OTP.id, sinceMillis = now - 30 * 60_000L, limit = 5)).firstNotNullOfOrNull { i ->
+            Classifier.extractCode(i.title + "\n" + i.body)?.let { it to (if (i.source == Source.SMS) ContactNames.label(i.sender) else i.appName) }
+        }
     }
 
     // ---------- bank summary ----------

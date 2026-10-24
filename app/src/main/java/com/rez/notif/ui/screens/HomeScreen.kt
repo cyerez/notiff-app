@@ -1,5 +1,10 @@
 package com.rez.notif.ui.screens
 
+import com.rez.notif.ui.components.styledShape
+import com.rez.notif.ui.components.softShadow
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.rounded.Savings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -142,7 +147,12 @@ private fun HomeTabContent(nav: Navigator) {
     }
 
     Column {
-        TopBar(t("نوتیف"), today(), nav)
+        TopBar(t("نوتیف"), today(), nav) {
+            IconBubble(Icons.Rounded.Savings, { nav.go(Screen.Money) }, tint = Category.BANK.tint)
+            Spacer(Modifier.width(8.dp))
+            IconBubble(Icons.Rounded.Key, { nav.go(Screen.Wallet) }, tint = ValuableColor)
+            Spacer(Modifier.width(8.dp))
+        }
         ItemList(items = feed?.recent.orEmpty(), empty = t("امروز هنوز چیزی نیومده.")) { openItem ->
             if (settings.firstScanDone && !settings.contactsAsked && !ContactNames.allowed(context)) {
                 item {
@@ -161,6 +171,7 @@ private fun HomeTabContent(nav: Navigator) {
                     }
                 }
             }
+            item(key = "stats") { StatsStrip(nav) }
             feed?.code?.let { c -> item(key = "code") { CodeCard(c.title, codeOf(c), c.timestamp) } }
             val needs = feed?.needsYou.orEmpty()
             item(key = "needs-title") { SectionTitle(t("منتظر تو")) }
@@ -177,6 +188,30 @@ private fun HomeTabContent(nav: Navigator) {
             needs.forEach { i -> item(key = "need-" + i.id) { ItemRow(i, onClick = { openItem(i) }) } }
             item(key = "recent-title") { SectionTitle(t("بقیه امروز")) }
         }
+    }
+}
+
+/** Today / unread / tidied this week: three small tiles; each opens its list, the last opens the stats. */
+@Composable
+private fun StatsStrip(nav: Navigator) {
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val today by rememberLoaded(repo) { repo.count(ItemQuery(sinceMillis = repo.dayStart())) }
+    val unread by rememberLoaded(repo) { repo.count(ItemQuery(onlyUnread = true)) }
+    val week by rememberLoaded(repo) { repo.weekly() }
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        StatTile(t("امروز"), today, LocalGlass.current.accent, Modifier.weight(1f)) { nav.go(Screen.Special(SpecialList.TODAY)) }
+        StatTile(t("خونده‌نشده"), unread, Category.PERSONAL.tint, Modifier.weight(1f)) { nav.go(Screen.Special(SpecialList.UNREAD)) }
+        StatTile(t("جمع‌شده این هفته"), week?.hidden, Category.SOCIAL.tint, Modifier.weight(1f)) { nav.go(Screen.Stats) }
+    }
+}
+
+@Composable
+private fun StatTile(label: String, value: Int?, color: androidx.compose.ui.graphics.Color, modifier: Modifier, onClick: () -> Unit) {
+    val g = LocalGlass.current
+    GlassCard(modifier, onClick = onClick, contentPadding = 12.dp) {
+        Text(if (value == null) "…" else fa(value), color = color, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
     }
 }
 
@@ -238,7 +273,7 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
                 }
             }
             if (tab == HomeTab.MONEY && (pick == null || pick == Category.BANK)) {
-                item(key = "money") { MoneyCard() }
+                item(key = "money") { MoneySummaryCard(onOpen = { nav.go(Screen.Money) }) }
             }
             item(key = "filters") {
                 FlowRow(
@@ -263,55 +298,21 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
     }
 }
 
-/** Last 30 days from bank SMS: money out, money in, and each bank's latest balance. Shown in toman. */
-@Composable
-private fun MoneyCard() {
-    val g = LocalGlass.current
-    val context = LocalContext.current
-    val repo = remember { NotifApp.repo(context) }
-    val m by rememberLoaded(repo) { repo.moneySummary() }
-    val sum = m ?: return
-    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), glow = Category.BANK.tint, contentPadding = 14.dp) {
-        Text(t("۳۰ روز اخیر از پیامک‌های بانک"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(t("خرج و برداشت"), style = MaterialTheme.typography.labelMedium, color = g.textDim)
-                Text(toman(sum.out), style = MaterialTheme.typography.titleMedium, color = Category.ADS.tint, fontWeight = FontWeight.Bold)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(t("واریز"), style = MaterialTheme.typography.labelMedium, color = g.textDim)
-                Text(toman(sum.inn), style = MaterialTheme.typography.titleMedium, color = Category.PERSONAL.tint, fontWeight = FontWeight.Bold)
-            }
-        }
-        sum.accounts.take(4).forEach { a ->
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(t("مانده ") + senderLabel(a.sender), style = MaterialTheme.typography.bodySmall, color = g.text, modifier = Modifier.weight(1f))
-                Text(toman(a.balance) + "  ·  " + shortTime(a.time), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-            }
-        }
-        Text(
-            fa(sum.count) + t(" تراکنش. عددها از متن پیامک خونده شده و ممکنه کامل نباشه."),
-            style = MaterialTheme.typography.labelSmall,
-            color = g.textDim,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-    }
-}
-
-/** Rial → "۱۲۵٬۰۰۰ تومان". */
-private fun toman(rial: Long): String = fa(String.format(java.util.Locale.US, "%,d", rial / 10)) + t(" تومان")
-
 // ---------- bottom bar ----------
 
 @Composable
 private fun BottomTabs(current: HomeTab, unread: (HomeTab) -> Int, onPick: (HomeTab) -> Unit, modifier: Modifier) {
     val g = LocalGlass.current
+    // Solid, not glass: list rows scroll behind it and must not show through.
+    val barShape = styledShape(RoundedCornerShape(28.dp))
     Row(
         modifier
             .navigationBarsPadding()
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .fillMaxWidth()
-            .glassSurface(RoundedCornerShape(28.dp), elevation = 12.dp)
+            .softShadow(barShape, g.shadow.copy(alpha = 0.35f), 14.dp)
+            .background(MaterialTheme.colorScheme.surface, barShape)
+            .border(1.dp, g.edge.copy(alpha = if (g.isDark) 0.5f else 0.9f), barShape)
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
@@ -324,7 +325,7 @@ private fun BottomTabs(current: HomeTab, unread: (HomeTab) -> Int, onPick: (Home
             ) {
                 Box {
                     if (on) NeonIcon(tb.icon, g.accent, size = 34.dp)
-                    else Icon(tb.icon, null, tint = g.textDim, modifier = Modifier.padding(5.dp).size(24.dp))
+                    else Icon(tb.icon, null, tint = g.text.copy(alpha = 0.8f), modifier = Modifier.padding(5.dp).size(24.dp))
                     if (n > 0 && !on) {
                         Text(
                             fa(if (n > 99) 99 else n),
@@ -337,7 +338,8 @@ private fun BottomTabs(current: HomeTab, unread: (HomeTab) -> Int, onPick: (Home
                 Text(
                     t(tb.label),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (on) g.text else g.textDim,
+                    color = if (on) g.accent else g.text,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
                 )
             }
         }

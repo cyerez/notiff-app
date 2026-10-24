@@ -33,6 +33,7 @@ app/src/main/java/com/rez/notif/
     Rules.kt             the user's own rules (app/sender/words or regex/category/hours -> action); first match wins;
                          one-line codec stored in Db `rules`; templates. Pure Kotlin, tested
     Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
+    Bills.kt             due date (+ amount) of bill/installment SMS; Jalali->Gregorian. Pure Kotlin, tested
   data/
     Db.kt                SQLiteOpenHelper v4: items, sender_overrides, vip, wallet, rules, reminders. Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
@@ -55,14 +56,15 @@ app/src/main/java/com/rez/notif/
          per contact by Repository.tidyVips)
          MmsReceiver.kt + MmsPdu.kt (MMS is only recorded, not downloaded), HeadlessSmsSendService.kt
   notif/ NotifListener.kt (NotificationListenerService; hides notifications), SummaryNotifier.kt (live, or only at
-         `digestHours`), Reminders.kt (remind later / until seen, Digest alarms, AlarmReceiver incl. boot;
+         `digestHours`), BankAlerts.kt (low balance / big spend, from Repository.afterNew),
+         CodeTile.kt (quick-settings "copy newest code"), Reminders.kt (remind later, bill reminders / until seen, Digest alarms, AlarmReceiver incl. boot;
          inexact setAndAllowWhileIdle, no exact-alarm permission)
   ui/
     AppRoot.kt           tiny back-stack navigator + screen switch
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

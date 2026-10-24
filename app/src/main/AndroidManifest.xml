@@ -143,6 +143,18 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </service>
+        <!-- Quick-settings tile: copy the newest login code -->
+        <service
+            android:name=".notif.CodeTile"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_notif"
+            android:label="@string/code_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- "Remind me later", reminder rules and summary hours -->
         <receiver
             android:name=".notif.AlarmReceiver"

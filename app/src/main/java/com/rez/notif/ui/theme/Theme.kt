@@ -72,14 +72,23 @@ fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings
     AppStyle.GLASS -> glassColors(dark, settings.accent, settings.animations)
     AppStyle.PEACH -> peachColors(dark, settings.animations)
     AppStyle.SEASONS -> seasonColors(dark, settings.season, settings.animations)
-    AppStyle.CYBER -> cyberColors(settings.animations)
+    AppStyle.CYBER -> cyberColors(dark, settings.animations)
     AppStyle.STEAM -> steamColors(dark, settings.animations)
-    AppStyle.RETRO -> retroColors(settings.animations)
+    AppStyle.RETRO -> retroColors(dark, settings.animations)
     AppStyle.MEADOW -> meadowColors(dark, settings.animations)
 }
 
-/** Cyberpunk HUD: dark red-black, salmon red and cyan, cut corners, thin lit outlines. Always dark. */
-private fun cyberColors(animations: Boolean) = GlassColors(
+/** Cyberpunk HUD: red and cyan lines, cut corners. Dark = red-black night screen, light = pale daylight HUD. */
+private fun cyberColors(dark: Boolean, animations: Boolean) = if (!dark) GlassColors(
+    isDark = false, accent = Color(0xFFD7263D), accent2 = Color(0xFF00838F),
+    bgTop = Color(0xFFF3ECEC), bgBottom = Color(0xFFDCE6E8), blobs = emptyList(),
+    glassTop = Color(0xFFFFFFFF).copy(alpha = 0.94f), glassBottom = Color(0xFFF4F7F8).copy(alpha = 0.94f),
+    edge = Color(0xFFD7263D).copy(alpha = 0.7f),
+    text = Color(0xFF1B1F22), textDim = Color(0xFF7A4B50),
+    shadow = Color.Transparent,
+    animations = animations, style = AppStyle.CYBER,
+    glow = 0.5f, frame = Frame.CUT, backdrop = Backdrop.CYBER, surface = Color(0xFFFFFFFF),
+) else GlassColors(
     isDark = true, accent = Color(0xFFFF5C5C), accent2 = Color(0xFF5CE1E6),
     bgTop = Color(0xFF2A0F14), bgBottom = Color(0xFF0B1418), blobs = emptyList(),
     glassTop = Color(0xFF1A2226).copy(alpha = 0.92f), glassBottom = Color(0xFF141B1F).copy(alpha = 0.92f),
@@ -106,7 +115,7 @@ private fun steamColors(dark: Boolean, animations: Boolean) = if (dark) {
 } else {
     GlassColors(
         isDark = false, accent = Color(0xFFA0522D), accent2 = Color(0xFFB8862B),
-        bgTop = Color(0xFF6B4A2E), bgBottom = Color(0xFF2E1F14), blobs = emptyList(),
+        bgTop = Color(0xFFF0DFBC), bgBottom = Color(0xFFCFAE7A), blobs = emptyList(),
         glassTop = Color(0xFFF6EBD3).copy(alpha = 0.97f), glassBottom = Color(0xFFEBDCBC).copy(alpha = 0.97f),
         edge = Color(0xFFB8862B),
         text = Color(0xFF3B2416), textDim = Color(0xFF7A5A3E),
@@ -117,8 +126,17 @@ private fun steamColors(dark: Boolean, animations: Boolean) = if (dark) {
     )
 }
 
-/** Retro pixel: black screen, lime green, square panels with thick outlines. Always dark. */
-private fun retroColors(animations: Boolean) = GlassColors(
+/** Retro pixel: square panels with thick outlines. Dark = black screen and lime; light = old handheld green-grey. */
+private fun retroColors(dark: Boolean, animations: Boolean) = if (!dark) GlassColors(
+    isDark = false, accent = Color(0xFF3F6E12), accent2 = Color(0xFF1F6F8B),
+    bgTop = Color(0xFFDCE4C4), bgBottom = Color(0xFFC3CEA2), blobs = emptyList(),
+    glassTop = Color(0xFFF3F6E6), glassBottom = Color(0xFFF3F6E6),
+    edge = Color(0xFF26301A),
+    text = Color(0xFF1C2414), textDim = Color(0xFF5B6748),
+    shadow = Color(0xFF26301A).copy(alpha = 0.85f),
+    animations = animations, style = AppStyle.RETRO,
+    glow = 0.3f, frame = Frame.PIXEL, backdrop = Backdrop.PIXEL, surface = Color(0xFFF3F6E6),
+) else GlassColors(
     isDark = true, accent = Color(0xFFB6F23C), accent2 = Color(0xFF7DD3FC),
     bgTop = Color(0xFF0C0D0E), bgBottom = Color(0xFF151719), blobs = emptyList(),
     glassTop = Color(0xFF1C1F21), glassBottom = Color(0xFF1C1F21),

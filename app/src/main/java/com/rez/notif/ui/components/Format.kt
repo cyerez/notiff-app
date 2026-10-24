@@ -88,3 +88,6 @@ val VipColor = Color(0xFFFF4D8D)
 
 /** Gold used for the "valuable" flag. */
 val ValuableColor = Color(0xFFFFC23D)
+
+/** Rial → "۱۲۵٬۰۰۰ تومان". */
+fun toman(rial: Long): String = fa(String.format(java.util.Locale.US, "%,d", rial / 10)) + t(" تومان")

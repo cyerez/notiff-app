@@ -34,7 +34,7 @@ private fun DrawScope.cyberHud(g: GlassColors, t: Float) {
     val red = g.accent; val cyan = g.accent2
     val step = w / 12f
     var x = 0f
-    while (x < w) { drawLine(red.copy(alpha = 0.05f), Offset(x, 0f), Offset(x, h)); x += step }
+    while (x < w) { drawLine(red.copy(alpha = if (g.isDark) 0.05f else 0.08f), Offset(x, 0f), Offset(x, h)); x += step }
     var y = 0f
     while (y < h) { drawLine(red.copy(alpha = 0.05f), Offset(0f, y), Offset(w, y)); y += step }
     // Ruler on the left edge.
@@ -70,8 +70,8 @@ private fun DrawScope.cyberHud(g: GlassColors, t: Float) {
 /** Steampunk: brass gears turning slowly, pipes and rivets on warm dark leather. */
 private fun DrawScope.steamWorks(g: GlassColors, t: Float) {
     val w = size.width; val h = size.height
-    val brass = Color(0xFFC9963F)
-    val dark = Color(0xFF1A110B)
+    val brass = if (g.isDark) Color(0xFFC9963F) else Color(0xFF8A5A22)
+    val dark = if (g.isDark) Color(0xFF1A110B) else Color(0xFFF6EBD3)
     // Warm light from the top, like a lamp.
     drawRect(Brush.radialGradient(listOf(Color(0xFFE0A050).copy(alpha = 0.25f), Color.Transparent), Offset(w * 0.5f, 0f), h * 0.6f))
     gear(Offset(w * 0.9f, h * 0.12f), w * 0.28f, 14, brass.copy(alpha = 0.22f), dark, 40f * t)
@@ -122,13 +122,13 @@ private fun DrawScope.pixelScreen(g: GlassColors, t: Float) {
     while (y < h) {
         var x = 0f
         while (x < w) {
-            drawRect(Color.White.copy(alpha = 0.05f), Offset(x, y), Size(3f, 3f))
+            drawRect(g.text.copy(alpha = if (g.isDark) 0.05f else 0.10f), Offset(x, y), Size(3f, 3f))
             x += cell
         }
         y += cell; row++
     }
     y = 0f
-    while (y < h) { drawRect(Color.Black.copy(alpha = 0.18f), Offset(0f, y), Size(w, 2f)); y += 6f }
+    while (y < h) { drawRect(Color.Black.copy(alpha = if (g.isDark) 0.18f else 0.04f), Offset(0f, y), Size(w, 2f)); y += 6f }
     val rnd = R(9)
     for (i in 0 until 18) {
         val on = (rnd.n() + t) % 1f > 0.5f
