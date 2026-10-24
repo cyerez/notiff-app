@@ -81,4 +81,9 @@ class RulesMoneyTest {
     }
 
     @Test fun notMoney() = assertNull(Money.parse("کد تایید شما 12345 است"))
+
+    @Test fun dateIsNotACode() {
+        assertEquals("58213", Classifier.extractCode("رمز یکبار مصرف\n58213\nتاریخ 1405-08-02 09:00"))
+        assertNull(Classifier.extractCode("کد تایید ورود شما\n۱۴۰۵ آبان"))
+    }
 }

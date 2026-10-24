@@ -94,17 +94,20 @@ object Classifier {
     }
 
     private val CODE_AFTER_WORD = Regex(
-        "(?:کد|رمز|code|otp|pin|password)[^0-9]{0,30}?(?<![0-9,./])([0-9]{4,8})(?![0-9,./])",
+        "(?:کد|رمز|code|otp|pin|password)[^0-9]{0,30}?(?<![0-9,./:\\-])([0-9]{4,8})(?![0-9,./:\\-])",
         RegexOption.IGNORE_CASE,
     )
-    private val LONE_CODE = Regex("(?<![0-9,./])[0-9]{4,8}(?![0-9,./])")
+    private val LONE_CODE = Regex("(?<![0-9,./:\\-])[0-9]{4,8}(?![0-9,./:\\-])")
+
+    /** A lone 4-digit number that is really a year (۱۴۰۵, 2026) is not a code. */
+    private fun looksLikeYear(v: String) = v.length == 4 && (v.toInt() in 1380..1420 || v.toInt() in 2015..2040)
 
     /** The login code or bank one-time password in an OTP message ("رمز پویا: ۱۲۳۴۵۶"), or null. */
     fun extractCode(text: String): String? {
         if (!isOtp(text)) return null
         val t = normalize(text)
-        CODE_AFTER_WORD.find(t)?.let { return it.groupValues[1] }
-        return LONE_CODE.find(t)?.value
+        CODE_AFTER_WORD.findAll(t).map { it.groupValues[1] }.firstOrNull { !looksLikeYear(it) }?.let { return it }
+        return LONE_CODE.findAll(t).map { it.value }.firstOrNull { !looksLikeYear(it) }
     }
 
     private val BANK_SENDERS = listOf(

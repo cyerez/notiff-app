@@ -97,7 +97,14 @@ fun ConversationScreen(address: String, draft: String, nav: Navigator) {
         }
     }
     val askSend = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
-        if (r.values.all { it }) send() else status = t("اجازه فرستادن پیامک داده نشد.")
+        if (r.values.all { it }) {
+            send()
+        } else if (DefaultSms.openComposer(context, address, text.trim())) {
+            status = t("اپ پیامک گوشی با همین متن باز شد؛ فقط دکمه ارسال رو بزن. برای فرستادن از خود نوتیف: تنظیمات گوشی > برنامه‌ها > نوتیف > ⋮ > Allow restricted settings، بعد مجوزها > پیامک.")
+            text = ""
+        } else {
+            status = t("اجازه فرستادن پیامک داده نشد.")
+        }
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {

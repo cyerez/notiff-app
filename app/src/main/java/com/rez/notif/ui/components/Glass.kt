@@ -328,9 +328,9 @@ fun GlassTopBar(
     val g = LocalGlass.current
     Row(
         Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .glassSurface(RoundedCornerShape(24.dp), elevation = 10.dp)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .glassSurface(RoundedCornerShape(22.dp), elevation = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
@@ -338,7 +338,7 @@ fun GlassTopBar(
             Box(Modifier.size(6.dp))
         }
         Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = g.text)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = g.text, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = g.textDim)
         }
         actions()

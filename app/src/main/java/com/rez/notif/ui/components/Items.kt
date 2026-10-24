@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -90,12 +91,12 @@ fun ItemRow(
     val g = LocalGlass.current
     val cat = Category.of(item.category)
     GlassCard(
-        modifier.padding(horizontal = 16.dp, vertical = 5.dp).fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        modifier.padding(horizontal = 14.dp, vertical = 3.dp).fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
         glow = if (selected == true) g.accent else null,
         onClick = onClick,
         onLongClick = onLongClick,
-        contentPadding = 14.dp,
+        contentPadding = 11.dp,
     ) {
         Row(verticalAlignment = Alignment.Top) {
             if (selected != null) {
@@ -106,12 +107,14 @@ fun ItemRow(
                     modifier = Modifier.padding(top = 8.dp, end = 10.dp).size(24.dp),
                 )
             }
-            NeonIcon(cat.icon, cat.tint, size = 38.dp)
-            Spacer(Modifier.size(12.dp))
+            NeonIcon(cat.icon, cat.tint, size = 32.dp)
+            Spacer(Modifier.size(10.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Who it is from: the contact for SMS; for apps the chat/person title, with the app's name small.
+                    val isNotif = item.source == Source.NOTIFICATION
                     Text(
-                        if (item.source == Source.SMS) senderLabel(item.sender) else item.appName,
+                        if (!isNotif) senderLabel(item.sender) else item.title.ifBlank { item.appName },
                         style = MaterialTheme.typography.titleSmall,
                         color = g.text,
                         fontWeight = if (item.isRead) FontWeight.Medium else FontWeight.Black,
@@ -119,6 +122,15 @@ fun ItemRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
+                    if (isNotif && item.title.isNotBlank()) {
+                        Text(
+                            item.appName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = g.textDim,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 6.dp).widthIn(max = 90.dp),
+                        )
+                    }
                     if (item.vipId > 0) {
                         Icon(Icons.Rounded.Favorite, null, tint = VipColor, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.size(4.dp))
@@ -137,17 +149,14 @@ fun ItemRow(
                         Box(Modifier.size(8.dp).background(g.accent2, CircleShape))
                     }
                 }
-                if (item.source == Source.NOTIFICATION && item.title.isNotBlank()) {
-                    Text(item.title, style = MaterialTheme.typography.bodyMedium, color = g.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
                 Text(
-                    item.body,
+                    item.body.replace('\n', ' '),
                     style = MaterialTheme.typography.bodyMedium,
                     color = g.textDim,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (selected == null) CopyCodeChip(item, Modifier.padding(top = 8.dp))
+                if (selected == null) CopyCodeChip(item, Modifier.padding(top = 6.dp))
             }
         }
     }
@@ -498,7 +507,15 @@ private fun QuickReply(item: Item) {
         if (ok) text = ""
     }
     val askSms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
-        if (r.values.all { it }) send() else status = t("اجازه فرستادن پیامک داده نشد.")
+        if (r.values.all { it }) {
+            send()
+        } else if (com.rez.notif.sms.DefaultSms.openComposer(context, item.sender, text.trim())) {
+            // Android blocked the permission: hand the written text to the phone's SMS app instead.
+            status = t("اپ پیامک گوشی با همین متن باز شد؛ فقط دکمه ارسال رو بزن. برای فرستادن از خود نوتیف: تنظیمات گوشی > برنامه‌ها > نوتیف > ⋮ > Allow restricted settings، بعد مجوزها > پیامک.")
+            text = ""
+        } else {
+            status = t("اجازه فرستادن پیامک داده نشد.")
+        }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(

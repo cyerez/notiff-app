@@ -141,6 +141,7 @@ private fun HomeTabContent(nav: Navigator) {
     val repo = remember { NotifApp.repo(context) }
     val settings by repo.prefs.state.collectAsState()
     val feed by rememberLoaded(repo) { repo.homeFeed() }
+    var showAllNeeds by remember { mutableStateOf(false) }
     val askContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         repo.prefs.update { it.copy(contactsAsked = true) }
         kotlin.concurrent.thread { ContactNames.refresh(context); repo.bump() }
@@ -185,7 +186,16 @@ private fun HomeTabContent(nav: Navigator) {
                     )
                 }
             }
-            needs.forEach { i -> item(key = "need-" + i.id) { ItemRow(i, onClick = { openItem(i) }) } }
+            // Five at most, so "the rest of today" stays in sight; the others are one tap away.
+            val shownNeeds = if (showAllNeeds) needs else needs.take(5)
+            shownNeeds.forEach { i -> item(key = "need-" + i.id) { ItemRow(i, onClick = { openItem(i) }) } }
+            if (needs.size > shownNeeds.size) {
+                item(key = "needs-more") {
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        GlassChip(fa(needs.size - shownNeeds.size) + t(" مورد دیگه"), false, { showAllNeeds = true })
+                    }
+                }
+            }
             item(key = "recent-title") { SectionTitle(t("بقیه امروز")) }
         }
     }
@@ -199,7 +209,7 @@ private fun StatsStrip(nav: Navigator) {
     val today by rememberLoaded(repo) { repo.count(ItemQuery(sinceMillis = repo.dayStart())) }
     val unread by rememberLoaded(repo) { repo.count(ItemQuery(onlyUnread = true)) }
     val week by rememberLoaded(repo) { repo.weekly() }
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 4.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         StatTile(t("امروز"), today, LocalGlass.current.accent, Modifier.weight(1f)) { nav.go(Screen.Special(SpecialList.TODAY)) }
         StatTile(t("خونده‌نشده"), unread, Category.PERSONAL.tint, Modifier.weight(1f)) { nav.go(Screen.Special(SpecialList.UNREAD)) }
         StatTile(t("جمع‌شده این هفته"), week?.hidden, Category.SOCIAL.tint, Modifier.weight(1f)) { nav.go(Screen.Stats) }
@@ -209,8 +219,8 @@ private fun StatsStrip(nav: Navigator) {
 @Composable
 private fun StatTile(label: String, value: Int?, color: androidx.compose.ui.graphics.Color, modifier: Modifier, onClick: () -> Unit) {
     val g = LocalGlass.current
-    GlassCard(modifier, onClick = onClick, contentPadding = 12.dp) {
-        Text(if (value == null) "…" else fa(value), color = color, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+    GlassCard(modifier, onClick = onClick, contentPadding = 10.dp) {
+        Text(if (value == null) "…" else fa(value), color = color, fontSize = 19.sp, fontWeight = FontWeight.Bold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
     }
 }
@@ -221,11 +231,11 @@ private fun CodeCard(from: String, code: String?, time: Long) {
     val g = LocalGlass.current
     val context = LocalContext.current
     code ?: return
-    GlassCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(), glow = Category.OTP.tint) {
+    GlassCard(Modifier.padding(horizontal = 14.dp, vertical = 4.dp).fillMaxWidth(), glow = Category.OTP.tint, contentPadding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(t("کد تازه") + " · " + senderLabel(from) + " · " + shortTime(time), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-                Text(fa(code), color = g.text, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text(t("کد تازه") + " · " + senderLabel(from) + " · " + shortTime(time), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
+                Text(fa(code), color = g.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             GlassButton(t("کپی"), icon = Icons.Rounded.ContentCopy, onClick = { CodeNotifier.copy(context, code) })
         }

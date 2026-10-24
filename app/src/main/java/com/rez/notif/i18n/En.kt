@@ -449,5 +449,7 @@ internal object En {
         "خرج بزرگ: " to "Big spend: ",
         "  ·  مانده " to "  ·  balance ",
         "مانده کم: " to "Low balance: ",
+        "اپ پیامک گوشی با همین متن باز شد؛ فقط دکمه ارسال رو بزن. برای فرستادن از خود نوتیف: تنظیمات گوشی > برنامه‌ها > نوتیف > ⋮ > Allow restricted settings، بعد مجوزها > پیامک." to "The phone's SMS app opened with this text; just tap send. To send from Notif itself: phone Settings > Apps > Notif > ⋮ > Allow restricted settings, then Permissions > SMS.",
+        " مورد دیگه" to " more",
     )
 }

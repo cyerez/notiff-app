@@ -154,4 +154,18 @@ object DefaultSms {
         }
         return out.reversed()
     }
+
+    /**
+     * Opens the phone's SMS app with the text already written, so the user only taps send.
+     * Used when Android blocks our SEND_SMS permission (sideloaded apps hit "restricted settings").
+     */
+    fun openComposer(context: android.content.Context, address: String, text: String): Boolean = try {
+        val i = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:" + android.net.Uri.encode(address)))
+            .putExtra("sms_body", text)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(i)
+        true
+    } catch (e: Exception) {
+        false
+    }
 }
