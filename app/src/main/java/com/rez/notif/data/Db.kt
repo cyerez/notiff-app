@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 6
+        const val VERSION = 7
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -131,6 +131,7 @@ class Db private constructor(
         createV4(db)
         createV5(db)
         createV6(db)
+        createV7(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -169,6 +170,11 @@ class Db private constructor(
         db.execSQL("CREATE TABLE IF NOT EXISTS trips (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL, updated INTEGER NOT NULL)")
     }
 
+    /** Version 7: monthly income and spending lines (classify/Budget.kt). Amount in toman, month as Persian yyyymm. */
+    private fun createV7(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, amount INTEGER NOT NULL, income INTEGER NOT NULL, monthly INTEGER NOT NULL, month INTEGER NOT NULL, until INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -180,6 +186,7 @@ class Db private constructor(
         if (oldVersion < 4) createV4(db)
         if (oldVersion < 5) createV5(db)
         if (oldVersion < 6) createV6(db)
+        if (oldVersion < 7) createV7(db)
     }
 
     // ---------- password wallet ----------
@@ -300,6 +307,27 @@ class Db private constructor(
 
     fun deleteTrip(id: Long) {
         writableDatabase.delete("trips", "id = ?", arrayOf(id.toString()))
+    }
+
+    // ---------- monthly budget ----------
+
+    fun budgetLines(): List<com.rez.notif.classify.BudgetLine> =
+        readableDatabase.rawQuery("SELECT id, title, amount, income, monthly, month, until FROM budget ORDER BY amount DESC", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.BudgetLine>()
+            while (c.moveToNext()) l += com.rez.notif.classify.BudgetLine(c.getLong(0), c.getString(1), c.getLong(2), c.getInt(3) == 1, c.getInt(4) == 1, c.getInt(5), c.getInt(6))
+            l
+        }
+
+    fun saveBudgetLine(b: com.rez.notif.classify.BudgetLine): Long {
+        val v = ContentValues().apply {
+            put("title", b.title); put("amount", b.amount); put("income", if (b.income) 1 else 0); put("monthly", if (b.monthly) 1 else 0)
+            put("month", b.month); put("until", b.until); put("created", System.currentTimeMillis())
+        }
+        return if (b.id > 0) { writableDatabase.update("budget", v, "id = ?", arrayOf(b.id.toString())); b.id } else writableDatabase.insert("budget", null, v)
+    }
+
+    fun deleteBudgetLine(id: Long) {
+        writableDatabase.delete("budget", "id = ?", arrayOf(id.toString()))
     }
 
     // ---------- writes ----------

@@ -536,6 +536,42 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         changed()
     }
 
+    // ---------- monthly budget ----------
+
+    /** This Persian month as yyyymm. */
+    fun thisMonth(): Int {
+        val c = Calendar.getInstance()
+        val (jy, jm, _) = Bills.gregorianToJalali(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
+        return com.rez.notif.classify.Budget.of(jy, jm)
+    }
+
+    /** One month: the user's lines, their installments (Money screen), and what bank SMS say really went out/in (toman). */
+    data class BudgetView(val month: com.rez.notif.classify.Budget.Month, val bankOut: Long, val bankIn: Long, val bills: List<Db.MyBill>)
+
+    suspend fun budget(month: Int): BudgetView = withContext(Dispatchers.IO) {
+        val bills = db.myBills().filter { it.amount > 0 }
+        val m = com.rez.notif.classify.Budget.month(db.budgetLines(), month, bills.sumOf { it.amount })
+        val start = (Bills.toMillis(month / 100, month % 100, 1) ?: 0L) - 9 * 3_600_000L
+        val next = com.rez.notif.classify.Budget.next(month)
+        val end = (Bills.toMillis(next / 100, next % 100, 1) ?: Long.MAX_VALUE) - 9 * 3_600_000L
+        var out = 0L; var inn = 0L
+        if (start > 0) {
+            db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = start, limit = 5000))
+                .filter { it.timestamp < end }
+                .forEach { i -> Money.parse(i.body)?.let { out += it.out; inn += it.inn } }
+        }
+        BudgetView(m, out / 10, inn / 10, bills)
+    }
+
+    suspend fun saveBudgetLine(b: com.rez.notif.classify.BudgetLine) = withContext(Dispatchers.IO) { db.saveBudgetLine(b); changed() }
+
+    /** A one-off line is deleted. A monthly line stops from [month] on, so earlier months keep their numbers. */
+    suspend fun removeBudgetLine(b: com.rez.notif.classify.BudgetLine, month: Int) = withContext(Dispatchers.IO) {
+        if (!b.monthly || month <= b.month) db.deleteBudgetLine(b.id)
+        else db.saveBudgetLine(b.copy(until = com.rez.notif.classify.Budget.prev(month)))
+        changed()
+    }
+
     // ---------- dong ----------
 
     suspend fun trips(): List<com.rez.notif.classify.DongTrip> = withContext(Dispatchers.IO) { db.trips() }

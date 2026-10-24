@@ -68,6 +68,7 @@ sealed interface Screen {
     data object Rules : Screen
     data object Money : Screen
     data object Dong : Screen
+    data object Budget : Screen
     data class Trip(val id: Long) : Screen
     data class RuleEdit(val rule: com.rez.notif.classify.Rule) : Screen
 }
@@ -154,6 +155,7 @@ fun AppRoot() {
                         Screen.Rules -> com.rez.notif.ui.screens.RulesScreen(nav)
                         Screen.Money -> com.rez.notif.ui.screens.MoneyScreen(nav)
                         Screen.Dong -> com.rez.notif.ui.screens.DongScreen(nav)
+                        Screen.Budget -> com.rez.notif.ui.screens.BudgetScreen(nav)
                         is Screen.Trip -> com.rez.notif.ui.screens.TripScreen(screen.id, nav)
                         is Screen.RuleEdit -> com.rez.notif.ui.screens.RuleEditScreen(screen.rule, nav)
                     }

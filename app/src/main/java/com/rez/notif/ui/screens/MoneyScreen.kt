@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +79,18 @@ fun MoneyScreen(nav: Navigator) {
         GlassTopBar(title = t("حساب و کتاب"), subtitle = t("از روی پیامک‌های بانک، روی همین گوشی"), onBack = nav::back)
         LazyColumn(contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item { MoneySummaryCard(onOpen = null) }
+            item {
+                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = { nav.go(com.rez.notif.ui.Screen.Budget) }, contentPadding = 12.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        NeonIcon(Icons.Rounded.AccountBalanceWallet, Category.BANK.tint, size = 36.dp)
+                        Spacer(Modifier.size(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(t("دخل و خرج"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(t("درآمد و خرج‌های ماهت و اینکه چقدر اضافه میاری"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                        }
+                    }
+                }
+            }
             item {
                 GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = { nav.go(com.rez.notif.ui.Screen.Dong) }, contentPadding = 12.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

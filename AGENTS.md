@@ -34,10 +34,11 @@ app/src/main/java/com/rez/notif/
                          one-line codec stored in Db `rules`; templates. Pure Kotlin, tested
     Money.kt             amounts out/in and balance from bank SMS text (rial). Pure Kotlin, tested
     Bills.kt             due date (+ amount) of bill/installment SMS; Jalali->Gregorian. Pure Kotlin, tested
+    Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
     Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was
                          present each day, balances + fewest transfers; one-text codec stored in Db `trips`. Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v6: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong). Reads go through the
+    Db.kt                SQLiteOpenHelper v7: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending). Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
@@ -69,7 +70,7 @@ app/src/main/java/com/rez/notif/
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 
