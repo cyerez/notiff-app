@@ -93,6 +93,13 @@ object SummaryNotifier {
             val icon = iconOf(context, pkg)
             if (icon != null) cell.setImageViewBitmap(R.id.summary_app, icon) else cell.setImageViewResource(R.id.summary_app, R.mipmap.ic_launcher)
             cell.setTextViewText(R.id.summary_count, fa(count))
+            // Tapping an app's icon opens that app itself, so the whole conversation is in front of you.
+            context.packageManager.getLaunchIntentForPackage(pkg)?.let { launch ->
+                launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                val pi = android.app.PendingIntent.getActivity(context, 7000 + (pkg.hashCode() and 0xfff), launch, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+                cell.setOnClickPendingIntent(R.id.summary_app, pi)
+                cell.setOnClickPendingIntent(R.id.summary_count, pi)
+            }
             v.addView(if (i < PER_ROW) R.id.summary_icons else R.id.summary_icons2, cell)
         }
         return v
