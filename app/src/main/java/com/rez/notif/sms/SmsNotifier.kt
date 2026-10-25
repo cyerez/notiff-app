@@ -47,7 +47,10 @@ object SmsNotifier {
             .setContentIntent(open)
             .setAutoCancel(true)
             .setShowWhen(true)
-        if (!stay) b.setTimeoutAfter(maxOf(4, com.rez.notif.NotifApp.repo(context).prefs.current.holdSeconds) * 1000L)
+        val prefs = com.rez.notif.NotifApp.repo(context).prefs.current
+        val locked = context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        // With a smartwatch and a locked phone, the notification stays so the watch keeps it.
+        if (!stay && !(prefs.watchMode && locked)) b.setTimeoutAfter(maxOf(4, com.rez.notif.NotifApp.repo(context).prefs.current.holdSeconds) * 1000L)
         nm.notify(id, b.build())
     }
 

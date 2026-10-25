@@ -63,7 +63,7 @@ app/src/main/java/com/rez/notif/
          per contact by Repository.tidyVips)
          MmsReceiver.kt + MmsPdu.kt (MMS is only recorded, not downloaded), HeadlessSmsSendService.kt
   notif/ NotifListener.kt (NotificationListenerService; hides notifications after Decision.holdMs = Settings holdSeconds,
-         ads/codes/quiet hours at once), CodeOverlay.kt (optional "copy code" box over other apps for codeSeconds,
+         ads/codes/quiet hours at once; Settings watchMode: while the phone is locked they wait for ACTION_USER_PRESENT so a smartwatch keeps them), CodeOverlay.kt (optional "copy code" box over other apps for codeSeconds,
          needs SYSTEM_ALERT_WINDOW; falls back to the pop-up notification), SummaryNotifier.kt (live, or only at
          `digestHours`), BankAlerts.kt (low balance / big spend, from Repository.afterNew),
          CodeTile.kt (quick-settings "copy newest code"), Reminders.kt (remind later, bill reminders / until seen, Digest alarms, AlarmReceiver incl. boot;
@@ -73,7 +73,7 @@ app/src/main/java/com/rez/notif/
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab; Home = Repository.homeFeed), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Transfer (chosen categories/VIP/starred -> password-locked .notifmsg file; import merges by source_key and can write SMS into the phone inbox when default SMS app), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab = Home (Repository.homeFeed) / Messages (all non-ad categories) / Apps (tool grid) / Settings (SettingsScreen embedded)), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Transfer (chosen categories/VIP/starred -> password-locked .notifmsg file; import merges by source_key and can write SMS into the phone inbox when default SMS app), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

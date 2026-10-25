@@ -60,6 +60,8 @@ class NotifListener : NotificationListenerService() {
     override fun onDestroy() {
         if (instance === this) instance = null
         main.removeCallbacksAndMessages(null)
+        unlockReceiver?.let { runCatching { unregisterReceiver(it) } }
+        unlockReceiver = null
         worker.shutdown()
         super.onDestroy()
     }
@@ -119,6 +121,12 @@ class NotifListener : NotificationListenerService() {
 
     /** Leaves the notification up for [ms] so it can be read, then tidies it away. A newer post of the same notification restarts the wait. */
     private fun later(key: String, ms: Long) {
+        // Smartwatch: while the phone is locked the watch is showing these, and clearing them on the phone clears
+        // the watch too. So they wait until the phone is unlocked, then get the normal wait.
+        if (NotifApp.repo(this).prefs.current.watchMode && phoneLocked()) {
+            main.post { waitingUnlock += key; listenForUnlock() }
+            return
+        }
         main.post {
             pending.remove(key)?.let(main::removeCallbacks)
             val r = Runnable { pending.remove(key); worker.execute { hide(key) } }
@@ -128,7 +136,37 @@ class NotifListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        main.post { pending.remove(sbn.key)?.let(main::removeCallbacks) }
+        main.post { pending.remove(sbn.key)?.let(main::removeCallbacks); waitingUnlock.remove(sbn.key) }
+    }
+
+    private val waitingUnlock = LinkedHashSet<String>()
+    private var unlockReceiver: android.content.BroadcastReceiver? = null
+
+    private fun phoneLocked(): Boolean =
+        getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ||
+            getSystemService(android.os.PowerManager::class.java)?.isInteractive == false
+
+    /** Main thread. On unlock, everything that waited gets the normal hold time and then leaves. */
+    private fun listenForUnlock() {
+        if (unlockReceiver != null) return
+        val r = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, i: android.content.Intent) {
+                val keys = waitingUnlock.toList()
+                waitingUnlock.clear()
+                val ms = maxOf(5_000L, NotifApp.repo(this@NotifListener).prefs.current.holdSeconds * 1000L)
+                keys.forEach { k ->
+                    pending.remove(k)?.let(main::removeCallbacks)
+                    val run = Runnable { pending.remove(k); worker.execute { hide(k) } }
+                    pending[k] = run
+                    main.postDelayed(run, ms)
+                }
+            }
+        }
+        val f = android.content.IntentFilter(android.content.Intent.ACTION_USER_PRESENT)
+        runCatching {
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, android.content.Context.RECEIVER_EXPORTED) else registerReceiver(r, f)
+            unlockReceiver = r
+        }
     }
 
     private val labels = HashMap<String, String>()

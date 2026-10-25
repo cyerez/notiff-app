@@ -95,6 +95,8 @@ data class Settings(
     val billDaysBefore: Int = 3,
     /** Seconds a normal notification stays in the status bar before Notif tidies it away (0 = right away). Ads always go at once. */
     val holdSeconds: Int = 30,
+    /** Smartwatch: while the phone is locked, notifications stay (so the watch shows them) until it is unlocked. */
+    val watchMode: Boolean = true,
     /** Seconds the "copy code" box stays on top of the screen. */
     val codeSeconds: Int = 20,
     /** Show the code box over other apps (needs "appear on top"); otherwise only the notification. */
@@ -167,6 +169,7 @@ class Prefs(context: Context) {
         billReminders = sp.getBoolean("billReminders", true),
         billDaysBefore = sp.getInt("billDaysBefore2", 3),
         holdSeconds = sp.getInt("holdSeconds", 30),
+        watchMode = sp.getBoolean("watchMode", true),
         codeSeconds = sp.getInt("codeSeconds", 20),
         codeOverlay = sp.getBoolean("codeOverlay", true),
         ignoredBills = sp.getStringSet("ignoredBills", emptySet())?.toSet() ?: emptySet(),
@@ -214,6 +217,7 @@ class Prefs(context: Context) {
             .putBoolean("billReminders", s.billReminders)
             .putInt("billDaysBefore2", s.billDaysBefore)
             .putInt("holdSeconds", s.holdSeconds)
+            .putBoolean("watchMode", s.watchMode)
             .putInt("codeSeconds", s.codeSeconds)
             .putBoolean("codeOverlay", s.codeOverlay)
             .putStringSet("ignoredBills", s.ignoredBills)

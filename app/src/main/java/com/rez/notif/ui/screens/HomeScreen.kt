@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.Savings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,8 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -93,9 +96,11 @@ import kotlinx.coroutines.launch
 /** The four tabs at the bottom. Home is what needs you; the other three hold the categories. */
 enum class HomeTab(val label: String, val icon: ImageVector, val categories: List<Category>) {
     HOME("خانه", Icons.Rounded.Home, emptyList()),
-    PEOPLE("پیام‌ها", Icons.Rounded.Forum, listOf(Category.PERSONAL, Category.SOCIAL, Category.MISSED, Category.EMAIL)),
-    MONEY("بانک و کد", Icons.Rounded.AccountBalance, listOf(Category.BANK, Category.OTP, Category.SHOPPING, Category.SERVICES)),
-    OTHER("بقیه", Icons.Rounded.Apps, listOf(Category.OPERATOR, Category.APPS, Category.SYSTEM, Category.OTHER)),
+    /** Every message and notification (ads have their own list). */
+    MESSAGES("پیام‌ها", Icons.Rounded.Forum, Category.entries.filter { it != Category.ADS }),
+    /** All the tools: money, budget, dong, wallet, stats, OCR... */
+    APPS("برنامه‌ها", Icons.Rounded.Apps, emptyList()),
+    SETTINGS("تنظیمات", Icons.Rounded.Settings, emptyList()),
 }
 
 /** Stays on the same tab when coming back from another screen. */
@@ -113,7 +118,9 @@ fun HomeScreen(nav: Navigator) {
     Box(Modifier.fillMaxSize()) {
         when (tab) {
             HomeTab.HOME -> HomeTabContent(nav)
-            else -> CategoryTab(tab, nav)
+            HomeTab.MESSAGES -> CategoryTab(tab, nav)
+            HomeTab.APPS -> AppsTab(nav)
+            HomeTab.SETTINGS -> SettingsScreen(nav, embedded = true)
         }
         BottomTabs(
             current = tab,
@@ -129,8 +136,6 @@ private fun TopBar(title: String, subtitle: String?, nav: Navigator, extra: @Com
     GlassTopBar(title = title, subtitle = subtitle) {
         extra()
         IconBubble(Icons.Rounded.Search, { nav.go(Screen.Search) })
-        Spacer(Modifier.width(8.dp))
-        IconBubble(Icons.Rounded.Settings, { nav.go(Screen.Settings) })
     }
 }
 
@@ -143,13 +148,14 @@ private fun HomeTabContent(nav: Navigator) {
     val repo = remember { NotifApp.repo(context) }
     val settings by repo.prefs.state.collectAsState()
     val feed by rememberLoaded(repo) { repo.homeFeed() }
+    val scope = rememberCoroutineScope()
     val askContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         repo.prefs.update { it.copy(contactsAsked = true) }
         kotlin.concurrent.thread { ContactNames.refresh(context); repo.bump() }
     }
 
     Column {
-        TopBar(t("نوتیف"), today(), nav) {
+        TopBar("NotificatioN", today(), nav) {
             IconBubble(Icons.Rounded.Savings, { nav.go(Screen.Money) }, tint = Category.BANK.tint)
             Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.Key, { nav.go(Screen.Wallet) }, tint = ValuableColor)
@@ -180,6 +186,18 @@ private fun HomeTabContent(nav: Navigator) {
                 SectionTitle(t("منتظر تو")) {
                     val rest = feed?.recent?.size ?: 0
                     if (rest > 0) GlassChip(t("بقیه امروز") + " " + fa(rest), false, { nav.go(Screen.Special(SpecialList.TODAY)) })
+                    val all = feed?.needsYou.orEmpty() + feed?.recent.orEmpty()
+                    if (all.any { !it.isRead }) {
+                        Spacer(Modifier.width(6.dp))
+                        // Everything that came in is marked read and taken off the status bar (it stays in the app).
+                        GlassChip(t("همه برن"), false, {
+                            scope.launch {
+                                repo.markRead(all)
+                                com.rez.notif.notif.NotifListener.instance?.clearNonEssential()
+                                android.widget.Toast.makeText(context, t("همه خونده شد و از نوار رفت"), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }, icon = Icons.Rounded.DoneAll)
+                    }
                 }
             }
         }
@@ -250,33 +268,10 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
             Spacer(Modifier.width(8.dp))
         }
         ItemList(items = items.orEmpty(), empty = t("اینجا چیزی نیست.")) {
-            if (tab == HomeTab.OTHER) {
-                item(key = "tools") {
-                    FlowRow(
-                        Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        GlassChip(t("قانون‌ها"), false, { nav.go(Screen.Rules) }, icon = Icons.Rounded.Tune)
-                        GlassChip(t("افراد منتخب"), false, { nav.go(Screen.Vip) }, color = VipColor, icon = Icons.Rounded.Favorite)
-                        GlassChip(t("تبلیغات مخفی‌شده") + " " + fa(adCount), false, { nav.go(Screen.Special(SpecialList.ADS)) }, color = Category.ADS.tint, icon = Icons.Rounded.Campaign)
-                        GlassChip(t("پاک‌سازی"), false, { nav.go(Screen.Cleanup) }, icon = Icons.Rounded.CleaningServices)
-                        GlassChip(t("کیف پسورد"), false, { nav.go(Screen.Wallet) }, color = ValuableColor, icon = Icons.Rounded.Key)
-                        GlassChip(t("دخل و خرج"), false, { nav.go(Screen.Budget) }, icon = Icons.Rounded.AccountBalanceWallet)
-                        GlassChip(t("حساب دنگ"), false, { nav.go(Screen.Dong) }, icon = Icons.Rounded.Groups)
-                        GlassChip(t("متن از عکس"), false, { nav.go(Screen.Ocr()) }, icon = Icons.Rounded.DocumentScanner)
-                        GlassChip(t("آمار"), false, { nav.go(Screen.Stats) }, icon = Icons.Rounded.BarChart)
-                    }
-                }
-            }
-            if (tab == HomeTab.MONEY && (pick == null || pick == Category.BANK)) {
-                item(key = "money") { MoneySummaryCard(onOpen = { nav.go(Screen.Money) }) }
-            }
             item(key = "filters") {
-                FlowRow(
-                    Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                Row(
+                    Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     GlassChip(t("همه"), pick == null, { pick = null })
                     tab.categories.forEach { c ->
@@ -289,6 +284,52 @@ private fun CategoryTab(tab: HomeTab, nav: Navigator) {
                             icon = c.icon,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+// ---------- all tools ----------
+
+private data class Tool(val label: String, val hint: String, val icon: ImageVector, val color: androidx.compose.ui.graphics.Color?, val go: Screen)
+
+@Composable
+private fun AppsTab(nav: Navigator) {
+    val context = LocalContext.current
+    val repo = remember { NotifApp.repo(context) }
+    val counts by rememberLoaded(repo) { repo.categoryCounts().associateBy { it.category } }
+    val adCount = counts?.get(Category.ADS.id)?.total ?: 0
+    val tools = listOf(
+        Tool("حساب و کتاب", "خلاصه بانک، قسط و قبض", Icons.Rounded.Savings, Category.BANK.tint, Screen.Money),
+        Tool("دخل و خرج", "درآمد و خرج ماه", Icons.Rounded.AccountBalanceWallet, Category.PERSONAL.tint, Screen.Budget),
+        Tool("حساب دنگ", "سفر و دورهمی", Icons.Rounded.Groups, Category.SOCIAL.tint, Screen.Dong),
+        Tool("کیف پسورد", "رمزها با اثر انگشت", Icons.Rounded.Key, ValuableColor, Screen.Wallet),
+        Tool("متن از عکس", "بدون اینترنت", Icons.Rounded.DocumentScanner, Category.OTP.tint, Screen.Ocr()),
+        Tool("آمار", "گزارش هفتگی و نمودارها", Icons.Rounded.BarChart, Category.SERVICES.tint, Screen.Stats),
+        Tool("قانون‌ها", "هر پیام چی بشه", Icons.Rounded.Tune, null, Screen.Rules),
+        Tool("افراد منتخب", "هیچ‌وقت مخفی نمیشن", Icons.Rounded.Favorite, VipColor, Screen.Vip),
+        Tool("تبلیغات مخفی‌شده", fa(adCount) + " " + "پیام", Icons.Rounded.Campaign, Category.ADS.tint, Screen.Special(SpecialList.ADS)),
+        Tool("پاک‌سازی", "پاک کردن پیام‌های قدیمی", Icons.Rounded.CleaningServices, null, Screen.Cleanup),
+        Tool("انتقال به گوشی دیگه", "پیام‌های مهم با خودت", Icons.Rounded.PhoneAndroid, null, Screen.Transfer),
+        Tool("پشتیبان رمزدار", "ذخیره و بازگردانی", Icons.Rounded.Lock, null, Screen.Backup),
+    )
+    val g = LocalGlass.current
+    Column {
+        TopBar(t("برنامه‌ها"), null, nav)
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 130.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(tools.size) { i ->
+                val tool = tools[i]
+                GlassCard(Modifier.fillMaxWidth().height(112.dp), onClick = { nav.go(tool.go) }, contentPadding = 12.dp) {
+                    NeonIcon(tool.icon, tool.color ?: g.accent, size = 38.dp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(t(tool.label), style = MaterialTheme.typography.titleSmall, color = g.text, maxLines = 1)
+                    Text(if (tool.go is Screen.Special) tool.hint.replace("پیام", t("پیام")) else t(tool.hint), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
                 }
             }
         }

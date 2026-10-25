@@ -69,7 +69,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(nav: Navigator) {
+fun SettingsScreen(nav: Navigator, embedded: Boolean = false) {
     val g = LocalGlass.current
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
@@ -79,8 +79,9 @@ fun SettingsScreen(nav: Navigator) {
     var confirmWipe by remember { mutableStateOf(false) }
 
     Column {
-        GlassTopBar(title = t("تنظیمات"), onBack = nav::back)
-        LazyColumn(contentPadding = PaddingValues(bottom = 60.dp)) {
+        // As a bottom tab there is no back arrow, and the list leaves room for the bar.
+        GlassTopBar(title = t("تنظیمات و شخصی‌سازی"), onBack = if (embedded) null else nav::back)
+        LazyColumn(contentPadding = PaddingValues(bottom = if (embedded) 130.dp else 60.dp)) {
             item { SectionTitle(t("ظاهر")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
@@ -150,6 +151,10 @@ fun SettingsScreen(nav: Navigator) {
                                     repo.prefs.update { it.copy(holdSeconds = sec) }
                                 })
                             }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        ToggleRow(t("ساعت هوشمند"), t("وقتی گوشی قفله نوتیف‌ها نمی‌رن تا روی ساعت بمونن. بعد از باز کردن قفل گوشی، مرتب میشن."), s.watchMode) { v ->
+                            repo.prefs.update { it.copy(watchMode = v) }
                         }
                         Spacer(Modifier.height(10.dp))
                         ToggleRow(t("کد تأیید روی گوشی بمونه"), t("کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه."), s.keepOtp) { v ->
@@ -254,6 +259,8 @@ fun SettingsScreen(nav: Navigator) {
                 }
             }
 
+            item { SectionTitle(t("حمایت از برنامه")) }
+            item { DonateCard() }
             item { SectionTitle(t("داده‌ها")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
@@ -453,6 +460,34 @@ private fun CodeBoxSettings(on: Boolean, seconds: Int, onOverlay: (Boolean) -> U
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(15, 20, 30, 45, 60).forEach { sec ->
             GlassChip(fa(sec) + t(" ثانیه"), seconds == sec, { onSeconds(sec) })
+        }
+    }
+}
+
+/** Support the app. Fill in [DONATE_URL] (a payment page) and/or [DONATE_CARD] (a card number) when rez sends them. */
+private const val DONATE_URL = ""
+private const val DONATE_CARD = ""
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun DonateCard() {
+    val g = LocalGlass.current
+    val context = LocalContext.current
+    GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth(), glow = g.accent) {
+        Text("Donate", style = MaterialTheme.typography.titleSmall, color = g.text)
+        Text(t("اگه NotificatioN به کارت اومده، می‌تونی از ادامه ساختش حمایت کنی."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+        Spacer(Modifier.height(10.dp))
+        if (DONATE_URL.isBlank() && DONATE_CARD.isBlank()) {
+            Text(t("راه حمایت به‌زودی اضافه میشه."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (DONATE_URL.isNotBlank()) GlassButton(t("حمایت"), onClick = {
+                runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(DONATE_URL))) }
+            })
+            if (DONATE_CARD.isNotBlank()) GlassButton(t("کپی شماره کارت"), primary = false, onClick = {
+                context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("card", DONATE_CARD))
+                android.widget.Toast.makeText(context, t("شماره کارت کپی شد"), android.widget.Toast.LENGTH_SHORT).show()
+            })
         }
     }
 }
