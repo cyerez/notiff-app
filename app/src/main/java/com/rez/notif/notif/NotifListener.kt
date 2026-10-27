@@ -104,6 +104,7 @@ class NotifListener : NotificationListenerService() {
             },
         )
         val decision = NotifApp.repo(this).addNotification(input)
+        if (decision.sourceKey.isNotEmpty()) main.post { itemKeys[sbn.key] = decision.sourceKey }
         decision.code?.let { CodeNotifier.show(this, it, if (input.isSmsApp) title else input.appName) }
         if (decision.hide) {
             val wait = sbn.postTime + decision.holdMs - System.currentTimeMillis()
@@ -137,6 +138,26 @@ class NotifListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         main.post { pending.remove(sbn.key)?.let(main::removeCallbacks); waitingUnlock.remove(sbn.key) }
+    }
+
+    /** Notification key -> our item's key, so we know which item a removed notification was. */
+    private val itemKeys = object : LinkedHashMap<String, String>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 500
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap?, reason: Int) {
+        onNotificationRemoved(sbn)
+        // Opened, swiped away, or the app itself took it back (you read it inside the app): the item is seen,
+        // so it leaves the summary too. When we hide it ourselves (listener cancel) it stays unread.
+        val seen = reason == REASON_CLICK || reason == REASON_CANCEL || reason == REASON_CANCEL_ALL ||
+            reason == REASON_APP_CANCEL || reason == REASON_GROUP_SUMMARY_CANCELED
+        main.post {
+            val itemKey = itemKeys.remove(sbn.key) ?: return@post
+            if (!seen) return@post
+            worker.execute {
+                runCatching { if (NotifApp.repo(this).seenByKey(itemKey)) SummaryNotifier.update(this) }
+            }
+        }
     }
 
     private val waitingUnlock = LinkedHashSet<String>()

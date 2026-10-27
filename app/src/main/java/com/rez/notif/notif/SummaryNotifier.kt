@@ -17,7 +17,8 @@ import com.rez.notif.ui.components.fa
 
 /**
  * When every notification is hidden, this one quiet notification says what arrived
- * (an icon with a count for each app). Tapping it opens the app. It goes away when the app opens.
+ * (an icon with a count for each app). Tapping it opens the app. It goes away when the app opens,
+ * and items leave it once seen: read in their own app, swiped away, or their icon tapped.
  */
 object SummaryNotifier {
     private const val CHANNEL = "summary"
@@ -37,7 +38,7 @@ object SummaryNotifier {
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
 
         com.rez.notif.sms.ContactNames.ensure(context)
-        val items = repo.newSince(s.lastSeen)
+        val items = repo.newSince(maxOf(s.lastSeen, s.summarySeen))
         if (items.isEmpty()) { nm.cancel(ID); return }
 
         // Low importance: the original notification already made its sound, so this one stays silent.
@@ -74,6 +75,12 @@ object SummaryNotifier {
             .setCustomBigContentView(big)
             .setNumber(items.size)
             .setContentIntent(open)
+            .setDeleteIntent(
+                PendingIntent.getBroadcast(
+                    context, 1, Intent(context, SummarySeenReceiver::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                ),
+            )
             .setOnlyAlertOnce(!digest)
             .setShowWhen(true)
             .setWhen(items.first().timestamp)
@@ -94,9 +101,13 @@ object SummaryNotifier {
             if (icon != null) cell.setImageViewBitmap(R.id.summary_app, icon) else cell.setImageViewResource(R.id.summary_app, R.mipmap.ic_launcher)
             cell.setTextViewText(R.id.summary_count, fa(count))
             // Tapping an app's icon opens that app itself, so the whole conversation is in front of you.
-            context.packageManager.getLaunchIntentForPackage(pkg)?.let { launch ->
-                launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                val pi = android.app.PendingIntent.getActivity(context, 7000 + (pkg.hashCode() and 0xfff), launch, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+            // It also marks that app's items seen, so its icon leaves the summary.
+            if (context.packageManager.getLaunchIntentForPackage(pkg) != null) {
+                val tap = Intent(context, OpenAppActivity::class.java)
+                    .putExtra(OpenAppActivity.EXTRA_PKG, pkg)
+                    .putExtra(OpenAppActivity.EXTRA_SMS, pkg == smsPkg(context))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                val pi = PendingIntent.getActivity(context, 7000 + (pkg.hashCode() and 0xfff), tap, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                 cell.setOnClickPendingIntent(R.id.summary_app, pi)
                 cell.setOnClickPendingIntent(R.id.summary_count, pi)
             }
@@ -107,9 +118,10 @@ object SummaryNotifier {
 
     /** SMS are shown with the phone's messages app icon. */
     private fun appOf(context: Context, i: com.rez.notif.data.Item): String =
-        if (i.source == com.rez.notif.data.Source.SMS || i.packageName.isBlank()) {
-            android.provider.Telephony.Sms.getDefaultSmsPackage(context)?.takeIf { it != context.packageName } ?: "com.samsung.android.messaging"
-        } else i.packageName
+        if (i.source == com.rez.notif.data.Source.SMS || i.packageName.isBlank()) smsPkg(context) else i.packageName
+
+    private fun smsPkg(context: Context): String =
+        android.provider.Telephony.Sms.getDefaultSmsPackage(context)?.takeIf { it != context.packageName } ?: "com.samsung.android.messaging"
 
     private val icons = HashMap<String, android.graphics.Bitmap?>()
 

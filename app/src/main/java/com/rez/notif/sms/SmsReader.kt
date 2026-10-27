@@ -54,6 +54,19 @@ object SmsReader {
         return out
     }
 
+    /** Bodies of inbox SMS since [sinceMillis] that are already marked read in the phone (empty without permission). */
+    fun readBodies(context: Context, sinceMillis: Long): Set<String> = runCatching {
+        val out = HashSet<String>()
+        context.contentResolver.query(
+            Telephony.Sms.Inbox.CONTENT_URI,
+            arrayOf(Telephony.Sms.BODY),
+            "${Telephony.Sms.DATE} > ? AND ${Telephony.Sms.READ} = 1",
+            arrayOf(sinceMillis.toString()),
+            null,
+        )?.use { c -> while (c.moveToNext()) c.getString(0)?.let { out += it.trim() } }
+        out as Set<String>
+    }.getOrDefault(emptySet())
+
     private val slotCache = HashMap<Int, Int>()
 
     /** SIM slot (1 or 2) for a subscription id, or 0 when unknown / permission missing. */

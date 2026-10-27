@@ -114,6 +114,17 @@
             </intent-filter>
         </activity-alias>
 
+        <receiver
+            android:name=".notif.SummarySeenReceiver"
+            android:exported="false" />
+        <activity
+            android:name=".notif.OpenAppActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Phase 5: default SMS app parts -->
         <receiver
             android:name=".sms.SmsDeliverReceiver"

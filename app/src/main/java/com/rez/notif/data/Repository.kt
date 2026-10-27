@@ -271,7 +271,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     /** Stores a notification. Returns true when the listener should remove it from the status bar (an ad). */
     /** What the listener should do with a notification: hide it, and maybe show the code with a copy button. */
     /** [holdMs]: how long a hidden notification may stay in the status bar first (counted from when it was posted). */
-    data class Decision(val hide: Boolean, val code: String?, val holdMs: Long = 0)
+    data class Decision(val hide: Boolean, val code: String?, val holdMs: Long = 0, val sourceKey: String = "")
 
     fun addNotification(n: NotificationIn): Decision {
         if (n.isSmsApp) {
@@ -317,7 +317,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         }
         val cat = Category.of(stored.category)
         val code = codeFor(cat, n.title + "\n" + n.text)
-        return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code, holdFor(cat, code, rule, n.postTime))
+        return Decision(hideNow(cat, vip, n.postTime, code != null, rule), code, holdFor(cat, code, rule, n.postTime), key)
     }
 
     /** A code to show with a copy button, only when we are hiding notifications and replacing codes. */
@@ -665,9 +665,40 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         Weekly(items.size, if (prefs.current.hideAll) notifs.size else notifs.count { it.isAd }, items.count { it.isAd }, noisy)
     }
 
-    /** What arrived after the app was last opened (for the summary notification). Ads are left out. */
-    fun newSince(since: Long): List<Item> =
-        db.query(ItemQuery(sinceMillis = maxOf(since + 1, System.currentTimeMillis() - 24 * 3_600_000L), limit = 300))
+    /**
+     * What arrived after the app was last opened and is still unread (for the summary notification). Ads are left out.
+     * SMS the user already read in the phone's messages app count as read here too.
+     */
+    fun newSince(since: Long): List<Item> {
+        val items = db.query(ItemQuery(sinceMillis = maxOf(since + 1, System.currentTimeMillis() - 24 * 3_600_000L), limit = 300))
+            .filter { !it.isRead }
+        val sms = items.filter { it.source == Source.SMS }
+        if (sms.isEmpty()) return items
+        val read = com.rez.notif.sms.SmsReader.readBodies(context, sms.minOf { it.timestamp } - 120_000L)
+        val readElsewhere = sms.filter { it.body.trim() in read }
+        if (readElsewhere.isEmpty()) return items
+        db.markRead(readElsewhere.map { it.id })
+        changed()
+        val gone = readElsewhere.map { it.id }.toSet()
+        return items.filter { it.id !in gone }
+    }
+
+    /** The app's own notification for this item was opened or swiped away, so the user has seen it. */
+    fun seenByKey(sourceKey: String): Boolean {
+        val id = db.idOf(sourceKey) ?: return false
+        db.markRead(listOf(id))
+        changed()
+        return true
+    }
+
+    /** The user tapped an app's icon in the summary: that app's new items are seen. */
+    fun seenApp(pkg: String, sms: Boolean) {
+        val since = maxOf(prefs.current.lastSeen, prefs.current.summarySeen)
+        val ids = newSince(since).filter { if (sms) it.source == Source.SMS || it.packageName.isBlank() else it.packageName == pkg && it.source != Source.SMS }.map { it.id }
+        if (ids.isEmpty()) return
+        db.markRead(ids)
+        changed()
+    }
 
     // ---------- first scan (the "first brain") ----------
 

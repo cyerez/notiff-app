@@ -69,6 +69,8 @@ data class Settings(
     val summary: Boolean = true,
     /** When the app was last opened; the summary counts what came after it. */
     val lastSeen: Long = 0,
+    /** The user swiped the summary notification away at this time: older items leave it. */
+    val summarySeen: Long = 0,
     /** Start of the last long absence (2+ hours), for the "while you were away" card; 0 = none. */
     val awaySince: Long = 0,
     /** Ask for fingerprint / phone PIN when opening the app. */
@@ -153,6 +155,7 @@ class Prefs(context: Context) {
         keepVip = sp.getBoolean("keepVip", false),
         summary = sp.getBoolean("summary", true),
         lastSeen = sp.getLong("lastSeen", 0),
+        summarySeen = sp.getLong("summarySeen", 0),
         awaySince = sp.getLong("awaySince", 0),
         appLock = sp.getBoolean("appLock", false),
         relock = runCatching { RelockMode.valueOf(sp.getString("relock", null)!!) }.getOrDefault(RelockMode.APP_CLOSED),
@@ -201,6 +204,7 @@ class Prefs(context: Context) {
             .putBoolean("keepVip", s.keepVip)
             .putBoolean("summary", s.summary)
             .putLong("lastSeen", s.lastSeen)
+            .putLong("summarySeen", s.summarySeen)
             .putLong("awaySince", s.awaySince)
             .putBoolean("appLock", s.appLock)
             .putString("relock", s.relock.name)
