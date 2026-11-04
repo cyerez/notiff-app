@@ -221,6 +221,7 @@ class NotifListener : NotificationListenerService() {
          */
         fun mustKeep(sbn: StatusBarNotification): Boolean {
             val n = sbn.notification ?: return true
+            if (isPhoneSystem(sbn.packageName.orEmpty())) return true
             if (sbn.isOngoing) return true
             val keepFlags = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_NO_CLEAR
             if (n.flags and keepFlags != 0) return true
@@ -232,6 +233,22 @@ class NotifListener : NotificationListenerService() {
             if (e.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0 || e.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)) return true
             return false
         }
+
+        /**
+         * The phone's own SIM, network and system parts (SIM toolkit, "SIM not ready", carrier setup, emergency
+         * alerts, Wi-Fi calling...). Their notifications can need an answer, so they are never touched.
+         */
+        private val PHONE_SYSTEM = setOf(
+            "android", "com.android.systemui", "com.android.settings", "com.android.phone", "com.android.stk",
+            "com.android.stk2", "com.samsung.android.app.telephonyui", "com.samsung.android.networkui",
+            "com.android.cellbroadcastreceiver", "com.google.android.cellbroadcastreceiver",
+            "com.samsung.android.cellbroadcastreceiver", "com.sec.imsservice", "com.samsung.android.ims",
+            "com.android.carrierconfig", "com.samsung.android.simcardmanager", "com.sec.android.app.simsettingmgr",
+            "com.android.providers.telephony", "com.samsung.android.wifi.ai", "com.samsung.android.networkstack",
+        )
+        private val PHONE_SYSTEM_PARTS = listOf("telephony", ".stk", "cellbroadcast", "simcard", "simsetting", "carrier", "imsservice")
+
+        fun isPhoneSystem(pkg: String): Boolean = pkg in PHONE_SYSTEM || PHONE_SYSTEM_PARTS.any { it in pkg }
 
         /** The running listener, when notification access is on. */
         @Volatile var instance: NotifListener? = null
