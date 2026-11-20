@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 8
+        const val VERSION = 9
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -133,6 +133,7 @@ class Db private constructor(
         createV6(db)
         createV7(db)
         createV8(db)
+        createV9(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -187,6 +188,14 @@ class Db private constructor(
         db.execSQL("CREATE TABLE IF NOT EXISTS ledger_manual (id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, account TEXT NOT NULL, out_rial INTEGER NOT NULL, in_rial INTEGER NOT NULL, category TEXT NOT NULL, note TEXT NOT NULL DEFAULT '')")
     }
 
+    /** Version 9: monthly limit per category, debts/credits, cheques, savings goals (classify/Commitments.kt). Toman. */
+    private fun createV9(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS ledger_limits (category TEXT PRIMARY KEY, toman INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS debts (id INTEGER PRIMARY KEY AUTOINCREMENT, person TEXT NOT NULL, toman INTEGER NOT NULL, i_owe INTEGER NOT NULL, due INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', settled INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS cheques (id INTEGER PRIMARY KEY AUTOINCREMENT, person TEXT NOT NULL, toman INTEGER NOT NULL, due INTEGER NOT NULL, incoming INTEGER NOT NULL, number TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'PENDING', created INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0, monthly INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -200,6 +209,7 @@ class Db private constructor(
         if (oldVersion < 6) createV6(db)
         if (oldVersion < 7) createV7(db)
         if (oldVersion < 8) createV8(db)
+        if (oldVersion < 9) createV9(db)
     }
 
     // ---------- password wallet ----------
@@ -369,6 +379,73 @@ class Db private constructor(
     fun deleteManualTx(id: Long) {
         writableDatabase.delete("ledger_manual", "id = ?", arrayOf(id.toString()))
     }
+
+    // ---------- limits, debts, cheques, goals ----------
+
+    fun limits(): Map<String, Long> = readableDatabase.rawQuery("SELECT category, toman FROM ledger_limits", null).use { c ->
+        val m = HashMap<String, Long>()
+        while (c.moveToNext()) m[c.getString(0)] = c.getLong(1)
+        m
+    }
+
+    fun setLimit(category: String, toman: Long) {
+        if (toman <= 0) writableDatabase.delete("ledger_limits", "category = ?", arrayOf(category))
+        else writableDatabase.insertWithOnConflict("ledger_limits", null, ContentValues().apply { put("category", category); put("toman", toman) }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun debts(): List<com.rez.notif.classify.Debt> =
+        readableDatabase.rawQuery("SELECT id, person, toman, i_owe, due, note, settled, created FROM debts ORDER BY settled, created DESC", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.Debt>()
+            while (c.moveToNext()) l += com.rez.notif.classify.Debt(c.getLong(0), c.getString(1), c.getLong(2), c.getInt(3) == 1, c.getLong(4), c.getString(5), c.getInt(6) == 1, c.getLong(7))
+            l
+        }
+
+    fun saveDebt(d: com.rez.notif.classify.Debt): Long {
+        val v = ContentValues().apply {
+            put("person", d.person); put("toman", d.toman); put("i_owe", if (d.iOwe) 1 else 0); put("due", d.due)
+            put("note", d.note); put("settled", if (d.settled) 1 else 0); put("created", if (d.created > 0) d.created else System.currentTimeMillis())
+        }
+        return if (d.id > 0) { writableDatabase.update("debts", v, "id = ?", arrayOf(d.id.toString())); d.id } else writableDatabase.insert("debts", null, v)
+    }
+
+    fun deleteDebt(id: Long) { writableDatabase.delete("debts", "id = ?", arrayOf(id.toString())) }
+
+    fun cheques(): List<com.rez.notif.classify.Cheque> =
+        readableDatabase.rawQuery("SELECT id, person, toman, due, incoming, number, status, created FROM cheques ORDER BY due", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.Cheque>()
+            while (c.moveToNext()) {
+                val st = runCatching { com.rez.notif.classify.Cheque.Status.valueOf(c.getString(6)) }.getOrDefault(com.rez.notif.classify.Cheque.Status.PENDING)
+                l += com.rez.notif.classify.Cheque(c.getLong(0), c.getString(1), c.getLong(2), c.getLong(3), c.getInt(4) == 1, c.getString(5), st, c.getLong(7))
+            }
+            l
+        }
+
+    fun saveCheque(q: com.rez.notif.classify.Cheque): Long {
+        val v = ContentValues().apply {
+            put("person", q.person); put("toman", q.toman); put("due", q.due); put("incoming", if (q.incoming) 1 else 0)
+            put("number", q.number); put("status", q.status.name); put("created", if (q.created > 0) q.created else System.currentTimeMillis())
+        }
+        return if (q.id > 0) { writableDatabase.update("cheques", v, "id = ?", arrayOf(q.id.toString())); q.id } else writableDatabase.insert("cheques", null, v)
+    }
+
+    fun deleteCheque(id: Long) { writableDatabase.delete("cheques", "id = ?", arrayOf(id.toString())) }
+
+    fun goals(): List<com.rez.notif.classify.Goal> =
+        readableDatabase.rawQuery("SELECT id, title, target, saved, monthly, created FROM goals ORDER BY created", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.Goal>()
+            while (c.moveToNext()) l += com.rez.notif.classify.Goal(c.getLong(0), c.getString(1), c.getLong(2), c.getLong(3), c.getLong(4), c.getLong(5))
+            l
+        }
+
+    fun saveGoal(g: com.rez.notif.classify.Goal): Long {
+        val v = ContentValues().apply {
+            put("title", g.title); put("target", g.target); put("saved", g.saved); put("monthly", g.monthly)
+            put("created", if (g.created > 0) g.created else System.currentTimeMillis())
+        }
+        return if (g.id > 0) { writableDatabase.update("goals", v, "id = ?", arrayOf(g.id.toString())); g.id } else writableDatabase.insert("goals", null, v)
+    }
+
+    fun deleteGoal(id: Long) { writableDatabase.delete("goals", "id = ?", arrayOf(id.toString())) }
 
     // ---------- monthly budget ----------
 

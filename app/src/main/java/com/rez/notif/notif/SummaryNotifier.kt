@@ -33,7 +33,7 @@ object SummaryNotifier {
         val repo = NotifApp.repo(context)
         val s = repo.prefs.current
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        if (!s.hideAll || !s.summary) { nm.cancel(ID); return }
+        if (!s.notifModule || !s.hideAll || !s.summary) { nm.cancel(ID); return }
         if (s.digestHours.isNotEmpty() && !digest) return
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
 

@@ -52,6 +52,14 @@ data class NotificationIn(
 
 /** Everything the screens and the background parts need, in one place. */
 class Repository(private val context: Context, private val db: Db, val prefs: Prefs) {
+    companion object {
+        /** Blu bank sends app notifications instead of SMS. */
+        fun isBluApp(pkg: String, appName: String): Boolean {
+            val n = appName.lowercase().trim()
+            return pkg.startsWith("com.samanpr") || n == "blu" || n == "بلو" || "blu bank" in n || "بلو بانک" in n
+        }
+    }
+
 
     /** For the background helpers (reminders) that talk to the database directly. */
     val database: Db get() = db
@@ -603,10 +611,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     /** Blu bank sends app notifications instead of SMS. */
-    private fun isBlu(i: Item): Boolean {
-        val n = i.appName.lowercase().trim()
-        return i.packageName.startsWith("com.samanpr") || n == "blu" || n == "بلو" || "blu bank" in n || "بلو بانک" in n
-    }
+    private fun isBlu(i: Item): Boolean = isBluApp(i.packageName, i.appName)
 
     private fun ledgerText(i: Item) = if (i.source == Source.SMS) i.body else i.title + "\n" + i.body
 
@@ -643,6 +648,18 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val accounts: List<String>,
         /** Categories in the order to offer them: most used first. */
         val categories: List<String>,
+        /** Bank SMS about money whose amount could not be read (not yet handled). */
+        val unreadable: List<Item> = emptyList(),
+        /** Monthly limit per category (toman). */
+        val limits: Map<String, Long> = emptyMap(),
+        /** Free to spend until the end of the month (toman). */
+        val left: Ledger.Left? = null,
+        val daysLeft: Int = 0,
+        /** True when the income figure comes from "دخل و خرج" lines, false when from this month's deposits. */
+        val plannedIncome: Boolean = false,
+        val chequesSoon: List<com.rez.notif.classify.Cheque> = emptyList(),
+        val goals: List<com.rez.notif.classify.Goal> = emptyList(),
+        val commitments: com.rez.notif.classify.Commitments.Totals? = null,
     )
 
     suspend fun ledger(month: Int): LedgerView = withContext(Dispatchers.IO) {
@@ -653,11 +670,118 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         val gaps = Ledger.gaps(all).filter { it.to in start until end }
         val learned = db.ledgerLearned()
         val myCards = learned.filter { it.key.startsWith("card:") && it.value == Ledger.OWN }.keys.map { it.removePrefix("card:") }.sorted()
+        val summary = Ledger.summarize(inMonth)
+        val tags = db.ledgerTags()
+        val unreadable = db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = start, limit = 3000))
+            .filter { it.timestamp < end && tags[it.id] == null && Ledger.unreadable(it.body, Money.parse(it.body)) }
+        // What is left: planned income (or this month's deposits) minus fixed costs, savings and the rest of the spending.
+        val bills = db.myBills().filter { it.amount > 0 }
+        val plan = com.rez.notif.classify.Budget.month(db.budgetLines(), month, bills.sumOf { it.amount })
+        val goals = db.goals()
+        val planned = plan.income > 0
+        val income = if (planned) plan.income else summary.inn / 10
+        val fixedPlanned = plan.spending + plan.installments
+        val fixedActual = summary.byCategory.filter { it.first in Ledger.FIXED_CATS }.sumOf { it.second } / 10
+        val daysLeft = when {
+            month < thisMonth() -> 0
+            month > thisMonth() -> Ledger.monthDays(month)
+            else -> {
+                val c = Calendar.getInstance()
+                val (_, _, jd) = Bills.gregorianToJalali(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
+                (Ledger.monthDays(month) - jd + 1).coerceAtLeast(1)
+            }
+        }
+        val left = Ledger.leftToSpend(
+            income, maxOf(fixedPlanned, fixedActual), Ledger.variableSpent(summary) / 10,
+            goals.filter { !it.done }.sumOf { it.monthly }, daysLeft,
+        )
+        val cheques = db.cheques()
         LedgerView(
-            month, inMonth, gaps, Ledger.summarize(inMonth), myCards,
+            month, inMonth, gaps, summary, myCards,
             all.groupingBy { it.account }.eachCount().entries.sortedByDescending { it.value }.map { it.key },
             categoryOrder(),
+            unreadable, db.limits(), left.takeIf { income > 0 }, daysLeft, planned,
+            com.rez.notif.classify.Commitments.dueSoon(cheques, System.currentTimeMillis()), goals,
+            com.rez.notif.classify.Commitments.totals(db.debts(), cheques),
         )
+    }
+
+    /** A bank SMS the app could not read: the user types the amount (or skips it). Either way it leaves the queue. */
+    suspend fun handleUnreadable(item: Item, toman: Long, income: Boolean, category: String) = withContext(Dispatchers.IO) {
+        if (toman > 0) {
+            val account = Ledger.accountOf(item.sender, item.body, income)
+            db.saveManualTx(Db.ManualTx(0, item.timestamp, account, if (income) 0 else toman * 10, if (income) toman * 10 else 0, category, "پیامک ناخوانا"))
+        }
+        db.setLedgerTag(item.id, Ledger.IGNORE)
+        changed()
+    }
+
+    suspend fun setLimit(category: String, toman: Long) = withContext(Dispatchers.IO) { db.setLimit(category, toman); changed() }
+
+    // ---------- commitments: debts, cheques, goals ----------
+
+    data class CommitmentsView(
+        val debts: List<com.rez.notif.classify.Debt>,
+        val cheques: List<com.rez.notif.classify.Cheque>,
+        val goals: List<com.rez.notif.classify.Goal>,
+        val bills: List<Db.MyBill>,
+        val totals: com.rez.notif.classify.Commitments.Totals,
+        val people: List<Pair<String, Long>>,
+    )
+
+    suspend fun commitments(): CommitmentsView = withContext(Dispatchers.IO) {
+        val d = db.debts(); val c = db.cheques()
+        CommitmentsView(d, c, db.goals(), db.myBills(), com.rez.notif.classify.Commitments.totals(d, c), com.rez.notif.classify.Commitments.byPerson(d))
+    }
+
+    suspend fun saveDebt(d: com.rez.notif.classify.Debt) = withContext(Dispatchers.IO) { db.saveDebt(d); changed() }
+    suspend fun deleteDebt(id: Long) = withContext(Dispatchers.IO) { db.deleteDebt(id); changed() }
+
+    suspend fun saveCheque(q: com.rez.notif.classify.Cheque) = withContext(Dispatchers.IO) {
+        val id = db.saveCheque(q)
+        com.rez.notif.notif.Reminders.scheduleCheque(context, q.copy(id = id))
+        changed()
+    }
+    suspend fun deleteCheque(id: Long) = withContext(Dispatchers.IO) {
+        db.deleteCheque(id)
+        com.rez.notif.notif.Reminders.cancelCheque(context, id)
+        changed()
+    }
+
+    suspend fun saveGoal(g: com.rez.notif.classify.Goal) = withContext(Dispatchers.IO) { db.saveGoal(g); changed() }
+    suspend fun deleteGoal(id: Long) = withContext(Dispatchers.IO) { db.deleteGoal(id); changed() }
+
+    /** For the cheque reminder: the cheque itself. */
+    fun cheque(id: Long): com.rez.notif.classify.Cheque? = db.cheques().firstOrNull { it.id == id }
+
+    // ---------- export ----------
+
+    private fun jalaliDate(ms: Long): String {
+        val c = Calendar.getInstance().apply { timeInMillis = ms }
+        val (y, m, d) = Bills.gregorianToJalali(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
+        return String.format(java.util.Locale.US, "%04d/%02d/%02d", y, m, d)
+    }
+
+    /** The ledger of [month] (0 = everything) as a CSV file Excel opens, written to [uri]. Returns the row count. */
+    suspend fun exportLedgerCsv(uri: Uri, month: Int): Int = withContext(Dispatchers.IO) {
+        val (start, end) = if (month == 0) 0L to Long.MAX_VALUE else monthRange(month)
+        val entries = ledgerEntries(start, end).filter { it.time in start until end && (it.out > 0 || it.inn > 0) }.sortedBy { it.time }
+        val hhmm = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+        val rows = entries.map { e ->
+            val kind = when {
+                e.isOwn -> "به خودم"
+                e.category == Ledger.IGNORE -> "نادیده"
+                e.inn > 0 -> "واریز"
+                else -> "خرج"
+            }
+            listOf(
+                jalaliDate(e.time), hhmm.format(java.util.Date(e.time)), e.account, kind, ((e.out + e.inn) / 10).toString(),
+                e.category?.takeIf { it != Ledger.OWN && it != Ledger.IGNORE } ?: "", e.party.substringAfter(':'), e.text.replace('\n', ' '),
+            )
+        }
+        val text = com.rez.notif.classify.Commitments.csv(listOf("تاریخ", "ساعت", "حساب", "نوع", "مبلغ (تومان)", "دسته", "طرف", "متن"), rows)
+        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) } ?: error("cannot write file")
+        rows.size
     }
 
     /** Spending categories, the ones the user picks most first. */

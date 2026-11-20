@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -97,11 +98,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(28.dp))
-        NeonIcon(Icons.Rounded.NotificationsActive, g.accent, size = 84.dp)
+        NeonIcon(Icons.Rounded.Savings, g.accent, size = 84.dp)
         Spacer(Modifier.height(18.dp))
-        Text(t("سلام rez"), style = MaterialTheme.typography.headlineLarge, color = g.text)
+        Text(t("سلام"), style = MaterialTheme.typography.headlineLarge, color = g.text)
         Text(
-            t("نوتیف همه پیامک‌ها و نوتیف‌هات رو مرتب می‌کنه. همه چیز فقط روی همین گوشی می‌مونه و هیچ چیزی به اینترنت فرستاده نمیشه."),
+            t("حساب و کتابت رو از روی پیامک‌های بانک خودش نگه می‌داره: خرج‌ها با دسته، قسط‌ها، دنگ و بودجه. همه چیز فقط روی همین گوشی می‌مونه و هیچ چیزی به اینترنت فرستاده نمیشه."),
             style = MaterialTheme.typography.bodyLarge,
             color = g.textDim,
             textAlign = TextAlign.Center,
@@ -112,7 +113,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
             icon = Icons.Rounded.Sms,
             color = Color(0xFF34D399),
             title = t("۱. دسترسی پیامک"),
-            text = t("برای خوندن پیامک‌های قدیمی و جدید، و فهمیدن اینکه از کدوم سیم‌کارت اومدن."),
+            text = t("برای خوندن پیامک‌های بانک، قدیمی و جدید. فقط روی همین گوشی خونده میشن."),
             done = smsOk,
             action = t("اجازه بده"),
             onAction = {
@@ -129,8 +130,8 @@ fun OnboardingScreen(onDone: () -> Unit) {
         StepCard(
             icon = Icons.Rounded.NotificationsActive,
             color = g.accent,
-            title = t("۲. دسترسی نوتیف‌ها"),
-            text = t("در صفحه‌ای که باز میشه «نوتیف» رو روشن کن. اگه خاکستری بود و روشن نشد: برو به اطلاعات اپ، منوی ⋮ بالا، و «Allow restricted settings» رو بزن، بعد دوباره امتحان کن."),
+            title = t("۲. دسترسی نوتیف‌ها (اختیاری)"),
+            text = t("فقط اگه بانک بلو داری (به‌جای پیامک نوتیف میده) یا بعداً ماژول نوتیف رو روشن می‌کنی. در صفحه‌ای که باز میشه NotificatioN رو روشن کن. اگه خاکستری بود: اطلاعات اپ، منوی ⋮ بالا، «Allow restricted settings»."),
             done = notifOk,
             action = t("باز کردن تنظیمات"),
             onAction = { Permissions.openNotificationAccess(context) },
@@ -141,7 +142,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
             icon = Icons.Rounded.BatteryChargingFull,
             color = Color(0xFFFF8A3D),
             title = t("۳. باتری (پیشنهادی)"),
-            text = t("سامسونگ اپ‌ها رو در پس‌زمینه می‌خوابونه. با این گزینه نوتیفی از دست نمیره."),
+            text = t("سامسونگ اپ‌ها رو در پس‌زمینه می‌خوابونه. با این گزینه پیامک بانکی و یادآوری قسطی از دست نمیره."),
             done = batteryOk,
             action = t("اجازه بده"),
             onAction = { Permissions.askBattery(context) },

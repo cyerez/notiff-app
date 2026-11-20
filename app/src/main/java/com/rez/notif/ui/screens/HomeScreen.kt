@@ -98,13 +98,19 @@ enum class HomeTab(val label: String, val icon: ImageVector, val categories: Lis
     HOME("خانه", Icons.Rounded.Home, emptyList()),
     /** Every message and notification (ads have their own list). */
     MESSAGES("پیام‌ها", Icons.Rounded.Forum, Category.entries.filter { it != Category.ADS }),
+    /** The ledger: the main screen when the notification module is off. */
+    LEDGER("حساب", Icons.Rounded.AccountBalance, emptyList()),
     /** All the tools: money, budget, dong, wallet, stats, OCR... */
     APPS("برنامه‌ها", Icons.Rounded.Apps, emptyList()),
     SETTINGS("تنظیمات", Icons.Rounded.Settings, emptyList()),
 }
 
 /** Stays on the same tab when coming back from another screen. */
-private val currentTab = mutableStateOf(HomeTab.HOME)
+private val currentTab = mutableStateOf(HomeTab.LEDGER)
+
+/** Tabs shown: without the notification module, the app is the ledger, the tools and settings. */
+fun visibleTabs(notifModule: Boolean): List<HomeTab> =
+    if (notifModule) HomeTab.entries.toList() else listOf(HomeTab.LEDGER, HomeTab.APPS, HomeTab.SETTINGS)
 
 @Composable
 fun HomeScreen(nav: Navigator) {
@@ -112,17 +118,23 @@ fun HomeScreen(nav: Navigator) {
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
     val counts by rememberLoaded(repo) { repo.categoryCounts().associateBy { it.category } }
+    val settings by repo.prefs.state.collectAsState()
+    val tabs = visibleTabs(settings.notifModule)
+    val first = tabs.first()
+    if (tab !in tabs) tab = first
 
-    // Back from a category tab goes to Home first.
-    BackHandler(enabled = tab != HomeTab.HOME) { tab = HomeTab.HOME }
+    // Back from another tab goes to the first tab.
+    BackHandler(enabled = tab != first) { tab = first }
     Box(Modifier.fillMaxSize()) {
         when (tab) {
             HomeTab.HOME -> HomeTabContent(nav)
             HomeTab.MESSAGES -> CategoryTab(tab, nav)
+            HomeTab.LEDGER -> LedgerScreen(nav, embedded = true)
             HomeTab.APPS -> AppsTab(nav)
             HomeTab.SETTINGS -> SettingsScreen(nav, embedded = true)
         }
         BottomTabs(
+            tabs = tabs,
             current = tab,
             unread = { t -> t.categories.sumOf { c -> counts?.get(c.id)?.unread ?: 0 } },
             onPick = { tab = it },
@@ -302,7 +314,8 @@ private fun AppsTab(nav: Navigator) {
     val adCount = counts?.get(Category.ADS.id)?.total ?: 0
     val tools = listOf(
         Tool("دفتر حساب", "همه خرج‌ها با دسته", Icons.Rounded.AccountBalance, Category.BANK.tint, Screen.Ledger),
-        Tool("حساب و کتاب", "خلاصه بانک، قسط و قبض", Icons.Rounded.Savings, Category.BANK.tint, Screen.Money),
+        Tool("طلب، بدهی، چک و قلک", "تعهدها و پس‌انداز", Icons.Rounded.Savings, VipColor, Screen.Commitments),
+        Tool("قسط و قبض", "خلاصه بانک، قسط و قبض", Icons.Rounded.AccountBalance, Category.BANK.tint, Screen.Money),
         Tool("دخل و خرج", "درآمد و خرج ماه", Icons.Rounded.AccountBalanceWallet, Category.PERSONAL.tint, Screen.Budget),
         Tool("حساب دنگ", "سفر و دورهمی", Icons.Rounded.Groups, Category.SOCIAL.tint, Screen.Dong),
         Tool("کیف پسورد", "رمزها با اثر انگشت", Icons.Rounded.Key, ValuableColor, Screen.Wallet),
@@ -314,7 +327,12 @@ private fun AppsTab(nav: Navigator) {
         Tool("پاک‌سازی", "پاک کردن پیام‌های قدیمی", Icons.Rounded.CleaningServices, null, Screen.Cleanup),
         Tool("انتقال به گوشی دیگه", "پیام‌های مهم با خودت", Icons.Rounded.PhoneAndroid, null, Screen.Transfer),
         Tool("پشتیبان رمزدار", "ذخیره و بازگردانی", Icons.Rounded.Lock, null, Screen.Backup),
-    )
+    ).filter { tool ->
+        // Without the notification module, only money tools (and wallet, OCR, backup) are shown.
+        val notifOnly = tool.go is Screen.Special || tool.go in setOf(Screen.Rules, Screen.Vip, Screen.Cleanup, Screen.Transfer, Screen.Stats)
+        val module = repo.prefs.current.notifModule
+        (module || !notifOnly) && tool.go != Screen.Ledger
+    }
     val g = LocalGlass.current
     Column {
         TopBar(t("برنامه‌ها"), null, nav)
@@ -340,7 +358,7 @@ private fun AppsTab(nav: Navigator) {
 // ---------- bottom bar ----------
 
 @Composable
-private fun BottomTabs(current: HomeTab, unread: (HomeTab) -> Int, onPick: (HomeTab) -> Unit, modifier: Modifier) {
+private fun BottomTabs(tabs: List<HomeTab>, current: HomeTab, unread: (HomeTab) -> Int, onPick: (HomeTab) -> Unit, modifier: Modifier) {
     val g = LocalGlass.current
     // Solid, not glass: list rows scroll behind it and must not show through.
     val barShape = styledShape(RoundedCornerShape(28.dp))
@@ -355,7 +373,7 @@ private fun BottomTabs(current: HomeTab, unread: (HomeTab) -> Int, onPick: (Home
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        HomeTab.entries.forEach { tb ->
+        tabs.forEach { tb ->
             val on = tb == current
             val n = unread(tb)
             Column(

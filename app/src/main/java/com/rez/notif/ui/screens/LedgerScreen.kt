@@ -44,6 +44,8 @@ import com.rez.notif.classify.Category
 import com.rez.notif.classify.Ledger
 import com.rez.notif.i18n.t
 import com.rez.notif.ui.Navigator
+import com.rez.notif.ui.Screen
+import com.rez.notif.ui.components.pressable
 import com.rez.notif.ui.components.GlassCard
 import com.rez.notif.ui.components.GlassChip
 import com.rez.notif.ui.components.GlassTopBar
@@ -82,7 +84,7 @@ private fun digitsOnly(v: String) = v.map { c -> if (c in '۰'..'۹') '0' + (c -
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LedgerScreen(nav: Navigator) {
+fun LedgerScreen(nav: Navigator, embedded: Boolean = false) {
     val g = LocalGlass.current
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
@@ -94,10 +96,23 @@ fun LedgerScreen(nav: Navigator) {
     var adding by remember { mutableStateOf(false) }
     var addingCard by remember { mutableStateOf(false) }
     var showAll by remember { mutableStateOf(false) }
+    var reading by remember { mutableStateOf<com.rez.notif.data.Item?>(null) }
+    var limitFor by remember { mutableStateOf<String?>(null) }
+    var exportMsg by remember { mutableStateOf<String?>(null) }
+    val exporter = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        if (uri != null) scope.launch {
+            exportMsg = runCatching { repo.exportLedgerCsv(uri, month) }.fold(
+                { n -> fa(n) + t(" ردیف ذخیره شد. با Excel یا Google Sheets بازش کن.") },
+                { t("ذخیره نشد.") },
+            )
+        }
+    }
 
     Column(Modifier.imePadding()) {
-        GlassTopBar(title = t("دفتر حساب"), subtitle = t("همه خرج و درآمدت یه جا"), onBack = nav::back)
-        LazyColumn(contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        GlassTopBar(title = t("دفتر حساب"), subtitle = t("همه خرج و درآمدت یه جا"), onBack = if (embedded) null else nav::back)
+        LazyColumn(contentPadding = PaddingValues(bottom = if (embedded) 130.dp else 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     GlassChip("‹", false, { month = Budget.prev(month) })
@@ -112,6 +127,50 @@ fun LedgerScreen(nav: Navigator) {
             val v = view ?: return@LazyColumn
             val s = v.summary
             item { LedgerSummary(s) }
+            item { LeftCard(v, onPlan = { nav.go(Screen.Budget) }) }
+            item {
+                FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    GlassChip(t("طلب، بدهی، چک و قلک"), false, { nav.go(Screen.Commitments) })
+                    GlassChip(t("دخل و خرج"), false, { nav.go(Screen.Budget) })
+                    GlassChip(t("قسط و قبض"), false, { nav.go(Screen.Money) })
+                    GlassChip(t("دنگ"), false, { nav.go(Screen.Dong) })
+                    GlassChip(t("خروجی Excel"), false, {
+                        exporter.launch("ledger-" + month + ".csv")
+                    })
+                }
+            }
+            exportMsg?.let { m -> item { Hint(m) } }
+            if (v.chequesSoon.isNotEmpty()) {
+                item {
+                    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), glow = SpendColor, onClick = { nav.go(Screen.Commitments) }, contentPadding = 12.dp) {
+                        Text(t("چک‌های این هفته"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        v.chequesSoon.forEach { q ->
+                            Text(
+                                (if (q.incoming) t("دریافتی از ") else t("پرداختی به ")) + q.person + "  ·  " + toman(q.toman * 10) + "  ·  " + shortTime(q.due),
+                                style = MaterialTheme.typography.bodySmall, color = g.textDim,
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Bank SMS that could not be read
+            if (v.unreadable.isNotEmpty()) {
+                item { SectionTitle(t("پیامک‌هایی که نتونستم بخونم") + "  ·  " + fa(v.unreadable.size)) }
+                v.unreadable.take(10).forEach { it0 ->
+                    item(key = "unread" + it0.id) {
+                        GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp) {
+                            Text(it0.sender + "  ·  " + shortTime(it0.timestamp), style = MaterialTheme.typography.labelMedium, color = g.textDim)
+                            Text(it0.body, style = MaterialTheme.typography.bodySmall, color = g.text, maxLines = 5)
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                GlassChip(t("مبلغش رو بنویس"), false, { reading = it0 })
+                                GlassChip(t("پول نبود"), false, { scope.launch { repo.handleUnreadable(it0, 0, false, "") } })
+                            }
+                        }
+                    }
+                }
+            }
 
             // Missing SMS
             if (v.gaps.isNotEmpty()) {
@@ -167,19 +226,39 @@ fun LedgerScreen(nav: Navigator) {
                 }
             }
 
-            // Per category
-            if (s.byCategory.isNotEmpty()) {
-                item { SectionTitle(t("خرج هر دسته")) }
-                item {
-                    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp) {
-                        val max = s.byCategory.maxOf { it.second }.coerceAtLeast(1)
-                        s.byCategory.forEach { (c, a) ->
-                            Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Per category, with the monthly limits
+            val catRows = (s.byCategory.map { it.first } + v.limits.keys).distinct()
+            item {
+                SectionTitle(t("خرج هر دسته")) { GlassChip(t("+ سقف ماهانه"), false, { limitFor = "" }) }
+            }
+            if (catRows.isEmpty()) item { Hint(t("برای هر دسته (مثلاً سیگار یا خوراک) یه سقف ماهانه بذار تا ببینی چقدر جا داری.")) }
+            else item {
+                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp) {
+                    val spentOf = s.byCategory.toMap()
+                    val max = (s.byCategory.maxOfOrNull { it.second } ?: 1L).coerceAtLeast(1)
+                    catRows.forEach { c ->
+                        val a = spentOf[c] ?: 0L
+                        val limit = v.limits[c]?.let { it * 10 }
+                        val over = limit != null && a > limit
+                        val near = limit != null && !over && a * 10 >= limit * 8
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).pressable({ if (c.isNotEmpty()) limitFor = c }).padding(vertical = 4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(catLabel(c), style = MaterialTheme.typography.bodyMedium, color = g.text, modifier = Modifier.weight(0.35f), maxLines = 1)
+                                val part = if (limit != null && limit > 0) (a.toFloat() / limit).coerceIn(0f, 1f) else a.toFloat() / max
                                 Box(Modifier.weight(0.4f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(g.textDim.copy(alpha = 0.15f))) {
-                                    Box(Modifier.fillMaxWidth(a.toFloat() / max).height(8.dp).clip(RoundedCornerShape(4.dp)).background(if (c.isEmpty()) g.textDim else g.accent))
+                                    Box(
+                                        Modifier.fillMaxWidth(part).height(8.dp).clip(RoundedCornerShape(4.dp))
+                                            .background(if (over) SpendColor else if (near) Color(0xFFFF8A3D) else if (c.isEmpty()) g.textDim else g.accent),
+                                    )
                                 }
-                                Text(toman(a), style = MaterialTheme.typography.labelSmall, color = g.textDim, modifier = Modifier.weight(0.3f).padding(start = 6.dp), maxLines = 1)
+                                Text(toman(a), style = MaterialTheme.typography.labelSmall, color = if (over) SpendColor else g.textDim, modifier = Modifier.weight(0.3f).padding(start = 6.dp), maxLines = 1)
+                            }
+                            if (limit != null) {
+                                Text(
+                                    if (over) t("از سقف ") + toman(limit) + t(" رد شده: ") + toman(a - limit) + t(" بیشتر")
+                                    else t("سقف ") + toman(limit) + t("، مونده ") + toman(limit - a),
+                                    style = MaterialTheme.typography.labelSmall, color = if (over) SpendColor else g.textDim,
+                                )
                             }
                         }
                     }
@@ -242,6 +321,22 @@ fun LedgerScreen(nav: Navigator) {
             onDismiss = { picking = null },
             onPick = { c, learn -> picking = null; scope.launch { repo.setLedgerCategory(e, c, learn) } },
             onDelete = if (e.manual) ({ picking = null; scope.launch { repo.deleteManual(e) } }) else null,
+        )
+    }
+    reading?.let { item ->
+        AddDialog(
+            view?.categories ?: Ledger.SPEND_CATS,
+            onDismiss = { reading = null },
+            onSave = { toman, income, c, _ -> reading = null; scope.launch { repo.handleUnreadable(item, toman, income, c) } },
+            title = t("این پیامک چقدر بود؟"),
+            text = item.body,
+        )
+    }
+    limitFor?.let { start ->
+        LimitDialog(
+            start, view?.limits.orEmpty(), view?.categories ?: Ledger.SPEND_CATS,
+            onDismiss = { limitFor = null },
+            onSave = { c, toman -> limitFor = null; scope.launch { repo.setLimit(c, toman) } },
         )
     }
     if (adding) {
@@ -334,7 +429,13 @@ private fun CategoryDialog(e: Ledger.Entry, cats: List<String>, onDismiss: () ->
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AddDialog(cats: List<String>, onDismiss: () -> Unit, onSave: (Long, Boolean, String, String) -> Unit) {
+private fun AddDialog(
+    cats: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (Long, Boolean, String, String) -> Unit,
+    title: String = t("خرج یا درآمد دستی"),
+    text: String? = null,
+) {
     var amount by remember { mutableStateOf("") }
     var income by remember { mutableStateOf(false) }
     var cat by remember { mutableStateOf<String?>(null) }
@@ -342,9 +443,10 @@ private fun AddDialog(cats: List<String>, onDismiss: () -> Unit, onSave: (Long, 
     val a = amount.toLongOrNull() ?: 0
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(t("خرج یا درآمد دستی")) },
+        title = { Text(title) },
         text = {
             Column {
+                if (text != null) Text(text, style = MaterialTheme.typography.bodySmall, color = LocalGlass.current.textDim, maxLines = 6)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GlassChip(t("خرج"), !income, { income = false; cat = null })
                     GlassChip(t("درآمد"), income, { income = true; cat = null })
@@ -363,6 +465,65 @@ private fun AddDialog(cats: List<String>, onDismiss: () -> Unit, onSave: (Long, 
         confirmButton = {
             TextButton(enabled = a > 0 && cat != null, onClick = { onSave(a, income, cat!!, note.trim()) }) { Text(t("ذخیره")) }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("بی‌خیال")) } },
+    )
+}
+
+/** "Until the end of the month you can still spend X, that is Y a day." */
+@Composable
+private fun LeftCard(v: com.rez.notif.data.Repository.LedgerView, onPlan: () -> Unit) {
+    val g = LocalGlass.current
+    val l = v.left
+    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = onPlan, contentPadding = 12.dp) {
+        if (l == null) {
+            Text(t("تا آخر ماه چقدر می‌تونی خرج کنی؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
+            Text(t("درآمد ماهانه و خرج‌های ثابتت (اجاره، قسط...) رو توی «دخل و خرج» بنویس تا اینجا حساب کنم."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+            return@GlassCard
+        }
+        val ok = l.left >= 0
+        Text(
+            if (v.daysLeft == 0) (if (ok) t("این ماه ") + toman(l.left * 10) + t(" اضافه موند.") else t("این ماه ") + toman(-l.left * 10) + t(" کم آوردی."))
+            else if (ok) t("تا آخر ماه ") + toman(l.left * 10) + t(" می‌تونی خرج کنی")
+            else t("این ماه ") + toman(-l.left * 10) + t(" بیشتر از درآمدت خرج شده"),
+            style = MaterialTheme.typography.titleSmall, color = if (ok) GoodColor else SpendColor,
+        )
+        if (ok && v.daysLeft > 0) {
+            Text(t("یعنی روزی ") + toman(l.perDay * 10) + t(" برای ") + fa(v.daysLeft) + t(" روز باقی‌مونده"), style = MaterialTheme.typography.bodySmall, color = g.text)
+        }
+        Text(
+            (if (v.plannedIncome) t("درآمد ") else t("واریزی‌های این ماه ")) + toman(l.income * 10) + t(" − ثابت‌ها ") + toman(l.fixed * 10) +
+                (if (l.saving > 0) t(" − قلک ") + toman(l.saving * 10) else "") + t(" − بقیه خرج‌ها ") + toman(l.spent * 10),
+            style = MaterialTheme.typography.labelSmall, color = g.textDim,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LimitDialog(start: String, limits: Map<String, Long>, cats: List<String>, onDismiss: () -> Unit, onSave: (String, Long) -> Unit) {
+    var cat by remember { mutableStateOf(start.ifEmpty { null }) }
+    var amount by remember { mutableStateOf(limits[start]?.toString() ?: "") }
+    val a = amount.toLongOrNull() ?: 0
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(t("سقف ماهانه")) },
+        text = {
+            Column {
+                if (start.isEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        cats.forEach { c -> GlassChip(t(c), cat == c, { cat = c; amount = limits[c]?.toString() ?: "" }) }
+                    }
+                } else {
+                    Text(t(start), style = MaterialTheme.typography.titleSmall)
+                }
+                OutlinedTextField(
+                    amount, { amount = digitsOnly(it).take(12) }, label = { Text(t("سقف به تومان (خالی = بدون سقف)")) }, singleLine = true,
+                    supportingText = { if (a > 0) Text(toman(a * 10)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(enabled = cat != null, onClick = { onSave(cat!!, a) }) { Text(t("ذخیره")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(t("بی‌خیال")) } },
     )
 }
