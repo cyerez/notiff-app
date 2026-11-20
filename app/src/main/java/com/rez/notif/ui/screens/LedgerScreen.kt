@@ -82,7 +82,7 @@ private fun digitsOnly(v: String) = v.map { c -> if (c in '۰'..'۹') '0' + (c -
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LedgerScreen(nav: Navigator) {
+fun LedgerScreen(nav: Navigator, embedded: Boolean = false) {
     val g = LocalGlass.current
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
@@ -96,8 +96,8 @@ fun LedgerScreen(nav: Navigator) {
     var showAll by remember { mutableStateOf(false) }
 
     Column(Modifier.imePadding()) {
-        GlassTopBar(title = t("دفتر حساب"), subtitle = t("همه خرج و درآمدت یه جا"), onBack = nav::back)
-        LazyColumn(contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        GlassTopBar(title = t("دفتر حساب"), subtitle = t("همه خرج و درآمدت یه جا"), onBack = if (embedded) null else nav::back)
+        LazyColumn(contentPadding = PaddingValues(bottom = if (embedded) 130.dp else 60.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     GlassChip("‹", false, { month = Budget.prev(month) })

@@ -101,6 +101,11 @@ data class Settings(
     val holdSeconds: Int = 30,
     /** Smartwatch: while the phone is locked, notifications stay (so the watch shows them) until it is unlocked. */
     val watchMode: Boolean = true,
+    /**
+     * The notification module (tidy the shade, summary, ads, code pop-up, Home/Messages tabs). Off by default since 2.2:
+     * the app is a money manager first. Bank SMS and Blu notifications are always read for the ledger.
+     */
+    val notifModule: Boolean = false,
     /** Seconds the "copy code" box stays on top of the screen. */
     val codeSeconds: Int = 20,
     /** Show the code box over other apps (needs "appear on top"); otherwise only the notification. */
@@ -176,6 +181,7 @@ class Prefs(context: Context) {
         billDaysBefore = sp.getInt("billDaysBefore2", 3),
         holdSeconds = sp.getInt("holdSeconds", 30),
         watchMode = sp.getBoolean("watchMode", true),
+        notifModule = sp.getBoolean("notifModule", false),
         codeSeconds = sp.getInt("codeSeconds", 20),
         codeOverlay = sp.getBoolean("codeOverlay", true),
         ignoredBills = sp.getStringSet("ignoredBills", emptySet())?.toSet() ?: emptySet(),
@@ -226,6 +232,7 @@ class Prefs(context: Context) {
             .putInt("billDaysBefore2", s.billDaysBefore)
             .putInt("holdSeconds", s.holdSeconds)
             .putBoolean("watchMode", s.watchMode)
+            .putBoolean("notifModule", s.notifModule)
             .putInt("codeSeconds", s.codeSeconds)
             .putBoolean("codeOverlay", s.codeOverlay)
             .putStringSet("ignoredBills", s.ignoredBills)

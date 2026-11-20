@@ -37,6 +37,7 @@ class NotifListener : NotificationListenerService() {
      * Everything cleared is already saved in the app, so nothing is lost.
      */
     fun clearNonEssential() {
+        if (!NotifApp.repo(this).prefs.current.notifModule) return
         worker.execute {
             try {
                 val repo = NotifApp.repo(this)
@@ -87,6 +88,9 @@ class NotifListener : NotificationListenerService() {
                 ?: extras.getCharSequence(Notification.EXTRA_TEXT)
             )?.toString().orEmpty()
         if (title.isBlank() && text.isBlank()) return
+        // Module off: only Blu bank (it sends notifications instead of SMS) is read, for the ledger. Nothing is hidden.
+        val module = NotifApp.repo(this).prefs.current.notifModule
+        if (!module && !com.rez.notif.data.Repository.isBluApp(pkg, appLabel(pkg))) return
 
         val input = NotificationIn(
             key = sbn.key,
@@ -105,6 +109,7 @@ class NotifListener : NotificationListenerService() {
         )
         val decision = NotifApp.repo(this).addNotification(input)
         if (decision.sourceKey.isNotEmpty()) main.post { itemKeys[sbn.key] = decision.sourceKey }
+        if (!module) return
         decision.code?.let { CodeNotifier.show(this, it, if (input.isSmsApp) title else input.appName) }
         if (decision.hide) {
             val wait = sbn.postTime + decision.holdMs - System.currentTimeMillis()

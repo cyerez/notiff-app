@@ -52,6 +52,14 @@ data class NotificationIn(
 
 /** Everything the screens and the background parts need, in one place. */
 class Repository(private val context: Context, private val db: Db, val prefs: Prefs) {
+    companion object {
+        /** Blu bank sends app notifications instead of SMS. */
+        fun isBluApp(pkg: String, appName: String): Boolean {
+            val n = appName.lowercase().trim()
+            return pkg.startsWith("com.samanpr") || n == "blu" || n == "بلو" || "blu bank" in n || "بلو بانک" in n
+        }
+    }
+
 
     /** For the background helpers (reminders) that talk to the database directly. */
     val database: Db get() = db
@@ -603,10 +611,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     /** Blu bank sends app notifications instead of SMS. */
-    private fun isBlu(i: Item): Boolean {
-        val n = i.appName.lowercase().trim()
-        return i.packageName.startsWith("com.samanpr") || n == "blu" || n == "بلو" || "blu bank" in n || "بلو بانک" in n
-    }
+    private fun isBlu(i: Item): Boolean = isBluApp(i.packageName, i.appName)
 
     private fun ledgerText(i: Item) = if (i.source == Source.SMS) i.body else i.title + "\n" + i.body
 

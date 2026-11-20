@@ -130,104 +130,121 @@ fun SettingsScreen(nav: Navigator, embedded: Boolean = false) {
                 }
             }
 
-            item { SectionTitle(t("دسته‌ها و تبلیغ")) }
+            item { SectionTitle(t("ماژول‌ها")) }
             item {
                 GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    ToggleRow(t("مخفی کردن تبلیغ‌ها"), t("نوتیف تبلیغی (و نوتیف پیامک تبلیغی) فوراً پاک میشه و فقط در «تبلیغات مخفی‌شده» می‌مونه."), s.hideAds) { v ->
-                        repo.prefs.update { it.copy(hideAds = v) }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    ToggleRow(t("مخفی کردن فوری همه نوتیف‌ها"), t("هر نوتیف تازه همون لحظه از نوار بالای گوشی برداشته میشه و فقط توی دسته خودش در این اپ می‌مونه."), s.hideAll) { v ->
-                        repo.prefs.update { it.copy(hideAll = v) }
-                    }
-                    if (s.hideAll) {
-                        Spacer(Modifier.height(10.dp))
-                        Text(t("نوتیف چقدر روی نوار بمونه؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
-                        Text(t("پیام‌های معمولی اول چند ثانیه می‌مونن که بخونیشون، بعد میرن توی اپ. تبلیغ همیشه فوری میره."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-                        Spacer(Modifier.height(6.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(0, 15, 30, 60, 120).forEach { sec ->
-                                GlassChip(if (sec == 0) t("فوری") else if (sec < 60) fa(sec) + t(" ثانیه") else fa(sec / 60) + t(" دقیقه"), s.holdSeconds == sec, {
-                                    repo.prefs.update { it.copy(holdSeconds = sec) }
-                                })
-                            }
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        ToggleRow(t("ساعت هوشمند"), t("وقتی گوشی قفله نوتیف‌ها نمی‌رن تا روی ساعت بمونن. بعد از باز کردن قفل گوشی، مرتب میشن."), s.watchMode) { v ->
-                            repo.prefs.update { it.copy(watchMode = v) }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        ToggleRow(t("کد تأیید روی گوشی بمونه"), t("کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه."), s.keepOtp) { v ->
-                            repo.prefs.update { it.copy(keepOtp = v) }
-                        }
-                        if (s.keepOtp) {
-                            Spacer(Modifier.height(10.dp))
-                            CodeBoxSettings(s.codeOverlay, s.codeSeconds, onOverlay = { v -> repo.prefs.update { it.copy(codeOverlay = v) } }, onSeconds = { sec -> repo.prefs.update { it.copy(codeSeconds = sec) } })
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(t("میس‌کال‌ها و پیام افراد منتخب هیچ‌وقت از نوار برداشته نمیشن و تا نخونی توی خانه می‌مونن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-                        Spacer(Modifier.height(10.dp))
-                        ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
-                            repo.prefs.update { it.copy(summary = v) }
-                        }
-                        if (s.summary) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(t("خلاصه کی بیاد؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
-                            Text(t("اگه ساعت انتخاب کنی، خلاصه فقط همون ساعت‌ها با صدا میاد، نه بعد از هر نوتیف."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-                            Spacer(Modifier.height(6.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                GlassChip(t("همون لحظه"), s.digestHours.isEmpty(), {
-                                    repo.prefs.update { it.copy(digestHours = emptySet()) }
-                                    com.rez.notif.notif.Digest.arm(context)
-                                })
-                                listOf(8, 13, 17, 21).forEach { h ->
-                                    GlassChip(t("ساعت ") + fa(h), h in s.digestHours, {
-                                        repo.prefs.update { st -> st.copy(digestHours = if (h in st.digestHours) st.digestHours - h else st.digestHours + h) }
-                                        com.rez.notif.notif.Digest.arm(context)
-                                    })
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    ToggleRow(t("مرتب کردن نوتیف‌ها موقع ورود"), t("با باز کردن اپ، نوتیف‌های قبلی هم با همین قانون‌ها از نوار گوشی پاک میشن."), s.clearOnOpen) { v ->
-                        repo.prefs.update { it.copy(clearOnOpen = v) }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text(t("ساعت سکوت"), style = MaterialTheme.typography.titleSmall, color = g.text)
-                    Text(t("توی این ساعت‌ها فقط کد تأیید و قانون‌های «همیشه نشون بده» روی گوشی میان؛ بقیه بی‌صدا توی اپ جمع میشن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
-                    Spacer(Modifier.height(6.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(-1 to -1, 23 to 7, 0 to 8, 22 to 6).forEach { (from, to) ->
-                            val label = if (from < 0) t("خاموش") else fa(from) + t(" تا ") + fa(to)
-                            GlassChip(label, s.quietFrom == from && s.quietTo == to, { repo.prefs.update { it.copy(quietFrom = from, quietTo = to) } })
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton(t("قانون‌ها"), onClick = { nav.go(Screen.Rules) }, primary = false)
-                        GlassButton(t("افراد منتخب"), onClick = { nav.go(Screen.Vip) }, primary = false)
-                        GlassButton(t("پاک‌سازی هوشمند"), onClick = { nav.go(Screen.Cleanup) }, primary = false)
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text(t("دسته‌های اصلی صفحه خانه"), style = MaterialTheme.typography.titleSmall, color = g.text)
-                    Spacer(Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Category.entries.filter { it != Category.ADS }.forEach { c ->
-                            val on = c.id in s.mainCategories
-                            GlassChip(t(c.label), on, color = c.tint, icon = c.icon, onClick = {
-                                repo.prefs.update { st ->
-                                    st.copy(mainCategories = if (on) st.mainCategories - c.id else st.mainCategories + c.id)
-                                }
-                            })
-                        }
+                    ToggleRow(
+                        t("ماژول نوتیف و پیام‌ها"),
+                        t("مرتب کردن نوتیف‌ها و پیامک‌ها، مخفی کردن تبلیغ، خلاصه نوتیف و کپی کد. خاموش باشه، اپ به هیچ نوتیفی دست نمی‌زنه و فقط پیامک بانک (و نوتیف بلو) رو برای حساب و کتاب می‌خونه."),
+                        s.notifModule,
+                    ) { v ->
+                        repo.prefs.update { it.copy(notifModule = v) }
+                        if (!v) com.rez.notif.notif.SummaryNotifier.update(context)
                     }
                 }
             }
+            if (s.notifModule) {
+                item { SectionTitle(t("دسته‌ها و تبلیغ")) }
+                item {
+                    GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                        ToggleRow(t("مخفی کردن تبلیغ‌ها"), t("نوتیف تبلیغی (و نوتیف پیامک تبلیغی) فوراً پاک میشه و فقط در «تبلیغات مخفی‌شده» می‌مونه."), s.hideAds) { v ->
+                            repo.prefs.update { it.copy(hideAds = v) }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        ToggleRow(t("مخفی کردن فوری همه نوتیف‌ها"), t("هر نوتیف تازه همون لحظه از نوار بالای گوشی برداشته میشه و فقط توی دسته خودش در این اپ می‌مونه."), s.hideAll) { v ->
+                            repo.prefs.update { it.copy(hideAll = v) }
+                        }
+                        if (s.hideAll) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(t("نوتیف چقدر روی نوار بمونه؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                            Text(t("پیام‌های معمولی اول چند ثانیه می‌مونن که بخونیشون، بعد میرن توی اپ. تبلیغ همیشه فوری میره."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                            Spacer(Modifier.height(6.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(0, 15, 30, 60, 120).forEach { sec ->
+                                    GlassChip(if (sec == 0) t("فوری") else if (sec < 60) fa(sec) + t(" ثانیه") else fa(sec / 60) + t(" دقیقه"), s.holdSeconds == sec, {
+                                        repo.prefs.update { it.copy(holdSeconds = sec) }
+                                    })
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            ToggleRow(t("ساعت هوشمند"), t("وقتی گوشی قفله نوتیف‌ها نمی‌رن تا روی ساعت بمونن. بعد از باز کردن قفل گوشی، مرتب میشن."), s.watchMode) { v ->
+                                repo.prefs.update { it.copy(watchMode = v) }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            ToggleRow(t("کد تأیید روی گوشی بمونه"), t("کد ورود و رمز پویا با دکمه «کپی کد» تا ۱۰ دقیقه روی نوار گوشی می‌مونه."), s.keepOtp) { v ->
+                                repo.prefs.update { it.copy(keepOtp = v) }
+                            }
+                            if (s.keepOtp) {
+                                Spacer(Modifier.height(10.dp))
+                                CodeBoxSettings(s.codeOverlay, s.codeSeconds, onOverlay = { v -> repo.prefs.update { it.copy(codeOverlay = v) } }, onSeconds = { sec -> repo.prefs.update { it.copy(codeSeconds = sec) } })
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(t("میس‌کال‌ها و پیام افراد منتخب هیچ‌وقت از نوار برداشته نمیشن و تا نخونی توی خانه می‌مونن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                            Spacer(Modifier.height(10.dp))
+                            ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
+                                repo.prefs.update { it.copy(summary = v) }
+                            }
+                            if (s.summary) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(t("خلاصه کی بیاد؟"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                                Text(t("اگه ساعت انتخاب کنی، خلاصه فقط همون ساعت‌ها با صدا میاد، نه بعد از هر نوتیف."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                                Spacer(Modifier.height(6.dp))
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    GlassChip(t("همون لحظه"), s.digestHours.isEmpty(), {
+                                        repo.prefs.update { it.copy(digestHours = emptySet()) }
+                                        com.rez.notif.notif.Digest.arm(context)
+                                    })
+                                    listOf(8, 13, 17, 21).forEach { h ->
+                                        GlassChip(t("ساعت ") + fa(h), h in s.digestHours, {
+                                            repo.prefs.update { st -> st.copy(digestHours = if (h in st.digestHours) st.digestHours - h else st.digestHours + h) }
+                                            com.rez.notif.notif.Digest.arm(context)
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        ToggleRow(t("مرتب کردن نوتیف‌ها موقع ورود"), t("با باز کردن اپ، نوتیف‌های قبلی هم با همین قانون‌ها از نوار گوشی پاک میشن."), s.clearOnOpen) { v ->
+                            repo.prefs.update { it.copy(clearOnOpen = v) }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(t("ساعت سکوت"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Text(t("توی این ساعت‌ها فقط کد تأیید و قانون‌های «همیشه نشون بده» روی گوشی میان؛ بقیه بی‌صدا توی اپ جمع میشن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+                        Spacer(Modifier.height(6.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(-1 to -1, 23 to 7, 0 to 8, 22 to 6).forEach { (from, to) ->
+                                val label = if (from < 0) t("خاموش") else fa(from) + t(" تا ") + fa(to)
+                                GlassChip(label, s.quietFrom == from && s.quietTo == to, { repo.prefs.update { it.copy(quietFrom = from, quietTo = to) } })
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GlassButton(t("قانون‌ها"), onClick = { nav.go(Screen.Rules) }, primary = false)
+                            GlassButton(t("افراد منتخب"), onClick = { nav.go(Screen.Vip) }, primary = false)
+                            GlassButton(t("پاک‌سازی هوشمند"), onClick = { nav.go(Screen.Cleanup) }, primary = false)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(t("دسته‌های اصلی صفحه خانه"), style = MaterialTheme.typography.titleSmall, color = g.text)
+                        Spacer(Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Category.entries.filter { it != Category.ADS }.forEach { c ->
+                                val on = c.id in s.mainCategories
+                                GlassChip(t(c.label), on, color = c.tint, icon = c.icon, onClick = {
+                                    repo.prefs.update { st ->
+                                        st.copy(mainCategories = if (on) st.mainCategories - c.id else st.mainCategories + c.id)
+                                    }
+                                })
+                            }
+                        }
+                    }
+                }
 
+            }
             item { BatteryCard() }
-            item { SectionTitle(t("اپ پیامک گوشی")) }
-            item { SmsAppCard() }
+            if (s.notifModule) {
+                item { SectionTitle(t("اپ پیامک گوشی")) }
+                item { SmsAppCard() }
+            }
 
             item { SectionTitle(t("امنیت و پشتیبان")) }
             item {
