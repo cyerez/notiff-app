@@ -64,7 +64,8 @@ object Reminders {
         val now = System.currentTimeMillis()
         for ((id, at, repeats) in db.reminders()) {
             if (at > now + 30_000) break
-            // Negative ids are the user's own bills (Db.bills), not items.
+            // Below CHEQUE_BASE: cheques. Other negative ids are the user's own bills (Db.bills), not items.
+            if (id <= -CHEQUE_BASE) { fireCheque(context, -id - CHEQUE_BASE, at); continue }
             if (id < 0) { fireBill(context, -id, at); continue }
             val item = db.get(id)
             if (item == null || (repeats > 0 && item.isRead)) { db.removeReminder(id); continue }
@@ -121,6 +122,46 @@ object Reminders {
         val at = due - days * 86_400_000L
         db(context).putReminder(-b.id, if (at > now) at else now + 60_000L, 0)
         arm(context)
+    }
+
+    /** Reminder ids for cheques: -(CHEQUE_BASE + cheque id), far from bill ids. */
+    private const val CHEQUE_BASE = 1_000_000_000L
+
+    /** A pending cheque: reminders every morning from "days before" until its due day. */
+    fun scheduleCheque(context: Context, q: com.rez.notif.classify.Cheque) {
+        val rid = -(CHEQUE_BASE + q.id)
+        val now = System.currentTimeMillis()
+        if (q.status != com.rez.notif.classify.Cheque.Status.PENDING || q.due < now - 86_400_000L) {
+            db(context).removeReminder(rid); arm(context); return
+        }
+        val days = NotifApp.repo(context).prefs.current.billDaysBefore
+        val at = q.due - days * 86_400_000L
+        db(context).putReminder(rid, if (at > now) at else now + 60_000L, 0)
+        arm(context)
+    }
+
+    fun cancelCheque(context: Context, chequeId: Long) {
+        db(context).removeReminder(-(CHEQUE_BASE + chequeId))
+        arm(context)
+    }
+
+    private fun fireCheque(context: Context, chequeId: Long, at: Long) {
+        val db = db(context)
+        db.removeReminder(-(CHEQUE_BASE + chequeId))
+        val q = NotifApp.repo(context).cheque(chequeId) ?: return
+        if (q.status != com.rez.notif.classify.Cheque.Status.PENDING) return
+        val daysLeft = Math.floorDiv(q.due - at + 86_399_999L, 86_400_000L).toInt().coerceAtLeast(0)
+        val whenText = if (daysLeft <= 0) t("امروز سررسیده") else com.rez.notif.ui.components.fa(daysLeft) + t(" روز دیگه سررسیده")
+        post(
+            context, 65_000 + (chequeId % 10_000).toInt(),
+            (if (q.incoming) t("چک دریافتی: ") else t("چک پرداختی: ")) + q.person,
+            com.rez.notif.ui.components.toman(q.toman * 10) + "  ·  " + whenText,
+            null,
+        )
+        if (daysLeft > 0) {
+            db.putReminder(-(CHEQUE_BASE + chequeId), minOf(at + 86_400_000L, q.due), 0)
+            arm(context)
+        }
     }
 
     fun cancelBill(context: Context, billId: Long) {

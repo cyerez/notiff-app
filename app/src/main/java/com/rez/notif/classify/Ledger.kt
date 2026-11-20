@@ -237,4 +237,56 @@ object Ledger {
             entries.count { it.needsCategory },
         )
     }
+
+    // ---------- unreadable SMS ----------
+
+    private val MONEY_HINTS = listOf("برداشت", "واریز", "خرید", "انتقال", "مبلغ", "پرداخت", "کسر", "انتقالی")
+    private val CODE_HINTS = listOf("رمز", "کد ", "کد:", "رمز پویا", "otp")
+
+    /**
+     * A bank message that talks about money but [Money] could not read an amount from it.
+     * These go to the "could not read" queue so nothing is silently lost.
+     */
+    fun unreadable(text: String, parsed: Money.Tx?): Boolean {
+        if (parsed != null && (parsed.out > 0 || parsed.inn > 0)) return false
+        val t = digits(text).lowercase()
+        if (CODE_HINTS.any { it in t }) return false
+        if (MONEY_HINTS.none { it in t }) return false
+        return Regex("[0-9][0-9,٬]{3,}").containsMatchIn(t)
+    }
+
+    // ---------- what is left this month ----------
+
+    /** Costs that are the same every month; they are planned, not "free to spend". */
+    val FIXED_CATS = setOf("اجاره", "اینترنت و موبایل", "قبض آب و برق و گاز", "قسط و وام")
+
+    /** Days in a Persian month (Esfand: 29, 30 in a leap year; 30 is used, close enough for a daily figure). */
+    fun monthDays(month: Int): Int = when (month % 100) {
+        in 1..6 -> 31
+        in 7..11 -> 30
+        else -> 30
+    }
+
+    data class Left(
+        /** Toman free to spend until the end of the month (may be negative). */
+        val left: Long,
+        /** Toman per remaining day (0 when nothing is left). */
+        val perDay: Long,
+        val income: Long,
+        val fixed: Long,
+        val spent: Long,
+        val saving: Long,
+    )
+
+    /**
+     * Income minus fixed costs minus money set aside for savings minus what went on everything else so far.
+     * All in toman. [daysLeft] includes today.
+     */
+    fun leftToSpend(income: Long, fixed: Long, spentVariable: Long, saving: Long, daysLeft: Int): Left {
+        val left = income - fixed - saving - spentVariable
+        return Left(left, if (left > 0 && daysLeft > 0) left / daysLeft else 0, income, fixed, spentVariable, saving)
+    }
+
+    /** Spending (rial) per category this month that is not a fixed cost. */
+    fun variableSpent(s: Summary): Long = s.byCategory.filter { it.first !in FIXED_CATS }.sumOf { it.second }
 }

@@ -314,7 +314,8 @@ private fun AppsTab(nav: Navigator) {
     val adCount = counts?.get(Category.ADS.id)?.total ?: 0
     val tools = listOf(
         Tool("دفتر حساب", "همه خرج‌ها با دسته", Icons.Rounded.AccountBalance, Category.BANK.tint, Screen.Ledger),
-        Tool("حساب و کتاب", "خلاصه بانک، قسط و قبض", Icons.Rounded.Savings, Category.BANK.tint, Screen.Money),
+        Tool("طلب، بدهی، چک و قلک", "تعهدها و پس‌انداز", Icons.Rounded.Savings, VipColor, Screen.Commitments),
+        Tool("قسط و قبض", "خلاصه بانک، قسط و قبض", Icons.Rounded.AccountBalance, Category.BANK.tint, Screen.Money),
         Tool("دخل و خرج", "درآمد و خرج ماه", Icons.Rounded.AccountBalanceWallet, Category.PERSONAL.tint, Screen.Budget),
         Tool("حساب دنگ", "سفر و دورهمی", Icons.Rounded.Groups, Category.SOCIAL.tint, Screen.Dong),
         Tool("کیف پسورد", "رمزها با اثر انگشت", Icons.Rounded.Key, ValuableColor, Screen.Wallet),
