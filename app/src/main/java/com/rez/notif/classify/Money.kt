@@ -8,7 +8,7 @@ object Money {
     private val BALANCE = Regex("(?:مانده|موجودی|مانده حساب|بالانس)\\s*(?:حساب)?\\s*[:：]?\\s*([-+]?)\\s*$NUM")
     private val OUT_WORDS = listOf("برداشت", "خرید", "انتقال", "کسر", "پرداخت", "برداشت از", "انتقال از")
     private val IN_WORDS = listOf("واریز", "انتقال به حساب شما", "سود", "برگشت", "دریافت")
-    private val SIGNED = Regex("(?<![0-9,])([-+])\\s?([0-9][0-9,٬]{2,})")
+    private val SIGNED = Regex("(?<![0-9,*\\-])([-+])\\s?([0-9][0-9,٬]{2,})")
 
     fun parse(text: String): Tx? {
         val t = digits(text)
@@ -31,6 +31,18 @@ object Money {
                 val a = amount(m.groupValues[2]) ?: return@forEach
                 if (!sane(a)) return@forEach
                 if (m.groupValues[1] == "-") out = maxOf(out, a) else inn = maxOf(inn, a)
+            }
+        }
+        // "مبلغ: 300,000" on a line of its own: the rest of the text says which way it went.
+        if (out == 0L && inn == 0L) {
+            Regex("مبلغ\\s*[:：]?\\s*$NUM").find(withoutBalance)?.let { m ->
+                val a = amount(m.groupValues[1])?.takeIf(::sane) ?: return@let
+                val inWords = "واریز" in t || "به حساب شما" in t
+                val outWords = listOf("برداشت", "خرید", "انتقال از", "کسر", "پرداخت").any { it in t }
+                when {
+                    inWords && !outWords -> inn = a
+                    outWords || OUT_WORDS.any { it in t } -> out = a
+                }
             }
         }
         if (out == 0L && inn == 0L && balance == null) return null
