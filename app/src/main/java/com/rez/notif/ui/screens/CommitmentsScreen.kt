@@ -67,6 +67,7 @@ private fun tmn(amount: Long) = toman(amount * 10)
  * Commitments ("طلب، بدهی، چک و قلک"): money owed to and by people, cheques with reminders,
  * installments (from the Money screen) and savings goals such as the emergency piggy bank.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CommitmentsScreen(nav: Navigator) {
     val g = LocalGlass.current
