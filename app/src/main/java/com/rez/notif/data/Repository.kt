@@ -16,6 +16,7 @@ import com.rez.notif.classify.Category
 import com.rez.notif.classify.Classifier
 import com.rez.notif.classify.Learner
 import com.rez.notif.classify.Priority
+import com.rez.notif.classify.Ledger
 import com.rez.notif.classify.Money
 import com.rez.notif.classify.Bills
 import com.rez.notif.classify.Rule
@@ -479,6 +480,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
                 }
             }
             if (s.billReminders) scheduleBill(item)
+            if (s.ledgerAsk) askLedger(item)
         } catch (_: Exception) { }
     }
 
@@ -588,6 +590,137 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         if (!b.monthly || month <= b.month) db.deleteBudgetLine(b.id)
         else db.saveBudgetLine(b.copy(until = com.rez.notif.classify.Budget.prev(month)))
         changed()
+    }
+
+    // ---------- ledger (دفتر حساب) ----------
+
+    /** Persian month [month] (yyyymm) as [start, end) in millis, the same way as the budget screen. */
+    fun monthRange(month: Int): Pair<Long, Long> {
+        val start = (Bills.toMillis(month / 100, month % 100, 1) ?: 0L) - 9 * 3_600_000L
+        val next = com.rez.notif.classify.Budget.next(month)
+        val end = (Bills.toMillis(next / 100, next % 100, 1) ?: Long.MAX_VALUE) - 9 * 3_600_000L
+        return start to end
+    }
+
+    /** Blu bank sends app notifications instead of SMS. */
+    private fun isBlu(i: Item): Boolean {
+        val n = i.appName.lowercase().trim()
+        return i.packageName.startsWith("com.samanpr") || n == "blu" || n == "بلو" || "blu bank" in n || "بلو بانک" in n
+    }
+
+    private fun ledgerText(i: Item) = if (i.source == Source.SMS) i.body else i.title + "\n" + i.body
+
+    private fun ledgerRaw(i: Item): Ledger.Raw? {
+        val text = ledgerText(i)
+        val m = Money.parse(text) ?: return null
+        return Ledger.Raw(i.id, i.timestamp, if (i.source == Source.SMS) i.sender else "Blu", text, m.out, m.inn, m.balance)
+    }
+
+    /** Every ledger entry between [since] and [until]: bank SMS, Blu notifications and hand-entered ones. */
+    private fun ledgerEntries(since: Long, until: Long): List<Ledger.Entry> {
+        val sms = db.query(ItemQuery(category = Category.BANK.id, source = Source.SMS, sinceMillis = since, limit = 10000)).filter { it.timestamp < until }
+        val blu = db.query(ItemQuery(source = Source.NOTIFICATION, sinceMillis = since, includeAds = true, limit = 10000))
+            .filter { it.timestamp < until && isBlu(it) }
+            .distinctBy { ledgerText(it) + "|" + it.timestamp / 120_000L }
+        val raws = (sms + blu).mapNotNull(::ledgerRaw)
+        val built = Ledger.build(raws, db.ledgerTags(), db.ledgerLearned(), emptySet())
+        val manual = db.manualTxs(since, until).map {
+            Ledger.Entry(-it.id, it.time, it.account, it.outRial, it.inRial, null, com.rez.notif.classify.Spending.Kind.OTHER_OUT, "", it.category, it.note, manual = true)
+        }
+        return built + manual
+    }
+
+    data class LedgerView(
+        val month: Int,
+        /** This month's entries, newest first. */
+        val entries: List<Ledger.Entry>,
+        /** Missing SMS this month (amount in rial). */
+        val gaps: List<Ledger.Gap>,
+        val summary: Ledger.Summary,
+        /** Last-4 digits of cards the user marked as theirs. */
+        val myCards: List<String>,
+        /** Accounts seen (for hand entries), most used first. */
+        val accounts: List<String>,
+        /** Categories in the order to offer them: most used first. */
+        val categories: List<String>,
+    )
+
+    suspend fun ledger(month: Int): LedgerView = withContext(Dispatchers.IO) {
+        val (start, end) = monthRange(month)
+        // Read 40 days more, so the first SMS of the month has a balance before it.
+        val all = ledgerEntries(start - 40 * 86_400_000L, end)
+        val inMonth = all.filter { it.time in start until end }.sortedByDescending { it.time }
+        val gaps = Ledger.gaps(all).filter { it.to in start until end }
+        val learned = db.ledgerLearned()
+        val myCards = learned.filter { it.key.startsWith("card:") && it.value == Ledger.OWN }.keys.map { it.removePrefix("card:") }.sorted()
+        LedgerView(
+            month, inMonth, gaps, Ledger.summarize(inMonth), myCards,
+            all.groupingBy { it.account }.eachCount().entries.sortedByDescending { it.value }.map { it.key },
+            categoryOrder(),
+        )
+    }
+
+    /** Spending categories, the ones the user picks most first. */
+    private fun categoryOrder(): List<String> {
+        val used = (db.ledgerTags().values + db.ledgerLearned().values + db.manualTxs().map { it.category })
+            .filter { it in Ledger.SPEND_CATS }.groupingBy { it }.eachCount()
+        return Ledger.SPEND_CATS.sortedByDescending { used[it] ?: 0 }
+    }
+
+    /** The user names an entry's category. With [learn], the same card/shop gets it from now on. */
+    suspend fun setLedgerCategory(e: Ledger.Entry, category: String, learn: Boolean = true) = withContext(Dispatchers.IO) {
+        if (e.manual) {
+            db.manualTxs().firstOrNull { it.id == -e.id }?.let { db.saveManualTx(it.copy(category = category)) }
+        } else {
+            db.setLedgerTag(e.id, category)
+            if (learn && e.party.isNotEmpty()) db.setLearned(e.party, category)
+        }
+        changed()
+    }
+
+    /** From the "what was this?" notification buttons. */
+    suspend fun categorizeItem(itemId: Long, category: String) = withContext(Dispatchers.IO) {
+        val item = db.get(itemId) ?: return@withContext
+        db.setLedgerTag(itemId, category)
+        val party = Ledger.partyOf(ledgerText(item), ledgerRaw(item)?.let { it.inn > 0 && it.out == 0L } ?: false)
+        if (party.isNotEmpty()) db.setLearned(party, category)
+        changed()
+    }
+
+    /** Names a missing SMS: a hand entry on that account, just before the SMS that showed the difference. */
+    suspend fun nameGap(g: Ledger.Gap, category: String) = withContext(Dispatchers.IO) {
+        db.saveManualTx(Db.ManualTx(0, g.to - 1, g.account, maxOf(g.amount, 0), maxOf(-g.amount, 0), category, "پیامک نیومده"))
+        changed()
+    }
+
+    /** Hand-entered spending or income (toman). Cash unless an account is given. */
+    suspend fun addManual(toman: Long, income: Boolean, category: String, note: String, account: String = "نقد", time: Long = System.currentTimeMillis()) =
+        withContext(Dispatchers.IO) {
+            db.saveManualTx(Db.ManualTx(0, time, account, if (income) 0 else toman * 10, if (income) toman * 10 else 0, category, note))
+            changed()
+        }
+
+    suspend fun deleteManual(e: Ledger.Entry) = withContext(Dispatchers.IO) {
+        if (e.manual) db.deleteManualTx(-e.id)
+        changed()
+    }
+
+    suspend fun setMyCard(last4: String, mine: Boolean) = withContext(Dispatchers.IO) {
+        db.setLearned("card:$last4", if (mine) Ledger.OWN else null)
+        changed()
+    }
+
+    /** After a new bank message: if it is spending the app cannot sort, ask with one notification. */
+    private fun askLedger(item: Item) {
+        val isBank = (item.source == Source.SMS && item.category == Category.BANK.id) || (item.source == Source.NOTIFICATION && isBlu(item))
+        if (!isBank) return
+        val id = (if (item.id > 0) item.id else db.idOf(item.sourceKey)) ?: return
+        val now = System.currentTimeMillis()
+        // The last hour too, so a transfer to my own other card (its deposit SMS) is recognized.
+        val recent = ledgerEntries(now - 3_600_000L, now + 60_000L)
+        val e = recent.firstOrNull { it.id == id } ?: return
+        if (!e.needsCategory) return
+        com.rez.notif.notif.LedgerAsk.show(context, id, e.out / 10, categoryOrder().take(2))
     }
 
     // ---------- dong ----------

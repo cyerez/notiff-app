@@ -39,6 +39,11 @@ class MainActivity : ComponentActivity() {
             OpenRequests.openItem(it)
             return
         }
+        if (intent.getBooleanExtra(com.rez.notif.notif.LedgerAsk.EXTRA_OPEN_LEDGER, false)) {
+            intent.removeExtra(com.rez.notif.notif.LedgerAsk.EXTRA_OPEN_LEDGER)
+            OpenRequests.open(Screen.Ledger)
+            return
+        }
         intent.getStringExtra(SmsNotifier.EXTRA_ADDRESS)?.let {
             intent.removeExtra(SmsNotifier.EXTRA_ADDRESS)
             OpenRequests.open(Screen.Conversation(it))

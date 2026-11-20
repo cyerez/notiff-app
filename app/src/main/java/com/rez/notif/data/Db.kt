@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 7
+        const val VERSION = 8
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -132,6 +132,7 @@ class Db private constructor(
         createV5(db)
         createV6(db)
         createV7(db)
+        createV8(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -175,6 +176,17 @@ class Db private constructor(
         db.execSQL("CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, amount INTEGER NOT NULL, income INTEGER NOT NULL, monthly INTEGER NOT NULL, month INTEGER NOT NULL, until INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
     }
 
+    /**
+     * Version 8: the ledger (classify/Ledger.kt). ledger_tags: category the user picked for one bank message.
+     * ledger_learn: party ("card:4521" / "shop:...") -> category, also "__own" for the user's own cards.
+     * ledger_manual: hand-entered spending/income and named gaps (rial; account as in Ledger.accountOf).
+     */
+    private fun createV8(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS ledger_tags (item_id INTEGER PRIMARY KEY, category TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS ledger_learn (party TEXT PRIMARY KEY, category TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS ledger_manual (id INTEGER PRIMARY KEY AUTOINCREMENT, time INTEGER NOT NULL, account TEXT NOT NULL, out_rial INTEGER NOT NULL, in_rial INTEGER NOT NULL, category TEXT NOT NULL, note TEXT NOT NULL DEFAULT '')")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -187,6 +199,7 @@ class Db private constructor(
         if (oldVersion < 5) createV5(db)
         if (oldVersion < 6) createV6(db)
         if (oldVersion < 7) createV7(db)
+        if (oldVersion < 8) createV8(db)
     }
 
     // ---------- password wallet ----------
@@ -307,6 +320,54 @@ class Db private constructor(
 
     fun deleteTrip(id: Long) {
         writableDatabase.delete("trips", "id = ?", arrayOf(id.toString()))
+    }
+
+    // ---------- ledger ----------
+
+    fun ledgerTags(): Map<Long, String> = readableDatabase.rawQuery("SELECT item_id, category FROM ledger_tags", null).use { c ->
+        val m = HashMap<Long, String>()
+        while (c.moveToNext()) m[c.getLong(0)] = c.getString(1)
+        m
+    }
+
+    fun setLedgerTag(itemId: Long, category: String?) {
+        if (category == null) writableDatabase.delete("ledger_tags", "item_id = ?", arrayOf(itemId.toString()))
+        else writableDatabase.insertWithOnConflict("ledger_tags", null, ContentValues().apply { put("item_id", itemId); put("category", category) }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun ledgerLearned(): Map<String, String> = readableDatabase.rawQuery("SELECT party, category FROM ledger_learn", null).use { c ->
+        val m = HashMap<String, String>()
+        while (c.moveToNext()) m[c.getString(0)] = c.getString(1)
+        m
+    }
+
+    fun setLearned(party: String, category: String?) {
+        if (category == null) writableDatabase.delete("ledger_learn", "party = ?", arrayOf(party))
+        else writableDatabase.insertWithOnConflict("ledger_learn", null, ContentValues().apply { put("party", party); put("category", category) }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    data class ManualTx(val id: Long, val time: Long, val account: String, val outRial: Long, val inRial: Long, val category: String, val note: String)
+
+    fun manualTxs(since: Long = 0, until: Long = Long.MAX_VALUE): List<ManualTx> =
+        readableDatabase.rawQuery(
+            "SELECT id, time, account, out_rial, in_rial, category, note FROM ledger_manual WHERE time >= ? AND time < ? ORDER BY time DESC",
+            arrayOf(since.toString(), until.toString()),
+        ).use { c ->
+            val l = ArrayList<ManualTx>()
+            while (c.moveToNext()) l += ManualTx(c.getLong(0), c.getLong(1), c.getString(2), c.getLong(3), c.getLong(4), c.getString(5), c.getString(6))
+            l
+        }
+
+    fun saveManualTx(m: ManualTx): Long {
+        val v = ContentValues().apply {
+            put("time", m.time); put("account", m.account); put("out_rial", m.outRial); put("in_rial", m.inRial)
+            put("category", m.category); put("note", m.note)
+        }
+        return if (m.id > 0) { writableDatabase.update("ledger_manual", v, "id = ?", arrayOf(m.id.toString())); m.id } else writableDatabase.insert("ledger_manual", null, v)
+    }
+
+    fun deleteManualTx(id: Long) {
+        writableDatabase.delete("ledger_manual", "id = ?", arrayOf(id.toString()))
     }
 
     // ---------- monthly budget ----------

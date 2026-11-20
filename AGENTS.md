@@ -38,10 +38,13 @@ app/src/main/java/com/rez/notif/
                          same amount within 30 min = own accounts (INTERNAL, left out of totals). Pure Kotlin, tested
     Records.kt           tab-separated escaped text records with a header line; the transfer file format (see TransferScreen). Pure Kotlin, tested
     Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
+    Ledger.kt            the ledger ("دفتر حساب"): bank SMS + Blu notifications + hand entries -> entries with account (bank + last 4),
+                         party (card:XXXX / shop:...), category (user tag > own card > learned party > default > ask). Cards seen as an
+                         account are the user's own. gaps(): balance before/after each SMS disagree = missing SMS. Pure Kotlin, tested
     Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was
                          present each day, balances + fewest transfers; one-text codec stored in Db `trips`. Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v7: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending). Reads go through the
+    Db.kt                SQLiteOpenHelper v8: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending), ledger_tags/ledger_learn/ledger_manual (v8, the ledger). Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
@@ -73,7 +76,7 @@ app/src/main/java/com/rez/notif/
     theme/Backdrops.kt   cyber/steam/pixel/meadow backgrounds; GlassColors.frame changes panel shape+outline (Glass.kt styledShape)
     theme/Theme.kt       glass colors (light/dark x accents), Vazirmatn font
     components/          Glass.kt (glass panel, neon icons, buttons, ring), Glow.kt (softShadow), Items.kt (rows + detail sheet), Format.kt
-    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab = Home (Repository.homeFeed) / Messages (all non-ad categories) / Apps (tool grid) / Settings (SettingsScreen embedded)), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Transfer (chosen categories/VIP/starred -> password-locked .notifmsg file; import merges by source_key and can write SMS into the phone inbox when default SMS app), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
+    screens/             Onboarding, Scan, Home (4 bottom tabs: HomeTab = Home (Repository.homeFeed) / Messages (all non-ad categories) / Apps (tool grid) / Settings (SettingsScreen embedded)), Category/Special lists, Search, Stats, Settings, Cleanup, Vip, Learned, Rules + RuleEdit, Money (bank summary, bills, alert settings), Dong + Trip (split costs), Budget (دخل و خرج: month switcher, lines + installments + bank SMS totals), Ledger (دفتر حساب: month, gaps, "what was this?", per category, my cards; notif/LedgerAsk.kt asks after an unknown spending with category buttons), Transfer (chosen categories/VIP/starred -> password-locked .notifmsg file; import merges by source_key and can write SMS into the phone inbox when default SMS app), Backup, Lock, Wallet (FLAG_SECURE), Conversation (phase 5), Ocr
 app/src/test/java/...    ClassifierTest, AnalyzerTest, MissedCallTest, VipMatcherTest, BackupCryptoTest, I18nTest, WalletTest (plain JUnit)
 ```
 

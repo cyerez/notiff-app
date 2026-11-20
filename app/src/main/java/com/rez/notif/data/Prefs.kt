@@ -94,6 +94,8 @@ data class Settings(
     val bigSpend: Long = 5_000_000,
     /** Remind bills and installments found in SMS, [billDaysBefore] days before the due date (0 = that morning). */
     val billReminders: Boolean = true,
+    /** Ledger: after an unknown bank spending, ask "what was this?" with category buttons. */
+    val ledgerAsk: Boolean = true,
     val billDaysBefore: Int = 3,
     /** Seconds a normal notification stays in the status bar before Notif tidies it away (0 = right away). Ads always go at once. */
     val holdSeconds: Int = 30,
@@ -170,6 +172,7 @@ class Prefs(context: Context) {
         bigSpendOn = sp.getBoolean("bigSpendOn", false),
         bigSpend = sp.getLong("bigSpend", 5_000_000),
         billReminders = sp.getBoolean("billReminders", true),
+        ledgerAsk = sp.getBoolean("ledgerAsk", true),
         billDaysBefore = sp.getInt("billDaysBefore2", 3),
         holdSeconds = sp.getInt("holdSeconds", 30),
         watchMode = sp.getBoolean("watchMode", true),
@@ -219,6 +222,7 @@ class Prefs(context: Context) {
             .putBoolean("bigSpendOn", s.bigSpendOn)
             .putLong("bigSpend", s.bigSpend)
             .putBoolean("billReminders", s.billReminders)
+            .putBoolean("ledgerAsk", s.ledgerAsk)
             .putInt("billDaysBefore2", s.billDaysBefore)
             .putInt("holdSeconds", s.holdSeconds)
             .putBoolean("watchMode", s.watchMode)
