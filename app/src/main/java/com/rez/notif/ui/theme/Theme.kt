@@ -60,6 +60,10 @@ data class GlassColors(
     val backdrop: Backdrop = Backdrop.BLOBS,
     /** Solid color for dialogs and sheets. */
     val surface: Color? = null,
+    /** Money in, money out (soft, not alarming), and moves between the user's own accounts. */
+    val moneyIn: Color = Color(0xFF3FA56B),
+    val moneyOut: Color = Color(0xFFE0604E),
+    val moneyOwn: Color = Color(0xFF9AA0A6),
 )
 
 enum class Frame { ROUND, CUT, BRASS, PIXEL, CARTOON }
@@ -69,6 +73,7 @@ enum class Backdrop { BLOBS, CYBER, STEAM, PIXEL, MEADOW }
 fun GlassColors.soft(c: Color): Color = if (pastel > 0f) lerp(c, paper, pastel) else c
 
 fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings.style) {
+    AppStyle.PISTACHIO -> pistachioColors(dark, settings.animations)
     AppStyle.GLASS -> glassColors(dark, settings.accent, settings.animations)
     AppStyle.PEACH -> peachColors(dark, settings.animations)
     AppStyle.SEASONS -> seasonColors(dark, settings.season, settings.animations)
@@ -77,6 +82,29 @@ fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings
     AppStyle.RETRO -> retroColors(dark, settings.animations)
     AppStyle.MEADOW -> meadowColors(dark, settings.animations)
 }
+
+/** "شاخ گاو" default: calm and flat. Pistachio main color, saffron for buttons and the daily joke, pomegranate for spending. */
+private fun pistachioColors(dark: Boolean, animations: Boolean) = if (!dark) GlassColors(
+    isDark = false, accent = Color(0xFF7FAE5A), accent2 = Color(0xFFF2A93B),
+    bgTop = Color(0xFFFFF8EE), bgBottom = Color(0xFFFFF8EE), blobs = emptyList(),
+    glassTop = Color(0xFFFFFFFF), glassBottom = Color(0xFFFFFFFF),
+    edge = Color(0xFF2D2236).copy(alpha = 0.07f),
+    text = Color(0xFF2D2236), textDim = Color(0xFF7D7186),
+    shadow = Color(0xFF2D2236).copy(alpha = 0.08f),
+    animations = animations, style = AppStyle.PISTACHIO,
+    glow = 0f, surface = Color(0xFFFFFFFF),
+    moneyIn = Color(0xFF4E9A3A), moneyOut = Color(0xFFE0604E), moneyOwn = Color(0xFF9AA0A6),
+) else GlassColors(
+    isDark = true, accent = Color(0xFF94C470), accent2 = Color(0xFFF2A93B),
+    bgTop = Color(0xFF1E1A24), bgBottom = Color(0xFF1E1A24), blobs = emptyList(),
+    glassTop = Color(0xFF2B2533), glassBottom = Color(0xFF2B2533),
+    edge = Color.White.copy(alpha = 0.06f),
+    text = Color(0xFFF3EDF5), textDim = Color(0xFFA99FB2),
+    shadow = Color.Black.copy(alpha = 0.25f),
+    animations = animations, style = AppStyle.PISTACHIO,
+    glow = 0f, surface = Color(0xFF2B2533),
+    moneyIn = Color(0xFF8BC77A), moneyOut = Color(0xFFEE7E6E), moneyOwn = Color(0xFF9AA0A6),
+)
 
 /** Cyberpunk HUD: red and cyan lines, cut corners. Dark = red-black night screen, light = pale daylight HUD. */
 private fun cyberColors(dark: Boolean, animations: Boolean) = if (!dark) GlassColors(

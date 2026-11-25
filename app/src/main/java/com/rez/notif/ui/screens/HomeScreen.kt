@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Key
@@ -95,22 +96,25 @@ import kotlinx.coroutines.launch
 
 /** The four tabs at the bottom. Home is what needs you; the other three hold the categories. */
 enum class HomeTab(val label: String, val icon: ImageVector, val categories: List<Category>) {
-    HOME("خانه", Icons.Rounded.Home, emptyList()),
+    /** "شاخ گاو" home: total balance, bank cards, what was this, next 7 days, today. */
+    MONEY("خانه", Icons.Rounded.Home, emptyList()),
+    HOME("اعلان‌ها", Icons.Rounded.Notifications, emptyList()),
     /** Every message and notification (ads have their own list). */
     MESSAGES("پیام‌ها", Icons.Rounded.Forum, Category.entries.filter { it != Category.ADS }),
     /** The ledger: the main screen when the notification module is off. */
-    LEDGER("حساب", Icons.Rounded.AccountBalance, emptyList()),
+    LEDGER("تراکنش‌ها", Icons.Rounded.AccountBalance, emptyList()),
     /** All the tools: money, budget, dong, wallet, stats, OCR... */
     APPS("برنامه‌ها", Icons.Rounded.Apps, emptyList()),
     SETTINGS("تنظیمات", Icons.Rounded.Settings, emptyList()),
 }
 
 /** Stays on the same tab when coming back from another screen. */
-private val currentTab = mutableStateOf(HomeTab.LEDGER)
+private val currentTab = mutableStateOf(HomeTab.MONEY)
 
 /** Tabs shown: without the notification module, the app is the ledger, the tools and settings. */
 fun visibleTabs(notifModule: Boolean): List<HomeTab> =
-    if (notifModule) HomeTab.entries.toList() else listOf(HomeTab.LEDGER, HomeTab.APPS, HomeTab.SETTINGS)
+    if (notifModule) listOf(HomeTab.MONEY, HomeTab.HOME, HomeTab.MESSAGES, HomeTab.LEDGER, HomeTab.APPS, HomeTab.SETTINGS)
+    else listOf(HomeTab.MONEY, HomeTab.LEDGER, HomeTab.APPS, HomeTab.SETTINGS)
 
 @Composable
 fun HomeScreen(nav: Navigator) {
@@ -127,6 +131,7 @@ fun HomeScreen(nav: Navigator) {
     BackHandler(enabled = tab != first) { tab = first }
     Box(Modifier.fillMaxSize()) {
         when (tab) {
+            HomeTab.MONEY -> MoneyHomeScreen(nav)
             HomeTab.HOME -> HomeTabContent(nav)
             HomeTab.MESSAGES -> CategoryTab(tab, nav)
             HomeTab.LEDGER -> LedgerScreen(nav, embedded = true)
@@ -167,7 +172,7 @@ private fun HomeTabContent(nav: Navigator) {
     }
 
     Column {
-        TopBar("NotificatioN", today(), nav) {
+        TopBar(t("شاخ گاو"), today(), nav) {
             IconBubble(Icons.Rounded.Savings, { nav.go(Screen.Money) }, tint = Category.BANK.tint)
             Spacer(Modifier.width(8.dp))
             IconBubble(Icons.Rounded.Key, { nav.go(Screen.Wallet) }, tint = ValuableColor)

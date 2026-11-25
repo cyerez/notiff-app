@@ -11,6 +11,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /** The look of the whole app. Each style has light and dark versions. More styles come in phase 3. */
 enum class AppStyle(val label: String) {
+    PISTACHIO("پسته و زعفران"),
     GLASS("شیشه‌ای نئونی"),
     PEACH("کوهستان هلویی"),
     SEASONS("چهار فصل"),
@@ -45,7 +46,7 @@ data class Settings(
     val hideAds: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.NEON_BLUE,
-    val style: AppStyle = AppStyle.GLASS,
+    val style: AppStyle = AppStyle.PISTACHIO,
     val season: Season = Season.AUTO,
     /** Asked once for contacts access (to show names instead of numbers). */
     val contactsAsked: Boolean = false,
@@ -147,7 +148,9 @@ class Prefs(context: Context) {
         hideAds = sp.getBoolean("hideAds", true),
         themeMode = runCatching { ThemeMode.valueOf(sp.getString("themeMode", null)!!) }.getOrDefault(ThemeMode.SYSTEM),
         accent = runCatching { Accent.valueOf(sp.getString("accent", null)!!) }.getOrDefault(Accent.NEON_BLUE),
-        style = runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.GLASS),
+        // v3 "شاخ گاو": everyone moves once to the calm default; the old themes stay in Settings.
+        style = if (!sp.getBoolean("style3", false)) AppStyle.PISTACHIO
+            else runCatching { AppStyle.valueOf(sp.getString("style", null)!!) }.getOrDefault(AppStyle.PISTACHIO),
         blockAdSms = sp.getBoolean("blockAdSms", false),
         phoneDelete = sp.getBoolean("phoneDelete", true),
         contactsAsked = sp.getBoolean("contactsAsked", false),
@@ -199,6 +202,7 @@ class Prefs(context: Context) {
             .putString("themeMode", s.themeMode.name)
             .putString("accent", s.accent.name)
             .putString("style", s.style.name)
+            .putBoolean("style3", true)
             .putString("season", s.season.name)
             .putBoolean("contactsAsked", s.contactsAsked)
             .putString("homeOrder", s.homeOrder.joinToString(","))
