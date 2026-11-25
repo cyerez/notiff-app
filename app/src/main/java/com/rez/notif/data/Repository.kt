@@ -749,8 +749,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             }
             next += db.query(ItemQuery(sinceMillis = now - 90 * 86_400_000L, limit = 5000))
                 .filter { mayBeBill(it) }
-                .mapNotNull { i -> Bills.parse(i.title + "
-" + i.body)?.takeIf { it.due in dayStart()..weekEnd }?.let { i to it } }
+                .mapNotNull { i -> Bills.parse(i.title + "\n" + i.body)?.takeIf { it.due in dayStart()..weekEnd }?.let { i to it } }
                 .distinctBy { it.second.due to it.first.sender }
                 .map { (i, b) -> Upcoming(i.sender.ifBlank { i.title }, (b.amount ?: 0) / 10, b.due, "sms") }
             val today = v.entries.filter { it.time >= dayStart() }
