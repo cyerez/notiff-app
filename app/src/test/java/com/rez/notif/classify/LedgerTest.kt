@@ -110,4 +110,20 @@ class LedgerTest {
         val o = Money.parse("انتقال از کارت 6037-99**-1234\nبه کارت 6219-86**-4521\nمبلغ: 500,000\nمانده: 1,000,000")!!
         assertEquals(500_000L, o.out)
     }
+
+    @Test fun balancePerAccountFromNewestSms() {
+        fun e(id: Long, time: Long, acc: String, bal: Long?, manual: Boolean = false) =
+            Ledger.Entry(id, time, acc, 1, 0, bal, Spending.Kind.OTHER_OUT, "", null, manual = manual)
+        val now = 1_000_000_000L
+        val list = listOf(
+            e(1, now - 5000, "Sepah 1234", 40_000_000),
+            e(2, now - 1000, "Sepah 1234", 42_000_000),
+            e(3, now - 500, "Sepah 1234", null),
+            e(4, now - 2000, "Blu", 8_500_000),
+            e(5, now - 100, "Blu", null, manual = true),
+            e(6, now - 200L * 86_400_000L, "Old 9999", 1_000),
+        )
+        val b = Ledger.balances(list, now)
+        assertEquals(listOf("Sepah 1234" to 42_000_000L, "Blu" to 8_500_000L), b.map { it.account to it.rial })
+    }
 }

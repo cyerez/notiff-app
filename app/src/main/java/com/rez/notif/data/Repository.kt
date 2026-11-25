@@ -706,6 +706,63 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         )
     }
 
+    // ---------- home of "شاخ گاو" ----------
+
+    /** Something due in the next days: a cheque, an installment or a bill. [toman] 0 = amount not known. */
+    data class Upcoming(val title: String, val toman: Long, val due: Long, val kind: String)
+
+    data class HomeView(
+        val balances: List<Ledger.Balance>,
+        /** Sum of all balances (rial). */
+        val total: Long,
+        val left: Ledger.Left?,
+        val daysLeft: Int,
+        /** Spending that still needs a category, newest first. */
+        val unsorted: List<Ledger.Entry>,
+        val categories: List<String>,
+        val next7: List<Upcoming>,
+        /** Today's entries, newest first. */
+        val today: List<Ledger.Entry>,
+        /** Today's biggest spending (rial), for the "big spend" joke. */
+        val bigToday: Long,
+    )
+
+    suspend fun home(): HomeView {
+        val month = thisMonth()
+        val v = ledger(month)
+        return withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val all = ledgerEntries(now - 120L * 86_400_000L, Long.MAX_VALUE)
+            val balances = Ledger.balances(all, now)
+            val weekEnd = now + 7 * 86_400_000L
+            val next = ArrayList<Upcoming>()
+            com.rez.notif.classify.Commitments.dueSoon(db.cheques(), now).forEach { q ->
+                next += Upcoming(q.person, q.toman, q.due, if (q.incoming) "cheque_in" else "cheque_out")
+            }
+            // Hand-entered installments/bills: day of the Persian month.
+            val c = Calendar.getInstance()
+            val (_, _, jd) = Bills.gregorianToJalali(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
+            val days = Ledger.monthDays(month)
+            db.myBills().filter { !isPaid(it.id, month) }.forEach { b ->
+                val ahead = if (b.day >= jd) b.day - jd else b.day + days - jd
+                if (ahead in 0..7) next += Upcoming(b.title, b.amount, dayStart() + ahead * 86_400_000L, "bill")
+            }
+            next += db.query(ItemQuery(sinceMillis = now - 90 * 86_400_000L, limit = 5000))
+                .filter { mayBeBill(it) }
+                .mapNotNull { i -> Bills.parse(i.title + "
+" + i.body)?.takeIf { it.due in dayStart()..weekEnd }?.let { i to it } }
+                .distinctBy { it.second.due to it.first.sender }
+                .map { (i, b) -> Upcoming(i.sender.ifBlank { i.title }, (b.amount ?: 0) / 10, b.due, "sms") }
+            val today = v.entries.filter { it.time >= dayStart() }
+            HomeView(
+                balances, balances.sumOf { it.rial }, v.left, v.daysLeft,
+                v.entries.filter { it.needsCategory }, v.categories,
+                next.sortedBy { it.due }, today,
+                today.filter { it.counted }.maxOfOrNull { it.out } ?: 0,
+            )
+        }
+    }
+
     /** A bank SMS the app could not read: the user types the amount (or skips it). Either way it leaves the queue. */
     suspend fun handleUnreadable(item: Item, toman: Long, income: Boolean, category: String) = withContext(Dispatchers.IO) {
         if (toman > 0) {

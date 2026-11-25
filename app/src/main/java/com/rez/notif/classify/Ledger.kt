@@ -287,6 +287,19 @@ object Ledger {
         return Left(left, if (left > 0 && daysLeft > 0) left / daysLeft else 0, income, fixed, spentVariable, saving)
     }
 
+    /** What one account holds, from the newest SMS that printed a balance ("مانده"). */
+    data class Balance(val account: String, val rial: Long, val time: Long)
+
+    /**
+     * Balance of each account from its newest entry that has one, biggest first.
+     * Hand entries have no balance and are skipped. An account whose last balance is older than [maxAgeMs] is left out.
+     */
+    fun balances(entries: List<Entry>, now: Long, maxAgeMs: Long = 120L * 86_400_000L): List<Balance> =
+        entries.filter { it.balance != null && !it.manual && now - it.time <= maxAgeMs }
+            .groupBy { it.account }
+            .map { (a, l) -> l.maxBy { it.time }.let { Balance(a, it.balance!!, it.time) } }
+            .sortedByDescending { it.rial }
+
     /** Spending (rial) per category this month that is not a fixed cost. */
     fun variableSpent(s: Summary): Long = s.byCategory.filter { it.first !in FIXED_CATS }.sumOf { it.second }
 }
