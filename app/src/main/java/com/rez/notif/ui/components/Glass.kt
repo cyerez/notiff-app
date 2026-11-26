@@ -94,7 +94,7 @@ fun GlassBackground(modifier: Modifier = Modifier, content: @Composable BoxScope
             Canvas(Modifier.fillMaxSize().alpha(pictureAlpha)) { peachMountains(scene, drift) }
         } else if (g.backdrop != Backdrop.BLOBS) {
             Canvas(Modifier.fillMaxSize().alpha(pictureAlpha)) { drawBackdrop(g.backdrop, g, drift) }
-        } else Canvas(Modifier.fillMaxSize().blur(90.dp)) {
+        } else if (g.blobs.size >= 3) Canvas(Modifier.fillMaxSize().blur(90.dp)) {
             val w = size.width
             val h = size.height
             drawCircle(g.blobs[0], radius = w * 0.55f, center = Offset(w * (0.15f + 0.2f * drift), h * (0.12f + 0.06f * drift)))
