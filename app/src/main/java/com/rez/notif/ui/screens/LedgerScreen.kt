@@ -74,7 +74,7 @@ private fun partyLabel(p: String): String = when {
     else -> ""
 }
 
-private fun accountLabel(a: String): String = fa(a)
+private fun accountLabel(a: String): String = com.rez.notif.ui.components.bankLabel(a)
 
 private fun digitsOnly(v: String) = v.map { c -> if (c in '۰'..'۹') '0' + (c - '۰') else c }.filter { it.isDigit() }.joinToString("")
 

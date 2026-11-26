@@ -49,7 +49,9 @@ import com.rez.notif.i18n.I18n
 import com.rez.notif.i18n.t
 import com.rez.notif.ui.Navigator
 import com.rez.notif.ui.Screen
+import com.rez.notif.ui.components.BankBadge
 import com.rez.notif.ui.components.GlassCard
+import com.rez.notif.ui.components.bankLabel
 import com.rez.notif.ui.components.GlassChip
 import com.rez.notif.ui.components.SectionTitle
 import com.rez.notif.ui.components.fa
@@ -73,8 +75,6 @@ fun shortToman(rial: Long): String {
     }
 }
 
-/** Short name of an account: "Sepah 1234" -> "Sepah ۱۲۳۴". */
-private fun bankLabel(a: String): String = fa(a)
 
 /** Animations stay small: off when the user turned them off, or the phone asks for less motion / saves battery. */
 @Composable
@@ -233,7 +233,12 @@ private fun Header(v: Repository.HomeView?, jokes: Boolean) {
 private fun BankCard(b: Ledger.Balance) {
     val g = LocalGlass.current
     GlassCard(Modifier.width(150.dp), contentPadding = 12.dp) {
-        Text(bankLabel(b.account), style = MaterialTheme.typography.labelMedium, color = g.textDim, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BankBadge(b.account, 32.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(bankLabel(b.account), style = MaterialTheme.typography.labelMedium, color = g.textDim, maxLines = 1)
+        }
+        Spacer(Modifier.height(6.dp))
         Text(shortToman(b.rial), style = MaterialTheme.typography.titleMedium, color = g.text, fontWeight = FontWeight.Bold, maxLines = 1)
         Text(shortTime(b.time), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
     }
@@ -269,6 +274,8 @@ private fun TxRow(e: Ledger.Entry) {
     }
     val amount = if (e.inn > 0 && e.out == 0L) "+" + shortToman(e.inn) else "−" + shortToman(e.out)
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        BankBadge(e.account, 28.dp)
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 when (e.category) { null, "" -> t("بی‌دسته"); Ledger.OWN -> t("به خودم"); Ledger.IGNORE -> t("نادیده"); else -> t(e.category) },
