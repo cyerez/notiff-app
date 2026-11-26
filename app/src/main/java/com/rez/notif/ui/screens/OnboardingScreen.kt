@@ -131,7 +131,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
             icon = Icons.Rounded.NotificationsActive,
             color = g.accent,
             title = t("۲. دسترسی نوتیف‌ها (اختیاری)"),
-            text = t("فقط اگه بانک بلو داری (به‌جای پیامک نوتیف میده) یا بعداً ماژول نوتیف رو روشن می‌کنی. در صفحه‌ای که باز میشه NotificatioN رو روشن کن. اگه خاکستری بود: اطلاعات اپ، منوی ⋮ بالا، «Allow restricted settings»."),
+            text = t("فقط اگه بانک بلو داری (به‌جای پیامک نوتیف میده) یا بعداً ماژول نوتیف رو روشن می‌کنی. در صفحه‌ای که باز میشه «شاخ گاو» رو روشن کن. اگه خاکستری بود: اطلاعات اپ، منوی ⋮ بالا، «Allow restricted settings»."),
             done = notifOk,
             action = t("باز کردن تنظیمات"),
             onAction = { Permissions.openNotificationAccess(context) },

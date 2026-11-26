@@ -100,7 +100,7 @@ fun OcrScreen(startUri: String?, nav: Navigator) {
                             NeonIcon(Icons.Rounded.DocumentScanner, g.accent, size = 46.dp)
                             Spacer(Modifier.size(12.dp))
                             Text(
-                                t("با قلم: دکمه قلم رو بزن، «Smart select» رو انتخاب کن، دور متن بکش، بعد «اشتراک» و «متن از عکس» نوتیف رو بزن."),
+                                t("با قلم: دکمه قلم رو بزن، «Smart select» رو انتخاب کن، دور متن بکش، بعد «اشتراک» و «متن از عکس» شاخ گاو رو بزن."),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = g.text,
                             )

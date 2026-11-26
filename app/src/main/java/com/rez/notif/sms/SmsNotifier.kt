@@ -26,7 +26,7 @@ object SmsNotifier {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, t("پیامک‌های تازه"), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = t("وقتی نوتیف اپ پیامک گوشیه")
+                description = t("وقتی شاخ گاو اپ پیامک گوشیه")
             },
         )
         val id = 5000 + (address.hashCode() and 0xfff)

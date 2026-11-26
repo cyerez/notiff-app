@@ -32,7 +32,7 @@ object AppLock {
     fun lockNow() { _unlocked.value = false }
 
     /** Shows the system prompt. Fingerprint, face, or the phone's own PIN/pattern all work. */
-    fun authenticate(activity: Activity, title: String = t("باز کردن نوتیف"), onResult: (Boolean) -> Unit = {}) {
+    fun authenticate(activity: Activity, title: String = t("باز کردن شاخ گاو"), onResult: (Boolean) -> Unit = {}) {
         val prompt = BiometricPrompt.Builder(activity)
             .setTitle(title)
             .setSubtitle(t("اثر انگشت یا رمز گوشی"))

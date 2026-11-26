@@ -35,7 +35,7 @@ fun LockScreen() {
     ) {
         NeonIcon(Icons.Rounded.Fingerprint, g.accent, size = 96.dp)
         Spacer(Modifier.height(20.dp))
-        Text(t("نوتیف قفله"), style = MaterialTheme.typography.headlineSmall, color = g.text)
+        Text(t("شاخ گاو قفله"), style = MaterialTheme.typography.headlineSmall, color = g.text)
         Spacer(Modifier.height(24.dp))
         GlassButton(t("باز کردن"), icon = Icons.Rounded.Fingerprint, onClick = { activity?.let { AppLock.authenticate(it) } })
     }

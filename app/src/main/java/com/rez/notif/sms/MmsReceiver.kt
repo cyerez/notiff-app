@@ -18,7 +18,7 @@ class MmsReceiver : BroadcastReceiver() {
         if (!MmsPdu.isNotification(pdu)) return
         val from = MmsPdu.from(pdu) ?: "MMS"
         val subId = intent.getIntExtra("android.telephony.extra.SUBSCRIPTION_INDEX", intent.getIntExtra("subscription", -1))
-        val raw = RawSms(-1, from, t("یک پیام MMS (عکس، صدا یا پیام گروهی) رسید. نوتیف MMS رو باز نمی‌کنه."), System.currentTimeMillis(), subId)
+        val raw = RawSms(-1, from, t("یک پیام MMS (عکس، صدا یا پیام گروهی) رسید. شاخ گاو MMS رو باز نمی‌کنه."), System.currentTimeMillis(), subId)
         val pending = goAsync()
         Thread {
             try {
