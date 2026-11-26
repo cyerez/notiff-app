@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,13 +53,20 @@ import com.rez.notif.ui.Screen
 import com.rez.notif.ui.components.BankBadge
 import com.rez.notif.ui.components.GlassCard
 import com.rez.notif.ui.components.bankLabel
+import com.rez.notif.ui.components.BankNameDialog
+import com.rez.notif.ui.components.bankUnknown
 import com.rez.notif.ui.components.GlassChip
 import com.rez.notif.ui.components.SectionTitle
 import com.rez.notif.ui.components.fa
 import com.rez.notif.ui.components.shortTime
 import com.rez.notif.ui.components.toman
 import com.rez.notif.ui.rememberLoaded
+import com.rez.notif.ui.theme.Lalezar
 import com.rez.notif.ui.theme.LocalGlass
+import com.rez.notif.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.launch
 
 /** Rial -> "۴٫۲ میلیون" / "۸۵۰ هزار" (toman), for the small bank cards. */
@@ -194,7 +202,14 @@ fun MoneyHomeScreen(nav: Navigator) {
 private fun Header(v: Repository.HomeView?, jokes: Boolean) {
     val g = LocalGlass.current
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
-        Text(t("شاخ گاو"), style = MaterialTheme.typography.titleMedium, color = g.accent, fontWeight = FontWeight.Black)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painterResource(R.drawable.cow_logo), contentDescription = null,
+                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(t("شاخ گاو"), color = g.accent, fontFamily = Lalezar, fontSize = 28.sp)
+        }
         Spacer(Modifier.height(14.dp))
         Text(t("موجودی همه‌ی حساب‌ها"), style = MaterialTheme.typography.bodySmall, color = g.textDim)
         if (v == null) return@Column
@@ -232,7 +247,9 @@ private fun Header(v: Repository.HomeView?, jokes: Boolean) {
 @Composable
 private fun BankCard(b: Ledger.Balance) {
     val g = LocalGlass.current
-    GlassCard(Modifier.width(150.dp), contentPadding = 12.dp) {
+    var naming by remember { mutableStateOf(false) }
+    if (naming) BankNameDialog(b.account) { naming = false }
+    GlassCard(Modifier.width(150.dp), contentPadding = 12.dp, onClick = { naming = true }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BankBadge(b.account, 32.dp)
             Spacer(Modifier.width(8.dp))
@@ -241,6 +258,7 @@ private fun BankCard(b: Ledger.Balance) {
         Spacer(Modifier.height(6.dp))
         Text(shortToman(b.rial), style = MaterialTheme.typography.titleMedium, color = g.text, fontWeight = FontWeight.Bold, maxLines = 1)
         Text(shortTime(b.time), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
+        if (bankUnknown(b.account)) Text(t("بزن و اسمش رو بنویس"), style = MaterialTheme.typography.labelSmall, color = g.accent, maxLines = 1)
     }
 }
 

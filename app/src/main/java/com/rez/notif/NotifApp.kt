@@ -18,6 +18,7 @@ class NotifApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.rez.notif.data.BankNames.load(this)
         // "Lock when the screen turns off" needs to hear the screen going off while the app is in the background.
         registerReceiver(
             object : BroadcastReceiver() {

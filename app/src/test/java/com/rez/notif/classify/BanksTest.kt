@@ -24,6 +24,19 @@ class BanksTest {
         assertNull(Banks.of(""))
     }
 
+    @Test fun userNameFindsTheBank() {
+        val names = mapOf("9830009417" to "ملت حقوق", "1234567" to "صندوق خانوادگی")
+        val a = Banks.shown("9830009417 4321", names)
+        assertEquals("mellat", a.bank?.id)
+        assertEquals("ملت حقوق", a.name)
+        assertEquals("4321", a.last4)
+        val b = Banks.shown("1234567", names)
+        assertNull(b.bank)
+        assertEquals("صندوق خانوادگی", b.name)
+        assertEquals("پاسارگاد", Banks.shown("B.Pasargad 1111", names).name)
+        assertEquals("9999", Banks.shown("9999", emptyMap()).name)
+    }
+
     @Test fun splitsAccount() {
         assertEquals("B.Pasargad" to "1234", Banks.split("B.Pasargad 1234"))
         assertEquals("Blu" to null, Banks.split("Blu"))

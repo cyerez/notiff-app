@@ -285,6 +285,9 @@ fun glassColors(dark: Boolean, accent: Accent, animations: Boolean): GlassColors
     }
 }
 
+/** Playful display font for the app name (Lalezar, SIL Open Font License). */
+val Lalezar = FontFamily(Font(R.font.lalezar, FontWeight.Normal))
+
 val Vazirmatn = FontFamily(
     Font(R.font.vazirmatn_regular, FontWeight.Normal),
     Font(R.font.vazirmatn_medium, FontWeight.Medium),

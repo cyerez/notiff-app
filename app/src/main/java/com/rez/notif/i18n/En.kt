@@ -866,5 +866,12 @@ internal object En {
         "پاک کردن پیام‌های قدیمی" to "Delete old messages",
         "پیام‌های مهم با خودت" to "Take important messages along",
         "ذخیره و بازگردانی" to "Save and restore",
+        "اسم این حساب" to "Name this account",
+        "فرستنده: " to "Sender: ",
+        "مثلاً «ملت» یا «سامان حقوق»" to "e.g. \"Mellat\" or \"Saman salary\"",
+        "یه اسم بنویس" to "Type a name",
+        "بانک " to "Bank ",
+        "بانکش رو نشناختم؛ فقط اسم نشون داده میشه" to "Bank not recognized; only the name will show",
+        "بزن و اسمش رو بنویس" to "Tap to name it",
     )
 }

@@ -61,6 +61,21 @@ object Banks {
         return RULES.firstOrNull { r -> r.words.any { w -> if (w.length <= 3 && w.all { it in 'a'..'z' }) n == w || n == w + "bank" else n.contains(w) } }?.bank
     }
 
+    /**
+     * What to show for a ledger account. [names]: names the user typed for senders the app did not know
+     * (sender -> name, e.g. "9830009417" -> "ملت حقوق"); the bank is then found from that name.
+     * [name] is the user name, else the bank name ([fa] tells which language), else the sender.
+     */
+    data class Shown(val bank: Bank?, val name: String, val last4: String?)
+
+    fun shown(account: String, names: Map<String, String>, fa: Boolean = true): Shown {
+        val (sender, last4) = split(account)
+        val custom = names[sender]?.trim()?.takeIf { it.isNotEmpty() }
+        val bank = custom?.let { of(it) } ?: of(sender)
+        val name = custom ?: bank?.let { if (fa) it.fa else it.en } ?: sender
+        return Shown(bank, name, last4)
+    }
+
     /** Splits a ledger account "<sender> <last 4>" into (sender, last 4 or null). */
     fun split(account: String): Pair<String, String?> {
         val last = account.substringAfterLast(' ', "")

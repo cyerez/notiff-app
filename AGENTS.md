@@ -39,6 +39,7 @@ app/src/main/java/com/rez/notif/
                          same amount within 30 min = own accounts (INTERNAL, left out of totals). Pure Kotlin, tested
     Records.kt           tab-separated escaped text records with a header line; the transfer file format (see TransferScreen). Pure Kotlin, tested
     Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
+    Banks.kt             SMS sender / user-given name -> bank (name, color, logo res bank_<id>); names the user typed live in data/BankNames. Pure Kotlin, tested
     Ledger.kt            the ledger ("دفتر حساب"): bank SMS + Blu notifications + hand entries -> entries with account (bank + last 4),
                          party (card:XXXX / shop:...), category (user tag > own card > learned party > default > ask). Cards seen as an
                          account are the user's own. gaps(): balance before/after each SMS disagree = missing SMS. Pure Kotlin, tested

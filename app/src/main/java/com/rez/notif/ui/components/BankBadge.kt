@@ -19,16 +19,71 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rez.notif.R
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import com.rez.notif.classify.Banks
+import com.rez.notif.data.BankNames
 import com.rez.notif.i18n.I18n
+import com.rez.notif.i18n.t
 import com.rez.notif.ui.theme.LocalGlass
 
-/** "B.Pasargad 1234" -> "پاسارگاد ۱۲۳۴"; unknown senders stay as they are. */
+/** "B.Pasargad 1234" -> "پاسارگاد ۱۲۳۴"; a name the user gave wins; unknown senders stay as they are. */
 fun bankLabel(account: String): String {
-    val (sender, last4) = Banks.split(account)
-    val bank = Banks.of(sender) ?: return fa(account)
-    val name = if (I18n.isFa) bank.fa else bank.en
-    return if (last4 != null) name + " " + fa(last4) else name
+    val s = Banks.shown(account, BankNames.map, I18n.isFa)
+    return fa(if (s.last4 != null) s.name + " " + s.last4 else s.name)
+}
+
+/** True when the app could not tell the bank of this account (the user may name it). */
+fun bankUnknown(account: String): Boolean = Banks.shown(account, BankNames.map).bank == null
+
+/** Lets the user name the sender of an account; the bank (and logo) is found from the name while typing. */
+@Composable
+fun BankNameDialog(account: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val sender = Banks.split(account).first
+    var name by rememberSaveable { mutableStateOf(BankNames.map[sender] ?: "") }
+    val found = Banks.of(name)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(t("اسم این حساب")) },
+        text = {
+            Column {
+                Text(t("فرستنده: ") + fa(sender), style = MaterialTheme.typography.bodySmall, color = LocalGlass.current.textDim)
+                Spacer(Modifier.size(8.dp))
+                OutlinedTextField(
+                    name, { name = it.take(30) }, singleLine = true,
+                    label = { Text(t("مثلاً «ملت» یا «سامان حقوق»")) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.size(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BankBadge(if (name.isBlank()) account else name, 32.dp)
+                    Spacer(Modifier.size(10.dp))
+                    Text(
+                        when {
+                            name.isBlank() -> t("یه اسم بنویس")
+                            found != null -> t("بانک ") + (if (I18n.isFa) found.fa else found.en)
+                            else -> t("بانکش رو نشناختم؛ فقط اسم نشون داده میشه")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { BankNames.set(context, sender, name); onDismiss() }) { Text(t("ذخیره")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("بی‌خیال")) } },
+    )
 }
 
 private fun logoOf(id: String): Int? = when (id) {
@@ -70,8 +125,8 @@ private fun logoOf(id: String): Int? = when (id) {
 /** The bank's logo on a small white tile; a colored circle with the first letter when there is no logo. */
 @Composable
 fun BankBadge(account: String, size: Dp = 36.dp) {
-    val sender = Banks.split(account).first
-    val bank = Banks.of(sender)
+    val shown = Banks.shown(account, BankNames.map, I18n.isFa)
+    val bank = shown.bank
     val logo = bank?.let { logoOf(it.id) }
     if (logo != null) {
         Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Color.White), contentAlignment = Alignment.Center) {
@@ -79,7 +134,7 @@ fun BankBadge(account: String, size: Dp = 36.dp) {
         }
     } else {
         val color = bank?.let { Color(it.color) } ?: LocalGlass.current.textDim
-        val letter = (bank?.let { if (I18n.isFa) it.fa else it.en } ?: sender).trim().take(1).ifEmpty { "؟" }
+        val letter = fa(shown.name.trim().take(1)).ifEmpty { "؟" }
         Box(Modifier.size(size).background(color, CircleShape), contentAlignment = Alignment.Center) {
             Text(letter, color = Color.White, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.42f).sp)
         }
