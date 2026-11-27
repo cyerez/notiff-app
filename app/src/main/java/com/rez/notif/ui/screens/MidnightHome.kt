@@ -105,20 +105,7 @@ fun MidnightHeader(v: Repository.HomeView?, jokes: Boolean) {
                     style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f),
                 )
             }
-            val mood = Jokes.mood(v.left?.perDay, v.left?.left)
-            if (jokes && mood == Jokes.Mood.JOKE) JokeFlip(calmMotion()) {
-                val day = System.currentTimeMillis() / 86_400_000L
-                val joke = when {
-                    v.bigToday >= 10_000_000 -> Jokes.pick(Jokes.BIG_SPEND, day)
-                    Jokes.isLow(v.left?.perDay) -> Jokes.pick(Jokes.LOW, day)
-                    else -> Jokes.ofDay(day)
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    joke, style = MaterialTheme.typography.labelLarge, color = Color.White,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(Color(0xFF0B1A4A).copy(alpha = 0.45f)).padding(horizontal = 12.dp, vertical = 5.dp),
-                )
-            }
+            JokePill(v, jokes, onBlue = true)
         }
     }
 }

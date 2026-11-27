@@ -143,7 +143,15 @@ class CalendarWidget : AppWidgetProvider() {
             val v = RemoteViews(context.packageName, R.layout.widget_calendar)
 
             v.setTextViewText(R.id.cal_app, t("شاخ گاو"))
-            v.setTextViewText(R.id.cal_year, fa(d.y.toString()))
+            // Today's occasion in the corner (red for a holiday), else the year.
+            val occ = com.rez.notif.classify.Occasions.on(today)
+            if (occ.isNotEmpty()) {
+                v.setTextViewText(R.id.cal_year, "🗓 " + occ.joinToString(" · ") { if (com.rez.notif.i18n.I18n.isFa) it.name else it.en })
+                v.setTextColor(R.id.cal_year, if (occ.any { it.holiday }) 0xFFFFC2BA.toInt() else 0xFFFFFFFF.toInt())
+            } else {
+                v.setTextViewText(R.id.cal_year, fa(d.y.toString()))
+                v.setTextColor(R.id.cal_year, 0xFFD6E2FF.toInt())
+            }
             v.setTextViewText(R.id.cal_weekday, t(Jalali.WEEK[Jalali.weekday(today)]))
             v.setTextViewText(R.id.cal_date, fa(d.d.toString()) + " " + t(Jalali.MONTHS[d.m - 1]))
             listOf(R.id.cal_d1, R.id.cal_d2, R.id.cal_d3, R.id.cal_d4, R.id.cal_d5).forEachIndexed { i, id ->

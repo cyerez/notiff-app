@@ -51,6 +51,7 @@ import com.rez.notif.i18n.t
 import com.rez.notif.ui.Navigator
 import com.rez.notif.ui.Screen
 import com.rez.notif.ui.components.BankBadge
+import com.rez.notif.ui.components.softShadow
 import com.rez.notif.ui.components.GlassCard
 import com.rez.notif.ui.components.bankLabel
 import com.rez.notif.ui.components.BankNameDialog
@@ -138,7 +139,7 @@ fun MoneyHomeScreen(nav: Navigator) {
     val shownAt = remember { System.currentTimeMillis() }
     fun quiet() = calm || System.currentTimeMillis() - shownAt > 1500
     // Playful motions (coin, chewing cow) are left out when money is very low.
-    val playful = view?.let { Jokes.mood(it.left?.perDay, it.left?.left) == Jokes.Mood.JOKE } ?: true
+    val playful = view?.let { Jokes.mood(it.total / 10, com.rez.notif.classify.Occasions.isMourning(java.time.LocalDate.now().toEpochDay())) == Jokes.Mood.JOKE } ?: true
     var flight by remember { mutableStateOf<CoinFlight?>(null) }
     val amountAt = remember { mutableMapOf<Long, androidx.compose.ui.geometry.Offset>() }
     val chipAt = remember { mutableMapOf<String, androidx.compose.ui.geometry.Offset>() }
@@ -302,22 +303,44 @@ private fun Header(v: Repository.HomeView?, jokes: Boolean) {
                 style = MaterialTheme.typography.bodyMedium, color = if (l.perDay > 0) g.text else g.moneyOut,
             )
         }
-        val mood = Jokes.mood(v.left?.perDay, v.left?.left)
-        if (jokes && mood == Jokes.Mood.JOKE) JokeFlip(calmMotion()) {
-            val day = System.currentTimeMillis() / 86_400_000L
-            val joke = when {
-                v.bigToday >= 10_000_000 -> Jokes.pick(Jokes.BIG_SPEND, day)
-                Jokes.isLow(v.left?.perDay) -> Jokes.pick(Jokes.LOW, day)
-                else -> Jokes.ofDay(day)
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                joke,
-                style = MaterialTheme.typography.labelLarge,
-                color = Color(0xFF2D2236),
-                modifier = Modifier.background(g.accent2, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 5.dp),
-            )
-        }
+        JokePill(v, jokes, onBlue = false)
+    }
+}
+
+/**
+ * Today's occasion (if any) and the line under the total: the occasion's quip, or a joke that fits the month.
+ * Big and clear on a saffron (or dark glass on blue) pill. Nothing at serious moments.
+ */
+@Composable
+internal fun JokePill(v: Repository.HomeView, jokes: Boolean, onBlue: Boolean) {
+    val g = LocalGlass.current
+    val today = remember { java.time.LocalDate.now().toEpochDay() }
+    val occasions = remember(today) { com.rez.notif.classify.Occasions.on(today) }
+    val mourning = occasions.any { it.mourning }
+    if (occasions.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "🗓 " + occasions.joinToString("  ·  ") { if (I18n.isFa) it.name else it.en },
+            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+            color = if (onBlue) Color.White else if (occasions.any { it.holiday }) g.moneyOut else g.accent,
+        )
+    }
+    if (!jokes) return
+    val line = Jokes.forHome(
+        totalToman = v.total / 10, perDayToman = v.left?.perDay, leftToman = v.left?.left, bigTodayRial = v.bigToday,
+        epochDay = today, occasionQuip = com.rez.notif.classify.Occasions.quip(today), mourning = mourning,
+    ) ?: return
+    JokeFlip(calmMotion()) {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            line,
+            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+            color = if (onBlue) Color.White else Color(0xFF2D2236),
+            modifier = Modifier
+                .softShadow(RoundedCornerShape(50), (if (onBlue) Color.Black else g.accent2).copy(alpha = 0.35f), blur = 10.dp, offsetY = 3.dp)
+                .background(if (onBlue) Color(0xFF0B1A4A).copy(alpha = 0.6f) else g.accent2, RoundedCornerShape(50))
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
 }
 

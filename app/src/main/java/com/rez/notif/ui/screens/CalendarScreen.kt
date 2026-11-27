@@ -68,6 +68,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+/** Dot of a (non-holiday) occasion; holidays show as a red day number instead. */
+val OccasionColor = Color(0xFF9C6ADE)
+
 /** Color of a mark on the calendar, the same everywhere (screen, home, widget legend). */
 fun markColor(k: Planner.MarkKind, g: GlassColors): Color = when (k) {
     Planner.MarkKind.EVENT -> g.accent
@@ -144,7 +147,31 @@ fun CalendarScreen(nav: Navigator, embedded: Boolean = false, startAdding: Boole
                 }
             }
             val dayMarks = view?.marks?.filter { it.day == selected }.orEmpty()
-            if (view != null && dayMarks.isEmpty()) item {
+            val dayOcc = com.rez.notif.classify.Occasions.on(selected)
+            items(dayOcc, key = { "occ" + it.en + selected }) { o ->
+                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🗓", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (com.rez.notif.i18n.I18n.isFa) o.name else o.en,
+                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                                color = if (o.holiday) g.moneyOut else g.text,
+                            )
+                            Text(
+                                if (o.holiday) t("تعطیل رسمی") else t("مناسبت"),
+                                style = MaterialTheme.typography.labelSmall, color = g.textDim,
+                            )
+                            if (o.quip != null && com.rez.notif.i18n.I18n.isFa) Text(
+                                o.quip, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = g.accent,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            if (view != null && dayMarks.isEmpty() && dayOcc.isEmpty()) item {
                 EmptyCow(t("برای این روز چیزی نیست."), calmMotion(), Modifier.padding(horizontal = 22.dp, vertical = 4.dp), size = 56.dp)
             }
             items(dayMarks, key = { "${it.kind}-${it.refId}" }) { mk ->
@@ -171,6 +198,11 @@ fun CalendarScreen(nav: Navigator, embedded: Boolean = false, startAdding: Boole
             }
             item {
                 FlowRow(Modifier.padding(horizontal = 22.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).background(OccasionColor, CircleShape))
+                        Spacer(Modifier.width(4.dp))
+                        Text(t("مناسبت"), style = MaterialTheme.typography.labelSmall, color = g.textDim)
+                    }
                     Planner.MarkKind.entries.forEach { k ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(8.dp).background(markColor(k, g), CircleShape))
@@ -223,6 +255,8 @@ private fun MonthGrid(v: com.rez.notif.data.Repository.CalendarMonth?, selected:
                     if (i in 0 until v.days) {
                         val day = v.firstDay + i
                         val marks = byDay[day].orEmpty()
+                        val occ = remember(day) { com.rez.notif.classify.Occasions.on(day) }
+                        val holiday = occ.any { it.holiday }
                         val trip = marks.firstOrNull { it.kind == Planner.MarkKind.TRIP }
                         val isSel = day == selected
                         val bg = when {
@@ -238,11 +272,12 @@ private fun MonthGrid(v: com.rez.notif.data.Repository.CalendarMonth?, selected:
                         ) {
                             Text(
                                 fa((i + 1).toString()), style = MaterialTheme.typography.bodyLarge,
-                                color = when { isSel -> Color.White; col == 6 -> g.moneyOut; else -> g.text },
+                                color = when { isSel -> Color.White; col == 6 || holiday -> g.moneyOut; else -> g.text },
                                 fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal,
                             )
                             Row(Modifier.height(8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                marks.map { it.kind }.distinct().take(3).forEach { k ->
+                                if (occ.isNotEmpty() && !holiday) Box(Modifier.size(5.dp).background(if (isSel) Color.White else OccasionColor, CircleShape))
+                                marks.map { it.kind }.distinct().take(if (occ.isNotEmpty() && !holiday) 2 else 3).forEach { k ->
                                     Box(Modifier.size(5.dp).background(if (isSel) Color.White else markColor(k, g), CircleShape))
                                 }
                             }

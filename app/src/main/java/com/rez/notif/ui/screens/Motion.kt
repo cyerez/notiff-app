@@ -163,7 +163,8 @@ fun EmptyCow(text: String, calm: Boolean, modifier: Modifier = Modifier, size: a
         )
         androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
         androidx.compose.material3.Text(
-            text, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, color = g.textDim,
+            text, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge, color = g.text.copy(alpha = 0.85f),
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }

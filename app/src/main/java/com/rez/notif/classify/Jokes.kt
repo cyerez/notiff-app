@@ -92,6 +92,17 @@ object Jokes {
         "گاوه نگرانه. یه کم مراقب باش.",
     )
 
+    /** Spent more than this month's plan: a gentle tease, not a scolding. */
+    val OVER = listOf(
+        "دخلت با خرجت نمی‌خونه؛ یه کم یواش‌تر!",
+        "این ماه از برنامه جلو زدی. دنده رو سبک کن.",
+        "گاوه یه نگاه به برنامه‌ت انداخت و یه آه کشید.",
+        "بودجه‌ی ماه تموم شد، ماه هنوز نه!",
+        "از اینجا به بعد هر خرید رو دو بار فکر کن.",
+        "پول علف خرس نیست ها! بقیه‌ی ماه رو مراقب باش.",
+        "قلک پسته‌ای داره نگاهت می‌کنه...",
+    )
+
     /** Empty lists. */
     val EMPTY_SPENDING = listOf(
         "هنوز یه قرون هم خرج نکردی، آفرین!",
@@ -104,9 +115,30 @@ object Jokes {
 
     enum class Mood { JOKE, SERIOUS }
 
-    /** Serious when the money left is very low: then no jokes and no cute animations. */
-    fun mood(perDayToman: Long?, leftToman: Long?): Mood =
-        if ((leftToman != null && leftToman < 0) || (perDayToman != null && perDayToman in 0 until 50_000)) Mood.SERIOUS else Mood.JOKE
+    /** Below this real balance (toman) the app stops joking: money is really tight. */
+    const val TIGHT_TOMAN = 300_000L
+
+    /**
+     * Serious only when real money is near zero ([totalToman], the fresh balance of all accounts) or on a mourning day.
+     * Being over the month's plan is not serious: then the jokes tease gently ([OVER]).
+     */
+    fun mood(totalToman: Long?, mourning: Boolean = false): Mood =
+        if (mourning || (totalToman != null && totalToman in 0 until TIGHT_TOMAN)) Mood.SERIOUS else Mood.JOKE
+
+    /**
+     * The line under the total on the home screen, or null for none.
+     * Order: today's occasion quip, a big spending today, over the plan, a low daily allowance, the joke of the day.
+     */
+    fun forHome(totalToman: Long?, perDayToman: Long?, leftToman: Long?, bigTodayRial: Long, epochDay: Long, occasionQuip: String?, mourning: Boolean): String? {
+        if (mood(totalToman, mourning) == Mood.SERIOUS) return null
+        return when {
+            occasionQuip != null -> occasionQuip
+            bigTodayRial >= 10_000_000 -> pick(BIG_SPEND, epochDay)
+            leftToman != null && leftToman < 0 -> pick(OVER, epochDay)
+            isLow(perDayToman) || (perDayToman != null && perDayToman in 0 until 50_000) -> pick(LOW, epochDay)
+            else -> ofDay(epochDay)
+        }
+    }
 
     /** Low but still fine for a joke. */
     fun isLow(perDayToman: Long?): Boolean = perDayToman != null && perDayToman in 50_000 until 150_000

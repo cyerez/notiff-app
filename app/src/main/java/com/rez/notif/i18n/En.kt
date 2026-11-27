@@ -874,6 +874,8 @@ internal object En {
         "بانکش رو نشناختم؛ فقط اسم نشون داده میشه" to "Bank not recognized; only the name will show",
         "بزن، اسم بذار" to "Tap to name it",
         "قدیمی؛ تو جمع نیست" to "Old; not in the total",
+        "تعطیل رسمی" to "Public holiday",
+        "مناسبت" to "Occasion",
         "دلار" to "Dollar",
         "طلا ۱۸" to "Gold 18k",
         "سکه امامی" to "Emami coin",
