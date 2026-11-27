@@ -42,6 +42,8 @@ app/src/main/java/com/rez/notif/
     Banks.kt             SMS sender / user-given name -> bank (name, color, logo res bank_<id>); names the user typed live in data/BankNames. Pure Kotlin, tested
     Jalali.kt            Persian calendar math on epoch days (month length, leap, weekday from Saturday). Pure Kotlin, tested
     Planner.kt           the calendar: PlanEvent (event/expense/trip with days + reminder) + installments + cheques -> marks per day, upcoming. Pure Kotlin, tested
+    Occasions.kt         occasions of the day (solar, Hijri via java.time HijrahDate, a few Gregorian) with a money quip; mourning days get none. Pure Kotlin, tested
+    Jokes.kt             offline jokes; forHome() picks the line under the total (occasion quip, big spend, over plan, low, daily). Pure Kotlin, tested
     Ledger.kt            the ledger ("دفتر حساب"): bank SMS + Blu notifications + hand entries -> entries with account (bank + last 4),
                          party (card:XXXX / shop:...), category (user tag > own card > learned party > default > ask). Cards seen as an
                          account are the user's own. gaps(): balance before/after each SMS disagree = missing SMS. Pure Kotlin, tested
