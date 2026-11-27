@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,12 @@ import com.rez.notif.ui.theme.LocalGlass
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+fun priceIcon(item: Prices.Item): Int = when (item) {
+    Prices.Item.DOLLAR -> com.rez.notif.R.drawable.ic_price_dollar
+    Prices.Item.GOLD18 -> com.rez.notif.R.drawable.ic_price_gold
+    Prices.Item.COIN -> com.rez.notif.R.drawable.ic_price_coin
+}
+
 /** Dollar, 18k gold and Emami coin on the home screen; fetched at most every 3 hours (the app's only internet use). */
 @Composable
 fun PricesRow() {
@@ -43,7 +50,11 @@ fun PricesRow() {
             val q = saved.quotes.firstOrNull { it.item == item }
             GlassCard(Modifier.weight(1f), contentPadding = 10.dp) {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(t(item.label), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(priceIcon(item)), null, Modifier.size(18.dp))
+                        androidx.compose.foundation.layout.Spacer(Modifier.size(5.dp))
+                        Text(t(item.label), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
+                    }
                     if (q == null) {
                         Text("—", color = g.text)
                     } else {

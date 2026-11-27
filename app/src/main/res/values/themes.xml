@@ -12,6 +12,9 @@
         <item name="android:background">@drawable/wr_card</item>
         <item name="android:gravity">center</item>
         <item name="android:paddingTop">3dp</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
         <item name="android:paddingBottom">3dp</item>
         <item name="android:fontFamily">@font/vazirmatn_bold</item>
         <item name="android:textColor">#FFFFFF</item>

@@ -158,6 +158,7 @@ class CalendarWidget : AppWidgetProvider() {
                 val item = com.rez.notif.classify.Prices.Item.entries[i]
                 val q = prices.quotes.firstOrNull { it.item == item }
                 v.setTextViewText(id, priceText(item, q))
+                v.setTextViewCompoundDrawablesRelative(id, com.rez.notif.ui.screens.priceIcon(item), 0, 0, 0)
             }
             v.setViewVisibility(R.id.cal_prices, if (prices.quotes.isEmpty()) View.GONE else View.VISIBLE)
 

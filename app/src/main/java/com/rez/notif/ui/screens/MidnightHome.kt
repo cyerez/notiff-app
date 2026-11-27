@@ -51,7 +51,7 @@ import com.rez.notif.ui.Navigator
 import com.rez.notif.ui.Screen
 import com.rez.notif.ui.components.BankBadge
 import com.rez.notif.ui.components.BankNameDialog
-import com.rez.notif.ui.components.bankLabel
+import com.rez.notif.ui.components.softShadow
 import com.rez.notif.ui.components.fa
 import com.rez.notif.ui.components.shortTime
 import com.rez.notif.ui.theme.Lalezar
@@ -77,9 +77,12 @@ fun MidnightHeader(v: Repository.HomeView?, jokes: Boolean) {
         Spacer(Modifier.height(8.dp))
         Column(
             Modifier.fillMaxWidth()
+                .softShadow(RoundedCornerShape(30.dp), Blue.copy(alpha = 0.6f), blur = 30.dp, offsetY = 12.dp)
                 .clip(RoundedCornerShape(30.dp))
                 .background(Brush.linearGradient(listOf(Color(0xFF4C8DFF), Blue, BlueDeep)))
-                .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(30.dp))
+                // glossy light on the upper half, like the reference
+                .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.22f), 0.55f to Color.Transparent))
+                .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.3f))), RoundedCornerShape(30.dp))
                 .padding(vertical = 22.dp, horizontal = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -129,10 +132,12 @@ fun MidnightBankCard(b: Ledger.Balance) {
     val base = shown.bank?.let { Color(it.color) } ?: Color(0xFF3A4A7A)
     val fresh = Ledger.isFresh(b, System.currentTimeMillis())
     Column(
-        Modifier.width(210.dp).height(128.dp).alpha(if (fresh) 1f else 0.5f)
+        Modifier.padding(vertical = 10.dp).width(210.dp).height(128.dp).alpha(if (fresh) 1f else 0.5f)
+            .softShadow(RoundedCornerShape(22.dp), Color(0xFF02061A).copy(alpha = 0.7f), blur = 18.dp, offsetY = 8.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(Brush.linearGradient(listOf(base.copy(alpha = 0.95f), lerpTo(base, Color(0xFF0B1230), 0.55f))))
-            .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(22.dp))
+            .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.25f), Color.Transparent, Color.Transparent)))
+            .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.2f))), RoundedCornerShape(22.dp))
             .clickable { naming = true }
             .padding(14.dp),
     ) {
@@ -171,9 +176,12 @@ private fun QuickAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     val g = LocalGlass.current
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(78.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 4.dp)) {
         Box(
-            Modifier.size(54.dp).clip(CircleShape)
+            Modifier.size(54.dp)
+                .softShadow(CircleShape, Blue.copy(alpha = 0.55f), blur = 16.dp, offsetY = 6.dp)
+                .clip(CircleShape)
                 .background(Brush.linearGradient(listOf(Color(0xFF4C8DFF), BlueDeep)))
-                .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape),
+                .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent))
+                .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.1f))), CircleShape),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         Spacer(Modifier.height(6.dp))

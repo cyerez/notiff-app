@@ -66,7 +66,7 @@ data class GlassColors(
     val moneyOwn: Color = Color(0xFF9AA0A6),
 )
 
-enum class Frame { ROUND, CUT, BRASS, PIXEL, CARTOON }
+enum class Frame { ROUND, CUT, BRASS, PIXEL, CARTOON, MORPH }
 enum class Backdrop { BLOBS, CYBER, STEAM, PIXEL, MEADOW }
 
 /** Softens a bright color for calm styles. */
@@ -81,20 +81,21 @@ fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings
     AppStyle.STEAM -> steamColors(dark, settings.animations)
     AppStyle.RETRO -> retroColors(dark, settings.animations)
     AppStyle.MEADOW -> meadowColors(dark, settings.animations)
-    AppStyle.MIDNIGHT -> midnightColors(dark, settings.animations)
+    // Always the night look of the reference design, also when the phone is in light mode.
+    AppStyle.MIDNIGHT -> midnightColors(true, settings.animations)
 }
 
 /** Test style: deep blue night with soft blue light and see-through glass (dark), or pale blue day (light). */
 private fun midnightColors(dark: Boolean, animations: Boolean) = if (dark) GlassColors(
     isDark = true, accent = Color(0xFF4C8DFF), accent2 = Color(0xFF6FD8FF),
     bgTop = Color(0xFF0E1A4A), bgBottom = Color(0xFF050914),
-    blobs = listOf(Color(0xFF2F6BFF).copy(alpha = 0.45f), Color(0xFF1E3A8A).copy(alpha = 0.5f), Color(0xFF3B5BDB).copy(alpha = 0.3f)),
-    glassTop = Color(0xFF1B2A5E).copy(alpha = 0.62f), glassBottom = Color(0xFF0F1838).copy(alpha = 0.62f),
-    edge = Color.White.copy(alpha = 0.14f),
+    blobs = listOf(Color(0xFF2F6BFF).copy(alpha = 0.6f), Color(0xFF1E3A8A).copy(alpha = 0.65f), Color(0xFF4C6FFF).copy(alpha = 0.4f)),
+    glassTop = Color(0xFF22336E).copy(alpha = 0.55f), glassBottom = Color(0xFF0E1636).copy(alpha = 0.7f),
+    edge = Color.White.copy(alpha = 0.38f),
     text = Color(0xFFF2F5FF), textDim = Color(0xFF9FB0D9),
     shadow = Color.Black.copy(alpha = 0.35f),
     animations = animations, style = AppStyle.MIDNIGHT,
-    glow = 0.25f, surface = Color(0xFF16224D),
+    glow = 0.25f, surface = Color(0xFF16224D), frame = Frame.MORPH,
     moneyIn = Color(0xFF5BE49B), moneyOut = Color(0xFFFF7A6B), moneyOwn = Color(0xFF9FB0D9),
 ) else GlassColors(
     isDark = false, accent = Color(0xFF2F6BFF), accent2 = Color(0xFF1FA2D6),
