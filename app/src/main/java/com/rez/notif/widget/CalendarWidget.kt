@@ -33,7 +33,14 @@ class CalendarWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val pending = goAsync()
         worker.execute {
-            try { manager.updateAppWidget(ids, views(context)) } finally { pending.finish() }
+            try {
+                manager.updateAppWidget(ids, views(context))
+                // Prices are fetched at most every 3 hours; draw again when new ones came.
+                if (com.rez.notif.data.PriceStore.refreshIfOld(context)) {
+                    manager.updateAppWidget(ids, views(context))
+                    NotifWidget.refreshSoon(context)
+                }
+            } finally { pending.finish() }
         }
     }
 
@@ -59,6 +66,10 @@ class CalendarWidget : AppWidgetProvider() {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, CalendarWidget::class.java))
             if (ids.isNotEmpty()) manager.updateAppWidget(ids, views(context))
+            if (com.rez.notif.data.PriceStore.refreshIfOld(context)) {
+                if (ids.isNotEmpty()) manager.updateAppWidget(ids, views(context))
+                NotifWidget.refreshSoon(context)
+            }
         }
 
         private fun color(k: Planner.MarkKind): Int = when (k) {
@@ -100,6 +111,22 @@ class CalendarWidget : AppWidgetProvider() {
             return sb
         }
 
+        /** "دلار" on a small line, then "۲۹۲٫۹ هزار ▲". */
+        private fun priceText(item: com.rez.notif.classify.Prices.Item, q: com.rez.notif.classify.Prices.Quote?): CharSequence {
+            val sb = SpannableStringBuilder()
+            sb.append(t(item.label), ForegroundColorSpan(0xFF9FB0D9.toInt()), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(android.text.style.RelativeSizeSpan(0.82f), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.append('\n')
+            if (q == null) { sb.append("—"); return sb }
+            val (num, million) = com.rez.notif.classify.Prices.shortToman(q.rial)
+            sb.append(fa(num.replace('.', '٫')) + (if (million) t(" م") else t(" هزار")))
+            when {
+                q.changePct > 0.05 -> sb.append(" ▲", ForegroundColorSpan(0xFF6BD48F.toInt()), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                q.changePct < -0.05 -> sb.append(" ▼", ForegroundColorSpan(0xFFFF8A7E.toInt()), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            return sb
+        }
+
         private fun open(context: Context, code: Int, extras: Intent.() -> Unit) = PendingIntent.getActivity(
             context, code,
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP).apply(extras),
@@ -125,6 +152,14 @@ class CalendarWidget : AppWidgetProvider() {
                 v.setInt(id, "setBackgroundResource", when { i == 0 -> R.drawable.wr_day_today; day in busy -> R.drawable.wr_day_mark; else -> R.drawable.wr_day })
                 v.setTextColor(id, if (i == 0) 0xFF2F6BFF.toInt() else 0xFFFFFFFF.toInt())
             }
+
+            val prices = com.rez.notif.data.PriceStore.saved(context)
+            listOf(R.id.cal_p1, R.id.cal_p2, R.id.cal_p3).forEachIndexed { i, id ->
+                val item = com.rez.notif.classify.Prices.Item.entries[i]
+                val q = prices.quotes.firstOrNull { it.item == item }
+                v.setTextViewText(id, priceText(item, q))
+            }
+            v.setViewVisibility(R.id.cal_prices, if (prices.quotes.isEmpty()) View.GONE else View.VISIBLE)
 
             v.setTextViewText(R.id.cal_head, t("پیش رو"))
             v.setTextViewText(R.id.cal_all, t("همه ›"))

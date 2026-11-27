@@ -11,7 +11,7 @@ The user writes Persian and is new to Kotlin. Explain changes in simple Persian 
 
 ## Hard rules
 - **Money manager first.** Since 2.2 the notification module (hide/summary/code pop-up/Home+Messages tabs) is off by default (`Prefs.notifModule`). With it off the app must not touch any notification; only Blu bank notifications are read.
-- **Offline only.** The app has no `INTERNET` permission. Never add one, never add analytics or network libraries.
+- **Offline, except prices.** Since 3.0 the app has `INTERNET` for one thing only: `data/PriceStore` fetches the public gold/dollar price file (tgju.org) at most every 3 hours. No SMS, bank data, names or ids ever leave the phone; no analytics or network libraries. Any other network use needs the user's OK first.
 - **Persian, right-to-left UI.** All user text is Persian. The theme forces RTL (`ui/theme/Theme.kt`).
 - **Every user-facing string goes through `t(...)`** (see i18n/).
 - **Never lose user data.** Database changes need a migration in `Db.onUpgrade`; never drop tables.
