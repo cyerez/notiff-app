@@ -81,7 +81,33 @@ fun themeColors(dark: Boolean, settings: Settings): GlassColors = when (settings
     AppStyle.STEAM -> steamColors(dark, settings.animations)
     AppStyle.RETRO -> retroColors(dark, settings.animations)
     AppStyle.MEADOW -> meadowColors(dark, settings.animations)
+    AppStyle.MIDNIGHT -> midnightColors(dark, settings.animations)
 }
+
+/** Test style: deep blue night with soft blue light and see-through glass (dark), or pale blue day (light). */
+private fun midnightColors(dark: Boolean, animations: Boolean) = if (dark) GlassColors(
+    isDark = true, accent = Color(0xFF4C8DFF), accent2 = Color(0xFF6FD8FF),
+    bgTop = Color(0xFF0E1A4A), bgBottom = Color(0xFF050914),
+    blobs = listOf(Color(0xFF2F6BFF).copy(alpha = 0.45f), Color(0xFF1E3A8A).copy(alpha = 0.5f), Color(0xFF3B5BDB).copy(alpha = 0.3f)),
+    glassTop = Color(0xFF1B2A5E).copy(alpha = 0.62f), glassBottom = Color(0xFF0F1838).copy(alpha = 0.62f),
+    edge = Color.White.copy(alpha = 0.14f),
+    text = Color(0xFFF2F5FF), textDim = Color(0xFF9FB0D9),
+    shadow = Color.Black.copy(alpha = 0.35f),
+    animations = animations, style = AppStyle.MIDNIGHT,
+    glow = 0.25f, surface = Color(0xFF16224D),
+    moneyIn = Color(0xFF5BE49B), moneyOut = Color(0xFFFF7A6B), moneyOwn = Color(0xFF9FB0D9),
+) else GlassColors(
+    isDark = false, accent = Color(0xFF2F6BFF), accent2 = Color(0xFF1FA2D6),
+    bgTop = Color(0xFFE6ECFF), bgBottom = Color(0xFFD3DDFB),
+    blobs = listOf(Color(0xFF8FB0FF).copy(alpha = 0.5f), Color(0xFFB9CBFF).copy(alpha = 0.5f), Color(0xFF6E95FF).copy(alpha = 0.3f)),
+    glassTop = Color.White.copy(alpha = 0.82f), glassBottom = Color.White.copy(alpha = 0.7f),
+    edge = Color.White.copy(alpha = 0.9f),
+    text = Color(0xFF0E1A4A), textDim = Color(0xFF5B6A93),
+    shadow = Color(0xFF1E3A8A).copy(alpha = 0.12f),
+    animations = animations, style = AppStyle.MIDNIGHT,
+    glow = 0.15f, surface = Color(0xFFF4F7FF),
+    moneyIn = Color(0xFF1E9E5A), moneyOut = Color(0xFFE0504A), moneyOwn = Color(0xFF7A88AD),
+)
 
 /** "شاخ گاو" default: calm and flat. Pistachio main color, saffron for buttons and the daily joke, pomegranate for spending. */
 private fun pistachioColors(dark: Boolean, animations: Boolean) = if (!dark) GlassColors(

@@ -19,6 +19,8 @@ enum class AppStyle(val label: String) {
     STEAM("استیم‌پانک"),
     RETRO("رترو پیکسلی"),
     MEADOW("دشت جیبلی"),
+    /** Test style (a bank-app look in deep blue glass); not the default. */
+    MIDNIGHT("آبی شب (آزمایشی)"),
 }
 
 /** Which season the "four seasons" style shows. AUTO follows the Persian calendar (Farvardin = spring). */

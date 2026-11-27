@@ -99,7 +99,7 @@ fun calmMotion(): Boolean {
 
 /** The total turns like an odometer to its new value (under half a second). */
 @Composable
-private fun RollingToman(rial: Long, color: Color) {
+internal fun RollingToman(rial: Long, color: Color) {
     val calm = calmMotion()
     val anim = remember { Animatable(0f) }
     var from by remember { androidx.compose.runtime.mutableLongStateOf(rial) }
@@ -134,15 +134,17 @@ fun MoneyHomeScreen(nav: Navigator) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         val v = view
-        item { Header(v, jokes = I18n.isFa) }
+        val midnight = g.style == com.rez.notif.data.AppStyle.MIDNIGHT
+        item { if (midnight) MidnightHeader(v, jokes = I18n.isFa) else Header(v, jokes = I18n.isFa) }
         if (v == null) return@LazyColumn
 
         // Bank cards
         if (v.balances.isNotEmpty()) item {
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(v.balances, key = { it.account }) { b -> BankCard(b) }
+                items(v.balances, key = { it.account }) { b -> if (midnight) MidnightBankCard(b) else BankCard(b) }
             }
         }
+        if (midnight) item { MidnightActions(nav) }
 
         // What were these?
         if (v.unsorted.isNotEmpty()) {
@@ -177,7 +179,7 @@ fun MoneyHomeScreen(nav: Navigator) {
         if (v.next7.isNotEmpty()) {
             item { SectionTitle(t("۷ روز آینده")) }
             item {
-                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Commitments) }) {
+                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Calendar()) }) {
                     v.next7.take(6).forEach { u -> UpcomingRow(u) }
                 }
             }
