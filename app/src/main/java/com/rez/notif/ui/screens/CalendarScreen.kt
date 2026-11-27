@@ -145,7 +145,7 @@ fun CalendarScreen(nav: Navigator, embedded: Boolean = false, startAdding: Boole
             }
             val dayMarks = view?.marks?.filter { it.day == selected }.orEmpty()
             if (view != null && dayMarks.isEmpty()) item {
-                Text(t("برای این روز چیزی نیست."), style = MaterialTheme.typography.bodyMedium, color = g.textDim, modifier = Modifier.padding(horizontal = 22.dp))
+                EmptyCow(t("برای این روز چیزی نیست."), calmMotion(), Modifier.padding(horizontal = 22.dp, vertical = 4.dp), size = 56.dp)
             }
             items(dayMarks, key = { "${it.kind}-${it.refId}" }) { mk ->
                 GlassCard(

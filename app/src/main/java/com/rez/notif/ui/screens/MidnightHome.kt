@@ -70,7 +70,7 @@ fun MidnightHeader(v: Repository.HomeView?, jokes: Boolean) {
     val g = LocalGlass.current
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
-            Image(painterResource(R.drawable.cow_logo), null, Modifier.size(34.dp).clip(CircleShape).border(1.5.dp, Color.White.copy(alpha = 0.5f), CircleShape))
+            Image(painterResource(R.drawable.cow_cut), null, Modifier.size(38.dp))
             Spacer(Modifier.width(10.dp))
             Text(t("شاخ گاو"), color = g.text, fontFamily = Lalezar, fontSize = 22.sp)
         }

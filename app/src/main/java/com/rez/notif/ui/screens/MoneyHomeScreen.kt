@@ -260,10 +260,10 @@ fun MoneyHomeScreen(nav: Navigator) {
         val i6 = n + 1
         item(key = "todayt") { Box(Modifier.animateItem().appear(i6, quiet())) { SectionTitle(t("امروز")) } }
         if (v.today.isEmpty()) item(key = "today0") {
-            Text(
-                if (I18n.isFa) Jokes.pick(Jokes.EMPTY_SPENDING, System.currentTimeMillis() / 86_400_000L) else t("هنوز تراکنشی نیست."),
-                style = MaterialTheme.typography.bodyMedium, color = g.textDim,
-                modifier = Modifier.animateItem().appear(i6 + 1, quiet()).padding(horizontal = 20.dp, vertical = 8.dp),
+            EmptyCow(
+                if (I18n.isFa && playful) Jokes.pick(Jokes.EMPTY_SPENDING, System.currentTimeMillis() / 86_400_000L) else t("هنوز تراکنشی نیست."),
+                calm || !playful,
+                Modifier.animateItem().appear(i6 + 1, quiet()).padding(horizontal = 20.dp, vertical = 8.dp),
             )
         } else item(key = "today") {
             GlassCard(Modifier.animateItem().appear(i6 + 1, quiet()).fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Ledger) }) {
@@ -281,8 +281,8 @@ private fun Header(v: Repository.HomeView?, jokes: Boolean) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
-                painterResource(R.drawable.cow_logo), contentDescription = null,
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)),
+                painterResource(R.drawable.cow_cut), contentDescription = null,
+                modifier = Modifier.size(44.dp),
             )
             Spacer(Modifier.width(10.dp))
             Text(t("شاخ گاو"), color = g.accent, fontFamily = Lalezar, fontSize = 28.sp)

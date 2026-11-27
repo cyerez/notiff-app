@@ -12,6 +12,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
@@ -27,6 +28,8 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
@@ -132,5 +135,105 @@ fun CowRefreshIndicator(state: PullToRefreshState, refreshing: Boolean, calm: Bo
         contentAlignment = Alignment.Center,
     ) {
         Image(painterResource(R.drawable.cow_cut), null, Modifier.size(56.dp))
+    }
+}
+
+/**
+ * Empty screens: the cow chews slowly next to a short line. Static when motion is calm.
+ * [size]: height of the cow.
+ */
+@Composable
+fun EmptyCow(text: String, calm: Boolean, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 72.dp) {
+    val g = com.rez.notif.ui.theme.LocalGlass.current
+    val t = rememberInfiniteTransition(label = "ruminate")
+    // Slow chewing (jaw) and a small breath (bob); a ruminating cow is not in a hurry.
+    val jaw by t.animateFloat(1f, 0.93f, infiniteRepeatable(tween(420, easing = LinearEasing), RepeatMode.Reverse), label = "jaw")
+    val bob by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
+    val lift = with(LocalDensity.current) { 3.dp.toPx() }
+    androidx.compose.foundation.layout.Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(
+            painterResource(R.drawable.cow_cut), null,
+            Modifier.size(size).graphicsLayer {
+                if (!calm) {
+                    scaleY = jaw
+                    translationY = -bob * lift
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                }
+            },
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
+        androidx.compose.material3.Text(
+            text, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, color = g.textDim,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
+}
+
+
+/**
+ * The pistachio jar ("قلک پسته‌ای"): fills with pistachios up to [progress] (0..1). When it grows, a pistachio
+ * drops in and the level rises (under half a second).
+ */
+@Composable
+fun PistachioJar(progress: Float, calm: Boolean, modifier: Modifier = Modifier) {
+    val g = com.rez.notif.ui.theme.LocalGlass.current
+    val target = progress.coerceIn(0f, 1f)
+    val level = remember { Animatable(target) }
+    val drop = remember { Animatable(1f) }
+    LaunchedEffect(target) {
+        if (calm || target <= level.value) { level.snapTo(target); return@LaunchedEffect }
+        drop.snapTo(0f)
+        drop.animateTo(1f, tween(280, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+        level.animateTo(target, tween(220, easing = FastOutSlowInEasing))
+    }
+    val glass = if (g.isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.55f)
+    val line = g.text.copy(alpha = 0.35f)
+    Canvas(modifier) {
+        val w = size.width; val h = size.height
+        val lidH = h * 0.10f
+        val neckTop = h * 0.08f; val bodyTop = h * 0.22f
+        val body = androidx.compose.ui.geometry.RoundRect(w * 0.08f, bodyTop, w * 0.92f, h, androidx.compose.ui.geometry.CornerRadius(w * 0.2f))
+        val bodyPath = androidx.compose.ui.graphics.Path().apply { addRoundRect(body) }
+        // neck and glass
+        drawRect(glass, Offset(w * 0.26f, lidH * 0.9f), androidx.compose.ui.geometry.Size(w * 0.48f, bodyTop - neckTop + 4f))
+        drawPath(bodyPath, glass)
+        // pistachios up to the level
+        val fillTop = bodyTop + (h - bodyTop) * (1f - level.value)
+        clipPath(bodyPath) {
+            drawRect(Color(0xFFA8C97F).copy(alpha = 0.55f), Offset(0f, fillTop), androidx.compose.ui.geometry.Size(w, h - fillTop))
+            val nut = w * 0.17f
+            var row = 0
+            var y = h - nut * 0.55f
+            while (y > fillTop - nut * 0.2f) {
+                var x = w * 0.12f + (if (row % 2 == 1) nut * 0.55f else 0f)
+                while (x < w * 0.9f) {
+                    pistachio(Offset(x + nut * 0.5f, y), nut, (row * 7 + (x / nut).toInt() * 3) % 5)
+                    x += nut * 1.05f
+                }
+                y -= nut * 0.62f; row++
+            }
+        }
+        // falling pistachio
+        if (drop.value < 1f) {
+            val nut = w * 0.17f
+            val y = -nut + (fillTop + nut) * drop.value
+            pistachio(Offset(w * 0.5f, y), nut, 2)
+        }
+        drawPath(bodyPath, line, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6f * density))
+        // neck outline, so the lid sits on the jar
+        drawRect(line, Offset(w * 0.26f, lidH * 0.9f), androidx.compose.ui.geometry.Size(w * 0.48f, bodyTop - lidH * 0.9f + 2f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6f * density))
+        // shine and lid (saffron)
+        drawRoundRect(Color.White.copy(alpha = 0.35f), Offset(w * 0.18f, bodyTop + h * 0.08f), androidx.compose.ui.geometry.Size(w * 0.07f, h * 0.38f), androidx.compose.ui.geometry.CornerRadius(w * 0.05f))
+        drawRoundRect(Color(0xFFF2A93B), Offset(w * 0.2f, 0f), androidx.compose.ui.geometry.Size(w * 0.6f, lidH), androidx.compose.ui.geometry.CornerRadius(lidH / 3))
+    }
+}
+
+/** One pistachio: a beige shell open a little, the green nut showing. [tilt] 0..4 turns it a bit. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.pistachio(c: Offset, size: Float, tilt: Int) {
+    val deg = (tilt - 2) * 18f
+    rotate(deg, c) {
+        drawOval(Color(0xFFD9C29A), Offset(c.x - size * 0.5f, c.y - size * 0.33f), androidx.compose.ui.geometry.Size(size, size * 0.66f))
+        drawOval(Color(0xFF8DB255), Offset(c.x - size * 0.28f, c.y - size * 0.2f), androidx.compose.ui.geometry.Size(size * 0.56f, size * 0.4f))
+        drawOval(Color(0xFFB59A6A).copy(alpha = 0.6f), Offset(c.x - size * 0.5f, c.y - size * 0.33f), androidx.compose.ui.geometry.Size(size, size * 0.66f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = size * 0.06f))
     }
 }

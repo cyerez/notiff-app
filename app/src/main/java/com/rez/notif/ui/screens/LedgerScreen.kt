@@ -271,7 +271,7 @@ fun LedgerScreen(nav: Navigator, embedded: Boolean = false) {
                     GlassChip(t("+ خرج دستی"), false, { adding = true })
                 }
             }
-            if (v.entries.isEmpty()) item { Hint(t("این ماه هنوز پیامک بانکی یا خرج دستی نداری.")) }
+            if (v.entries.isEmpty()) item { EmptyCow(t("این ماه هنوز پیامک بانکی یا خرج دستی نداری."), calmMotion(), Modifier.padding(16.dp)) }
             v.entries.forEach { e ->
                 item(key = "e" + e.id) {
                     GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = { picking = e }, contentPadding = 10.dp) {

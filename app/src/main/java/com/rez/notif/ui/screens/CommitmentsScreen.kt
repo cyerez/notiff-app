@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -114,11 +116,20 @@ fun CommitmentsScreen(nav: Navigator) {
                 }
             }
             if (v.goals.isEmpty()) item {
+                Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PistachioJar(0.4f, true, Modifier.size(width = 46.dp, height = 58.dp))
+                    Box(Modifier.weight(1f)) {
                 Hint2(t("مثلاً «قلک اضطراری»: هر ماه یه مبلغ کنار بذار تا خرج‌های یهویی از بودجه ماه نخوره. مبلغ ماهانه از «تا آخر ماه چقدر می‌تونی خرج کنی» کم میشه."))
+                    }
+                }
             }
             v.goals.forEach { gl ->
                 item(key = "goal" + gl.id) {
                     GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = { goal = gl }, contentPadding = 12.dp) {
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                        PistachioJar(gl.percent / 100f, calmMotion(), Modifier.size(width = 58.dp, height = 74.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(gl.title, style = MaterialTheme.typography.titleSmall, color = g.text, modifier = Modifier.weight(1f))
                             Text(fa(gl.percent) + "٪", style = MaterialTheme.typography.labelMedium, color = if (gl.done) InColor else g.accent)
@@ -139,6 +150,8 @@ fun CommitmentsScreen(nav: Navigator) {
                             GlassChip(t("+ گذاشتم توش"), false, { deposit = gl })
                             if (gl.monthly > 0 && !gl.done) GlassChip(t("+ ماهانه"), false, { scope.launch { repo.saveGoal(gl.copy(saved = gl.saved + gl.monthly)) } })
                         }
+                        }
+                      }
                     }
                 }
             }

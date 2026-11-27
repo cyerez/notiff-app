@@ -228,8 +228,9 @@ fun ItemRow(
 @Composable
 fun EmptyState(text: String, modifier: Modifier = Modifier) {
     val g = LocalGlass.current
+    // The ruminating cow of "شاخ گاو" keeps empty lists company.
     GlassCard(modifier.padding(16.dp).fillMaxWidth()) {
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = g.textDim)
+        com.rez.notif.ui.screens.EmptyCow(text, com.rez.notif.ui.screens.calmMotion())
     }
 }
 
