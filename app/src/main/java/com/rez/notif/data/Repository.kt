@@ -17,6 +17,8 @@ import com.rez.notif.classify.Classifier
 import com.rez.notif.classify.Learner
 import com.rez.notif.classify.Priority
 import com.rez.notif.classify.Ledger
+import com.rez.notif.classify.Planner
+import com.rez.notif.classify.Jalali
 import com.rez.notif.classify.Money
 import com.rez.notif.classify.Bills
 import com.rez.notif.classify.Rule
@@ -745,7 +747,13 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
             val days = Ledger.monthDays(month)
             db.myBills().filter { !isPaid(it.id, month) }.forEach { b ->
                 val ahead = if (b.day >= jd) b.day - jd else b.day + days - jd
-                if (ahead in 0..7) next += Upcoming(b.title, b.amount, dayStart() + ahead * 86_400_000L, "bill")
+                val dueYm = if (b.day >= jd) month else Jalali.plusMonths(month, 1)
+                if (ahead in 0..7 && b.startYm <= dueYm) next += Upcoming(b.title, b.amount, dayStart() + ahead * 86_400_000L, "bill")
+            }
+            // The calendar: events, planned expenses and trips starting this week.
+            val tday = todayEpoch()
+            Planner.upcoming(tday, 8, Jalali.ofEpochDay(tday).ym, db.events(), emptyList(), emptyList()).forEach { mk ->
+                next += Upcoming(mk.title, mk.toman, dayStart() + (mk.day - tday) * 86_400_000L, "event")
             }
             next += db.query(ItemQuery(sinceMillis = now - 90 * 86_400_000L, limit = 5000))
                 .filter { mayBeBill(it) }
@@ -904,6 +912,61 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     }
 
     // ---------- dong ----------
+
+    // ---------- calendar ----------
+
+    data class CalendarMonth(val y: Int, val m: Int, val firstDay: Long, val days: Int, val today: Long, val marks: List<Planner.Mark>)
+
+    private fun planInputs(): Triple<List<Planner.PlanEvent>, List<Planner.Installment>, List<Planner.ChequeDue>> {
+        val zone = java.time.ZoneId.systemDefault()
+        val inst = db.myBills().map { Planner.Installment(it.id, it.title, it.amount, it.day, it.remaining, it.startYm) }
+        val cheques = db.cheques().filter { it.status == com.rez.notif.classify.Cheque.Status.PENDING }.map {
+            Planner.ChequeDue(it.id, it.person, it.toman, java.time.Instant.ofEpochMilli(it.due).atZone(zone).toLocalDate().toEpochDay(), it.incoming)
+        }
+        return Triple(db.events(), inst, cheques)
+    }
+
+    private fun todayEpoch() = java.time.LocalDate.now().toEpochDay()
+
+    suspend fun calendar(y: Int, m: Int): CalendarMonth = withContext(Dispatchers.IO) {
+        val first = Jalali.toEpochDay(y, m, 1)
+        val days = Jalali.daysInMonth(y, m)
+        val today = todayEpoch()
+        val (e, i, c) = planInputs()
+        CalendarMonth(y, m, first, days, today, Planner.marks(first, first + days - 1, Jalali.ofEpochDay(today).ym, e, i, c))
+    }
+
+    /** The next [days] days of the calendar (home screen, widget). */
+    fun upcomingPlanNow(days: Int): List<Planner.Mark> {
+        val today = todayEpoch()
+        val (e, i, c) = planInputs()
+        return Planner.upcoming(today, days, Jalali.ofEpochDay(today).ym, e, i, c)
+    }
+
+    suspend fun upcomingPlan(days: Int): List<Planner.Mark> = withContext(Dispatchers.IO) { upcomingPlanNow(days) }
+
+    suspend fun event(id: Long): Planner.PlanEvent? = withContext(Dispatchers.IO) { db.event(id) }
+
+    /** Saves an event and its reminder. A trip gets (or keeps in step) its own dong with the same name, days and start. */
+    suspend fun saveEvent(e0: Planner.PlanEvent): Long = withContext(Dispatchers.IO) {
+        var e = e0
+        if (e.kind == Planner.Kind.TRIP) {
+            val old = if (e.tripId > 0) db.trips().firstOrNull { it.id == e.tripId } else null
+            val trip = (old ?: com.rez.notif.classify.DongTrip(name = e.title)).copy(name = e.title, days = maxOf(e.days, old?.days ?: 1), start = e.start)
+            e = e.copy(tripId = db.saveTrip(trip).let { if (trip.id > 0) trip.id else it })
+        }
+        val id = db.saveEvent(e)
+        com.rez.notif.notif.Reminders.scheduleEvent(context, e.copy(id = id))
+        changed()
+        id
+    }
+
+    /** Removes the event and its reminder; a trip keeps its dong (its expenses are the user data). */
+    suspend fun deleteEvent(id: Long) = withContext(Dispatchers.IO) {
+        db.deleteEvent(id)
+        com.rez.notif.notif.Reminders.cancelEvent(context, id)
+        changed()
+    }
 
     suspend fun trips(): List<com.rez.notif.classify.DongTrip> = withContext(Dispatchers.IO) { db.trips() }
 

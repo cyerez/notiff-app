@@ -27,6 +27,8 @@ data class DongTrip(
     val present: Map<Int, Set<Int>> = emptyMap(),
     val expenses: List<DongExpense> = emptyList(),
     val updated: Long = 0,
+    /** First day of the trip (epoch day), 0 when not on the calendar. */
+    val start: Long = 0,
 ) {
     fun presentOn(day: Int): Set<Int> = present[day] ?: people.indices.toSet()
 }
@@ -126,6 +128,7 @@ object Dong {
         t.people.joinToString(L.toString()) { clean(it.name) + P + it.weight },
         t.present.entries.joinToString(L.toString()) { it.key.toString() + P + it.value.sorted().joinToString(",") },
         t.expenses.joinToString(L.toString()) { listOf(clean(it.title), it.amount, it.payer, it.day, it.people.sorted().joinToString(",")).joinToString(P.toString()) },
+        t.start.toString(),
     ).joinToString(F.toString())
 
     fun decode(id: Long, s: String, updated: Long = 0): DongTrip? = runCatching {
@@ -139,6 +142,7 @@ object Dong {
             present = list(f[4]).associate { val p = it.split(P); p[0].toInt() to ints(p.getOrElse(1) { "" }) },
             expenses = list(f[5]).map { val p = it.split(P); DongExpense(p[0], p[1].toLong(), p[2].toInt(), p[3].toInt(), ints(p[4])) },
             updated = updated,
+            start = f.getOrNull(6)?.toLongOrNull() ?: 0,
         )
     }.getOrNull()
 }

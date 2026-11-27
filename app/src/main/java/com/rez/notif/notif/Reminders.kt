@@ -65,6 +65,7 @@ object Reminders {
         for ((id, at, repeats) in db.reminders()) {
             if (at > now + 30_000) break
             // Below CHEQUE_BASE: cheques. Other negative ids are the user's own bills (Db.bills), not items.
+            if (id <= -EVENT_BASE) { fireEvent(context, -id - EVENT_BASE); continue }
             if (id <= -CHEQUE_BASE) { fireCheque(context, -id - CHEQUE_BASE, at); continue }
             if (id < 0) { fireBill(context, -id, at); continue }
             val item = db.get(id)
@@ -118,10 +119,17 @@ object Reminders {
         val days = NotifApp.repo(context).prefs.current.billDaysBefore
         val now = System.currentTimeMillis()
         // This month's due date may already be inside the "days before" window: start reminding now.
-        val due = com.rez.notif.classify.Bills.nextMonthly(b.day, 0, now)
+        // An installment that starts in a later month counts from the first day of that month.
+        val from = if (b.startYm > 0) maxOf(now, startOfMonth(b.startYm)) else now
+        val due = com.rez.notif.classify.Bills.nextMonthly(b.day, 0, from)
         val at = due - days * 86_400_000L
         db(context).putReminder(-b.id, if (at > now) at else now + 60_000L, 0)
         arm(context)
+    }
+
+    private fun startOfMonth(ym: Int): Long {
+        val day = com.rez.notif.classify.Jalali.toEpochDay(ym / 100, ym % 100, 1)
+        return java.time.LocalDate.ofEpochDay(day).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
 
     /** Reminder ids for cheques: -(CHEQUE_BASE + cheque id), far from bill ids. */
@@ -162,6 +170,43 @@ object Reminders {
             db.putReminder(-(CHEQUE_BASE + chequeId), minOf(at + 86_400_000L, q.due), 0)
             arm(context)
         }
+    }
+
+    /** Reminder ids for calendar events: -(EVENT_BASE + event id), below the cheque ids. */
+    private const val EVENT_BASE = 2_000_000_000L
+
+    /** Sets (or clears) the reminder of a calendar event. */
+    fun scheduleEvent(context: Context, e: com.rez.notif.classify.Planner.PlanEvent) {
+        val id = -(EVENT_BASE + e.id)
+        if (e.remindAt <= 0 || e.remindAt < System.currentTimeMillis() - 60_000L) db(context).removeReminder(id)
+        else db(context).putReminder(id, e.remindAt, 0)
+        arm(context)
+    }
+
+    fun cancelEvent(context: Context, eventId: Long) {
+        db(context).removeReminder(-(EVENT_BASE + eventId))
+        context.getSystemService(NotificationManager::class.java)?.cancel(70_000 + (eventId % 10_000).toInt())
+        arm(context)
+    }
+
+    private fun fireEvent(context: Context, eventId: Long) {
+        val db = db(context)
+        db.removeReminder(-(EVENT_BASE + eventId))
+        val e = db.event(eventId) ?: return
+        val today = java.time.LocalDate.now().toEpochDay()
+        val whenText = when {
+            e.start == today -> t("امروز")
+            e.start == today + 1 -> t("فردا")
+            e.start > today -> com.rez.notif.ui.components.fa((e.start - today).toString()) + t(" روز دیگه")
+            else -> ""
+        }
+        val dateText = com.rez.notif.ui.components.fa(com.rez.notif.classify.Jalali.dayMonth(e.start))
+        post(
+            context, 70_000 + (eventId % 10_000).toInt(),
+            t("یادآوری: ") + e.title,
+            listOf(whenText, dateText, if (e.toman > 0) com.rez.notif.ui.components.toman(e.toman * 10) else "").filter { it.isNotEmpty() }.joinToString("  ·  "),
+            null,
+        )
     }
 
     fun cancelBill(context: Context, billId: Long) {
