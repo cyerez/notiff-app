@@ -326,7 +326,7 @@ private fun AppsTab(nav: Navigator) {
         Tool("طلب، بدهی، چک و قلک", "تعهدها و پس‌انداز", Icons.Rounded.Savings, VipColor, Screen.Commitments),
         Tool("قسط و قبض", "خلاصه بانک، قسط و قبض", Icons.Rounded.AccountBalance, Category.BANK.tint, Screen.Money),
         Tool("دخل و خرج", "درآمد و خرج ماه", Icons.Rounded.AccountBalanceWallet, Category.PERSONAL.tint, Screen.Budget),
-        Tool("تقویم", "قسط، سفر و یادآور", Icons.Rounded.CalendarMonth, Category.SERVICES.tint, Screen.Calendar),
+        Tool("تقویم", "قسط، سفر و یادآور", Icons.Rounded.CalendarMonth, Category.SERVICES.tint, Screen.Calendar()),
         Tool("حساب دنگ", "سفر و دورهمی", Icons.Rounded.Groups, Category.SOCIAL.tint, Screen.Dong),
         Tool("کیف پسورد", "رمزها با اثر انگشت", Icons.Rounded.Key, ValuableColor, Screen.Wallet),
         Tool("متن از عکس", "بدون اینترنت", Icons.Rounded.DocumentScanner, Category.OTP.tint, Screen.Ocr()),

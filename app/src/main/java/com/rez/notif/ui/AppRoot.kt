@@ -68,7 +68,8 @@ sealed interface Screen {
     data object Rules : Screen
     data object Money : Screen
     data object Dong : Screen
-    data object Calendar : Screen
+    /** [add]: open the add dialog on today (the widget button). */
+    data class Calendar(val add: Boolean = false) : Screen
     data object Budget : Screen
     data object Ledger : Screen
     data object Commitments : Screen
@@ -159,7 +160,7 @@ fun AppRoot() {
                         Screen.Rules -> com.rez.notif.ui.screens.RulesScreen(nav)
                         Screen.Money -> com.rez.notif.ui.screens.MoneyScreen(nav)
                         Screen.Dong -> com.rez.notif.ui.screens.DongScreen(nav)
-                        Screen.Calendar -> com.rez.notif.ui.screens.CalendarScreen(nav)
+                        is Screen.Calendar -> com.rez.notif.ui.screens.CalendarScreen(nav, startAdding = screen.add)
                         Screen.Budget -> com.rez.notif.ui.screens.BudgetScreen(nav)
                         Screen.Ledger -> com.rez.notif.ui.screens.LedgerScreen(nav)
                         Screen.Commitments -> com.rez.notif.ui.screens.CommitmentsScreen(nav)

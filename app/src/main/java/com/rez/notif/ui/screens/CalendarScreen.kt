@@ -95,7 +95,7 @@ fun longDay(day: Long): String {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CalendarScreen(nav: Navigator, embedded: Boolean = false) {
+fun CalendarScreen(nav: Navigator, embedded: Boolean = false, startAdding: Boolean = false) {
     val g = LocalGlass.current
     val context = LocalContext.current
     val repo = remember { NotifApp.repo(context) }
@@ -105,7 +105,7 @@ fun CalendarScreen(nav: Navigator, embedded: Boolean = false) {
     var m by rememberSaveable { mutableStateOf(todayJ.m) }
     var selected by rememberSaveable { mutableLongStateOf(today) }
     var editing by remember { mutableStateOf<Planner.PlanEvent?>(null) }
-    var adding by remember { mutableStateOf(false) }
+    var adding by remember { mutableStateOf(startAdding) }
     val view by rememberLoaded(repo, y, m) { repo.calendar(y, m) }
     val scope = rememberCoroutineScope()
 

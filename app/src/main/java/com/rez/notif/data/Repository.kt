@@ -75,6 +75,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
     private fun changed() {
         _version.update { it + 1 }
         com.rez.notif.widget.NotifWidget.refreshSoon(context)
+        com.rez.notif.widget.CalendarWidget.refreshSoon(context)
     }
 
     data class WidgetData(val unread: Int, val today: Int, val counts: List<CategoryCount>)
