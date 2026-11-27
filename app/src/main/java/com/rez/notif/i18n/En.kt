@@ -874,6 +874,8 @@ internal object En {
         "بانکش رو نشناختم؛ فقط اسم نشون داده میشه" to "Bank not recognized; only the name will show",
         "بزن، اسم بذار" to "Tap to name it",
         "قدیمی؛ تو جمع نیست" to "Old; not in the total",
+        "همه ›" to "All ›",
+        "با «+ یادآور» یکی اضافه کن" to "Add one with \"+ Reminder\"",
         "آبی شب (آزمایشی)" to "Night blue (test)",
         " م" to " M",
         "پیش رو" to "Coming up",

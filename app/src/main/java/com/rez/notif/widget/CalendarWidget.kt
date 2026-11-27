@@ -24,15 +24,16 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 
 /**
- * Calendar widget: today's Persian date and the next things on the calendar (installments, cheques, trips,
- * events). "+ یادآور" opens the add dialog on today; a tap anywhere else opens the calendar.
+ * Calendar widget in a "bank app" look: a blue panel with today's Persian date and the next five days
+ * (saffron = something on that day), a glass card with what's next, and buttons
+ * (calendar, ledger, open the app, "+ یادآور" = add on today).
  */
 class CalendarWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val pending = goAsync()
         worker.execute {
-            try { render(context, manager, ids) } finally { pending.finish() }
+            try { manager.updateAppWidget(ids, views(context)) } finally { pending.finish() }
         }
     }
 
@@ -57,16 +58,25 @@ class CalendarWidget : AppWidgetProvider() {
         private fun refreshNow(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, CalendarWidget::class.java))
-            if (ids.isNotEmpty()) render(context, manager, ids)
+            if (ids.isNotEmpty()) manager.updateAppWidget(ids, views(context))
         }
 
         private fun color(k: Planner.MarkKind): Int = when (k) {
-            Planner.MarkKind.EVENT -> 0xFF5B8CFF.toInt()
-            Planner.MarkKind.EXPENSE -> 0xFFFF6B5E.toInt()
-            Planner.MarkKind.TRIP -> 0xFF3FD0E0.toInt()
+            Planner.MarkKind.EVENT -> 0xFF8FB4FF.toInt()
+            Planner.MarkKind.EXPENSE -> 0xFFFF8A7E.toInt()
+            Planner.MarkKind.TRIP -> 0xFF6FD8FF.toInt()
             Planner.MarkKind.INSTALLMENT -> 0xFFF2A93B.toInt()
             Planner.MarkKind.CHEQUE_IN -> 0xFF6BD48F.toInt()
             Planner.MarkKind.CHEQUE_OUT -> 0xFFE57BB8.toInt()
+        }
+
+        private fun kindLabel(k: Planner.MarkKind): String = when (k) {
+            Planner.MarkKind.EVENT -> t("رویداد")
+            Planner.MarkKind.EXPENSE -> t("خرج")
+            Planner.MarkKind.TRIP -> t("سفر و دنگ")
+            Planner.MarkKind.INSTALLMENT -> t("قسط")
+            Planner.MarkKind.CHEQUE_IN -> t("چک دریافتی")
+            Planner.MarkKind.CHEQUE_OUT -> t("چک پرداختی")
         }
 
         private fun shortAmount(toman: Long): String = when {
@@ -75,50 +85,77 @@ class CalendarWidget : AppWidgetProvider() {
             else -> fa(toman.toString())
         }
 
+        private fun whenText(day: Long, today: Long): String = when (day - today) {
+            0L -> t("امروز")
+            1L -> t("فردا")
+            else -> Jalali.ofEpochDay(day).let { fa(it.d.toString()) + " " + t(Jalali.MONTHS[it.m - 1]) }
+        }
+
         private fun line(mk: Planner.Mark, today: Long): CharSequence {
-            val whenText = when (mk.day - today) {
-                0L -> t("امروز")
-                1L -> t("فردا")
-                else -> fa(Jalali.ofEpochDay(mk.day).d.toString()) + " " + t(Jalali.MONTHS[Jalali.ofEpochDay(mk.day).m - 1])
-            }
             val sb = SpannableStringBuilder()
             sb.append("● ", ForegroundColorSpan(color(mk.kind)), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            sb.append(whenText, ForegroundColorSpan(0xFF9FB0D9.toInt()), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.append(whenText(mk.day, today), ForegroundColorSpan(0xFF9FB0D9.toInt()), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             sb.append("  ").append(mk.title)
             if (mk.toman > 0) sb.append("  ").append(shortAmount(mk.toman), ForegroundColorSpan(color(mk.kind)), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             return sb
         }
 
-        private fun render(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        private fun open(context: Context, code: Int, extras: Intent.() -> Unit) = PendingIntent.getActivity(
+            context, code,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP).apply(extras),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+        /** The filled widget; also used by the older "شاخ گاو" widget when the notification module is off. */
+        fun views(context: Context): RemoteViews {
             val repo = NotifApp.repo(context)
             val today = LocalDate.now().toEpochDay()
             val d = Jalali.ofEpochDay(today)
-            val next = runCatching { repo.upcomingPlanNow(31) }.getOrDefault(emptyList()).take(4)
-            val views = RemoteViews(context.packageName, R.layout.widget_calendar)
-            views.setTextViewText(R.id.cal_weekday, t(Jalali.WEEK[Jalali.weekday(today)]))
-            views.setTextViewText(R.id.cal_day, fa(d.d.toString()))
-            views.setTextViewText(R.id.cal_month, t(Jalali.MONTHS[d.m - 1]) + " " + fa(d.y.toString()))
-            views.setTextViewText(R.id.cal_head, t("پیش رو"))
-            val lines = listOf(R.id.cal_l1, R.id.cal_l2, R.id.cal_l3, R.id.cal_l4)
-            lines.forEachIndexed { i, id ->
-                val mk = next.getOrNull(i)
-                views.setTextViewText(id, if (mk == null) "" else line(mk, today))
-                views.setViewVisibility(id, if (mk == null) View.GONE else View.VISIBLE)
-            }
-            views.setTextViewText(R.id.cal_empty, t("تا یه ماه دیگه چیزی تو تقویم نیست."))
-            views.setViewVisibility(R.id.cal_empty, if (next.isEmpty()) View.VISIBLE else View.GONE)
-            views.setTextViewText(R.id.cal_add, t("+ یادآور"))
+            val next = runCatching { repo.upcomingPlanNow(31) }.getOrDefault(emptyList())
+            val busy = runCatching { repo.marksNow(5) }.getOrDefault(emptyList()).map { it.day }.toSet()
+            val v = RemoteViews(context.packageName, R.layout.widget_calendar)
 
-            fun open(add: Boolean, code: Int) = PendingIntent.getActivity(
-                context, code,
-                Intent(context, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    .putExtra(EXTRA_CALENDAR, add),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
-            views.setOnClickPendingIntent(R.id.cal_root, open(false, 7101))
-            views.setOnClickPendingIntent(R.id.cal_add, open(true, 7102))
-            manager.updateAppWidget(ids, views)
+            v.setTextViewText(R.id.cal_app, t("شاخ گاو"))
+            v.setTextViewText(R.id.cal_year, fa(d.y.toString()))
+            v.setTextViewText(R.id.cal_weekday, t(Jalali.WEEK[Jalali.weekday(today)]))
+            v.setTextViewText(R.id.cal_date, fa(d.d.toString()) + " " + t(Jalali.MONTHS[d.m - 1]))
+            listOf(R.id.cal_d1, R.id.cal_d2, R.id.cal_d3, R.id.cal_d4, R.id.cal_d5).forEachIndexed { i, id ->
+                val day = today + i
+                v.setTextViewText(id, fa(Jalali.ofEpochDay(day).d.toString()))
+                v.setInt(id, "setBackgroundResource", when { i == 0 -> R.drawable.wr_day_today; day in busy -> R.drawable.wr_day_mark; else -> R.drawable.wr_day })
+                v.setTextColor(id, if (i == 0) 0xFF2F6BFF.toInt() else 0xFFFFFFFF.toInt())
+            }
+
+            v.setTextViewText(R.id.cal_head, t("پیش رو"))
+            v.setTextViewText(R.id.cal_all, t("همه ›"))
+            val first = next.firstOrNull()
+            if (first == null) {
+                v.setTextViewText(R.id.cal_dot, "✓")
+                v.setTextViewText(R.id.cal_title, t("تا یه ماه دیگه چیزی تو تقویم نیست."))
+                v.setTextViewText(R.id.cal_when, t("با «+ یادآور» یکی اضافه کن"))
+                v.setTextViewText(R.id.cal_amount, "")
+            } else {
+                v.setTextViewText(R.id.cal_dot, fa(Jalali.ofEpochDay(first.day).d.toString()))
+                v.setInt(R.id.cal_dot, "setBackgroundResource", R.drawable.wr_day_mark)
+                v.setTextViewText(R.id.cal_title, first.title)
+                v.setTextViewText(R.id.cal_when, whenText(first.day, today) + "  ·  " + kindLabel(first.kind))
+                v.setTextViewText(R.id.cal_amount, if (first.toman > 0) shortAmount(first.toman) else "")
+            }
+            listOf(R.id.cal_l2, R.id.cal_l3).forEachIndexed { i, id ->
+                val mk = next.getOrNull(i + 1)
+                v.setTextViewText(id, if (mk == null) "" else line(mk, today))
+                v.setViewVisibility(id, if (mk == null) View.GONE else View.VISIBLE)
+            }
+
+            v.setTextViewText(R.id.cal_home, t("باز کردن"))
+            v.setTextViewText(R.id.cal_add, t("+ یادآور"))
+            v.setOnClickPendingIntent(R.id.cal_root, open(context, 7101) { putExtra(EXTRA_CALENDAR, false) })
+            v.setOnClickPendingIntent(R.id.cal_card, open(context, 7103) { putExtra(EXTRA_CALENDAR, false) })
+            v.setOnClickPendingIntent(R.id.cal_btn_cal, open(context, 7104) { putExtra(EXTRA_CALENDAR, false) })
+            v.setOnClickPendingIntent(R.id.cal_btn_bank, open(context, 7105) { putExtra(com.rez.notif.notif.LedgerAsk.EXTRA_OPEN_LEDGER, true) })
+            v.setOnClickPendingIntent(R.id.cal_home, open(context, 7106) { })
+            v.setOnClickPendingIntent(R.id.cal_add, open(context, 7102) { putExtra(EXTRA_CALENDAR, true) })
+            return v
         }
     }
 }

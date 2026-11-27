@@ -944,6 +944,13 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
         return Planner.upcoming(today, days, Jalali.ofEpochDay(today).ym, e, i, c)
     }
 
+    /** Every mark of the next [days] days (trip days included), for the widget day circles. */
+    fun marksNow(days: Int): List<Planner.Mark> {
+        val today = todayEpoch()
+        val (e, i, c) = planInputs()
+        return Planner.marks(today, today + days - 1, Jalali.ofEpochDay(today).ym, e, i, c)
+    }
+
     suspend fun upcomingPlan(days: Int): List<Planner.Mark> = withContext(Dispatchers.IO) { upcomingPlanNow(days) }
 
     suspend fun event(id: Long): Planner.PlanEvent? = withContext(Dispatchers.IO) { db.event(id) }

@@ -5,6 +5,18 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+    <style name="WidgetDay">
+        <item name="android:layout_width">28dp</item>
+        <item name="android:layout_height">28dp</item>
+        <item name="android:layout_marginStart">3dp</item>
+        <item name="android:layout_marginEnd">3dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/wr_day</item>
+        <item name="android:fontFamily">@font/vazirmatn_bold</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
     <style name="WidgetCalLine">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
