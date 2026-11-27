@@ -161,8 +161,6 @@ class CalendarWidget : AppWidgetProvider() {
             }
             v.setViewVisibility(R.id.cal_prices, if (prices.quotes.isEmpty()) View.GONE else View.VISIBLE)
 
-            v.setTextViewText(R.id.cal_head, t("پیش رو"))
-            v.setTextViewText(R.id.cal_all, t("همه ›"))
             val first = next.firstOrNull()
             if (first == null) {
                 v.setTextViewText(R.id.cal_dot, "✓")
@@ -173,7 +171,7 @@ class CalendarWidget : AppWidgetProvider() {
                 v.setTextViewText(R.id.cal_dot, fa(Jalali.ofEpochDay(first.day).d.toString()))
                 v.setInt(R.id.cal_dot, "setBackgroundResource", R.drawable.wr_day_mark)
                 v.setTextViewText(R.id.cal_title, first.title)
-                v.setTextViewText(R.id.cal_when, whenText(first.day, today) + "  ·  " + kindLabel(first.kind))
+                v.setTextViewText(R.id.cal_when, t("پیش رو") + "  ·  " + whenText(first.day, today) + "  ·  " + kindLabel(first.kind))
                 v.setTextViewText(R.id.cal_amount, if (first.toman > 0) shortAmount(first.toman) else "")
             }
             listOf(R.id.cal_l2, R.id.cal_l3).forEachIndexed { i, id ->

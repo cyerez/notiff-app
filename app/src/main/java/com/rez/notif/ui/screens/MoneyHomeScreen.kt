@@ -145,6 +145,8 @@ fun MoneyHomeScreen(nav: Navigator) {
             }
         }
         if (midnight) item { MidnightActions(nav) }
+        // Gold and dollar
+        item { PricesRow() }
 
         // What were these?
         if (v.unsorted.isNotEmpty()) {

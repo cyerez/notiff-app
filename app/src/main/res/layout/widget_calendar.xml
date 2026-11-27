@@ -30,7 +30,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/cow_logo" />
+                android:src="@drawable/cow_cut" />
 
             <TextView
                 android:id="@+id/cal_app"
@@ -122,33 +122,10 @@
         android:paddingEnd="14dp"
         android:paddingBottom="6dp">
 
-        <LinearLayout
+                <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/cal_head"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="@font/vazirmatn_regular"
-                android:textColor="#9FB0D9"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/cal_all"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/vazirmatn_medium"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="0dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
