@@ -40,6 +40,8 @@ app/src/main/java/com/rez/notif/
     Records.kt           tab-separated escaped text records with a header line; the transfer file format (see TransferScreen). Pure Kotlin, tested
     Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
     Banks.kt             SMS sender / user-given name -> bank (name, color, logo res bank_<id>); names the user typed live in data/BankNames. Pure Kotlin, tested
+    Jalali.kt            Persian calendar math on epoch days (month length, leap, weekday from Saturday). Pure Kotlin, tested
+    Planner.kt           the calendar: PlanEvent (event/expense/trip with days + reminder) + installments + cheques -> marks per day, upcoming. Pure Kotlin, tested
     Ledger.kt            the ledger ("دفتر حساب"): bank SMS + Blu notifications + hand entries -> entries with account (bank + last 4),
                          party (card:XXXX / shop:...), category (user tag > own card > learned party > default > ask). Cards seen as an
                          account are the user's own. gaps(): balance before/after each SMS disagree = missing SMS. Pure Kotlin, tested
@@ -47,7 +49,7 @@ app/src/main/java/com/rez/notif/
     Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was
                          present each day, balances + fewest transfers; one-text codec stored in Db `trips`. Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v9: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending), ledger_tags/ledger_learn/ledger_manual (v8, the ledger), ledger_limits/debts/cheques/goals (v9). Reads go through the
+    Db.kt                SQLiteOpenHelper v10 (v10: events table for the calendar, bills.start): items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending), ledger_tags/ledger_learn/ledger_manual (v8, the ledger), ledger_limits/debts/cheques/goals (v9). Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list
