@@ -11,7 +11,7 @@ The user writes Persian and is new to Kotlin. Explain changes in simple Persian 
 
 ## Hard rules
 - **Money manager first.** Since 2.2 the notification module (hide/summary/code pop-up/Home+Messages tabs) is off by default (`Prefs.notifModule`). With it off the app must not touch any notification; only Blu bank notifications are read.
-- **Offline only.** The app has no `INTERNET` permission. Never add one, never add analytics or network libraries.
+- **Offline, except prices.** Since 3.0 the app has `INTERNET` for one thing only: `data/PriceStore` fetches the public gold/dollar price file (tgju.org) at most every 3 hours. No SMS, bank data, names or ids ever leave the phone; no analytics or network libraries. Any other network use needs the user's OK first.
 - **Persian, right-to-left UI.** All user text is Persian. The theme forces RTL (`ui/theme/Theme.kt`).
 - **Every user-facing string goes through `t(...)`** (see i18n/).
 - **Never lose user data.** Database changes need a migration in `Db.onUpgrade`; never drop tables.
@@ -39,6 +39,11 @@ app/src/main/java/com/rez/notif/
                          same amount within 30 min = own accounts (INTERNAL, left out of totals). Pure Kotlin, tested
     Records.kt           tab-separated escaped text records with a header line; the transfer file format (see TransferScreen). Pure Kotlin, tested
     Budget.kt            monthly income/spending lines (every month from a Persian yyyymm, optional end, or one month); totals. Pure Kotlin, tested
+    Banks.kt             SMS sender / user-given name -> bank (name, color, logo res bank_<id>); names the user typed live in data/BankNames. Pure Kotlin, tested
+    Jalali.kt            Persian calendar math on epoch days (month length, leap, weekday from Saturday). Pure Kotlin, tested
+    Planner.kt           the calendar: PlanEvent (event/expense/trip with days + reminder) + installments + cheques -> marks per day, upcoming. Pure Kotlin, tested
+    Occasions.kt         occasions of the day (solar, Hijri via java.time HijrahDate, a few Gregorian) with a money quip; mourning days get none. Pure Kotlin, tested
+    Jokes.kt             offline jokes; forHome() picks the line under the total (occasion quip, big spend, over plan, low, daily). Pure Kotlin, tested
     Ledger.kt            the ledger ("دفتر حساب"): bank SMS + Blu notifications + hand entries -> entries with account (bank + last 4),
                          party (card:XXXX / shop:...), category (user tag > own card > learned party > default > ask). Cards seen as an
                          account are the user's own. gaps(): balance before/after each SMS disagree = missing SMS. Pure Kotlin, tested
@@ -46,7 +51,7 @@ app/src/main/java/com/rez/notif/
     Dong.kt              split costs ("دنگ") for trips: people with weights, per-expense payer/day/sharers, who was
                          present each day, balances + fewest transfers; one-text codec stored in Db `trips`. Pure Kotlin, tested
   data/
-    Db.kt                SQLiteOpenHelper v9: items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending), ledger_tags/ledger_learn/ledger_manual (v8, the ledger), ledger_limits/debts/cheques/goals (v9). Reads go through the
+    Db.kt                SQLiteOpenHelper v10 (v10: events table for the calendar, bills.start): items, sender_overrides, vip, wallet, rules, reminders, bills (hand-entered; their reminders use negative ids and repeat every morning until the due day), trips (dong), budget (monthly income/spending), ledger_tags/ledger_learn/ledger_manual (v8, the ledger), ledger_limits/debts/cheques/goals (v9). Reads go through the
                          live_items view; delete is soft (is_deleted=1) so SMS sync never re-imports it
     Repository.kt        all reads/writes, first scan, open-in-source-app
     Prefs.kt             settings (SharedPreferences + StateFlow), CleanupRule list

@@ -111,7 +111,7 @@ fun styledShape(requested: Shape): Shape {
     val g = LocalGlass.current
     val round = requested == CircleShape || requested == PillShape
     return when (g.frame) {
-        Frame.ROUND, Frame.CARTOON -> requested
+        Frame.ROUND, Frame.CARTOON, Frame.MORPH -> requested
         Frame.CUT -> if (round) CutCornerShape(topStart = 0.dp, topEnd = 10.dp, bottomEnd = 0.dp, bottomStart = 10.dp)
         else CutCornerShape(topStart = 0.dp, topEnd = 18.dp, bottomEnd = 0.dp, bottomStart = 18.dp)
         Frame.BRASS -> if (requested == CircleShape) CircleShape else RoundedCornerShape(if (round) 10.dp else 12.dp)
@@ -156,6 +156,12 @@ fun Modifier.glassSurface(shape: Shape = GlassShape, glow: Color? = null, elevat
             .softShadow(sh, color = Color.Black, blur = 1.dp, offsetY = 4.dp)
             .background(fill, sh)
             .border(2.5.dp, glow ?: g.edge, sh)
+        // Glassmorphism: deep soft shadow, see-through fill with a diagonal shine, an edge lit from the top-left.
+        Frame.MORPH -> this
+            .softShadow(sh, color = glow?.copy(alpha = 0.45f) ?: Color(0xFF02061A).copy(alpha = 0.6f), blur = elevation * 1.6f, offsetY = elevation / 2)
+            .background(fill, sh)
+            .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.03f), Color.Transparent)), sh)
+            .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.5f), Color.White.copy(alpha = 0.06f), Color(0xFF6FA0FF).copy(alpha = 0.35f))), sh)
         // Cartoon: clean paper, dark ink outline, a small offset shadow.
         Frame.CARTOON -> this
             .softShadow(sh, color = g.shadow, blur = 2.dp, offsetY = 3.dp)

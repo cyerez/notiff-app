@@ -39,6 +39,12 @@ class MainActivity : ComponentActivity() {
             OpenRequests.openItem(it)
             return
         }
+        if (intent.hasExtra(com.rez.notif.widget.CalendarWidget.EXTRA_CALENDAR)) {
+            val add = intent.getBooleanExtra(com.rez.notif.widget.CalendarWidget.EXTRA_CALENDAR, false)
+            intent.removeExtra(com.rez.notif.widget.CalendarWidget.EXTRA_CALENDAR)
+            OpenRequests.open(Screen.Calendar(add))
+            return
+        }
         if (intent.getBooleanExtra(com.rez.notif.notif.LedgerAsk.EXTRA_OPEN_LEDGER, false)) {
             intent.removeExtra(com.rez.notif.notif.LedgerAsk.EXTRA_OPEN_LEDGER)
             OpenRequests.open(Screen.Ledger)

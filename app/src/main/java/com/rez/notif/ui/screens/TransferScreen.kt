@@ -103,7 +103,7 @@ fun TransferScreen(nav: Navigator) {
                         NeonIcon(Icons.Rounded.PhoneAndroid, g.accent, size = 42.dp)
                         Spacer(Modifier.size(12.dp))
                         Text(
-                            listOf(t("۱. روی گوشی قدیمی انتخاب کن چی ببری و فایل رو بساز."), t("۲. فایل رو با Quick Share، بلوتوث یا تلگرام به گوشی جدید بفرست."), t("۳. روی گوشی جدید نوتیف رو نصب کن و «خوندن فایل انتقال» رو بزن.")).joinToString("\n"),
+                            listOf(t("۱. روی گوشی قدیمی انتخاب کن چی ببری و فایل رو بساز."), t("۲. فایل رو با Quick Share، بلوتوث یا تلگرام به گوشی جدید بفرست."), t("۳. روی گوشی جدید شاخ گاو رو نصب کن و «خوندن فایل انتقال» رو بزن.")).joinToString("\n"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = g.text,
                         )
@@ -193,7 +193,7 @@ fun TransferScreen(nav: Navigator) {
                         }
                         if (!canInbox) {
                             Text(
-                                t("برای این کار نوتیف باید اپ پیامک گوشی باشه (تنظیمات > اپ پیامک گوشی). بدون اون، پیام‌ها فقط توی نوتیف میان."),
+                                t("برای این کار شاخ گاو باید اپ پیامک گوشی باشه (تنظیمات > اپ پیامک گوشی). بدون اون، پیام‌ها فقط توی شاخ گاو میان."),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = g.textDim,
                             )
@@ -222,7 +222,7 @@ fun TransferScreen(nav: Navigator) {
                         } catch (e: BackupCrypto.WrongPassword) {
                             t("رمز اشتباهه (یا فایل خراب شده).")
                         } catch (e: Records.NotATransfer) {
-                            t("این فایل انتقال نوتیف نیست.")
+                            t("این فایل انتقال شاخ گاو نیست.")
                         } catch (e: Exception) {
                             t("خطا: ") + (e.message ?: t("نامشخص"))
                         }

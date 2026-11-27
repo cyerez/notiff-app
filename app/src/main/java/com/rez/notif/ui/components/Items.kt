@@ -228,8 +228,9 @@ fun ItemRow(
 @Composable
 fun EmptyState(text: String, modifier: Modifier = Modifier) {
     val g = LocalGlass.current
+    // The ruminating cow of "شاخ گاو" keeps empty lists company.
     GlassCard(modifier.padding(16.dp).fillMaxWidth()) {
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = g.textDim)
+        com.rez.notif.ui.screens.EmptyCow(text, com.rez.notif.ui.screens.calmMotion())
     }
 }
 
@@ -574,7 +575,7 @@ private fun QuickReply(item: Item) {
             send()
         } else if (com.rez.notif.sms.DefaultSms.openComposer(context, item.sender, text.trim())) {
             // Android blocked the permission: hand the written text to the phone's SMS app instead.
-            status = t("اپ پیامک گوشی با همین متن باز شد؛ فقط دکمه ارسال رو بزن. برای فرستادن از خود نوتیف: تنظیمات گوشی > برنامه‌ها > نوتیف > ⋮ > Allow restricted settings، بعد مجوزها > پیامک.")
+            status = t("اپ پیامک گوشی با همین متن باز شد؛ فقط دکمه ارسال رو بزن. برای فرستادن از خود شاخ گاو: تنظیمات گوشی > برنامه‌ها > شاخ گاو > ⋮ > Allow restricted settings، بعد مجوزها > پیامک.")
             text = ""
         } else {
             status = t("اجازه فرستادن پیامک داده نشد.")

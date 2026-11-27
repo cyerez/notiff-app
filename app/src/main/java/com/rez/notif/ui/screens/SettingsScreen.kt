@@ -181,7 +181,7 @@ fun SettingsScreen(nav: Navigator, embedded: Boolean = false) {
                             Spacer(Modifier.height(8.dp))
                             Text(t("میس‌کال‌ها و پیام افراد منتخب هیچ‌وقت از نوار برداشته نمیشن و تا نخونی توی خانه می‌مونن."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                             Spacer(Modifier.height(10.dp))
-                            ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «نوتیف» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
+                            ToggleRow(t("یک نوتیف خلاصه"), t("به جای همه، یک نوتیف آروم از «شاخ گاو» میاد که میگه چی رسیده. با باز کردن اپ پاک میشه."), s.summary) { v ->
                                 repo.prefs.update { it.copy(summary = v) }
                             }
                             if (s.summary) {
@@ -312,7 +312,7 @@ fun SettingsScreen(nav: Navigator, embedded: Boolean = false) {
             }
             item {
                 Text(
-                    t("نوتیف · نسخه ") + fa(runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "") + t(" (آزمایشی)"),
+                    t("شاخ گاو · نسخه ") + fa(runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "") + t(" (آزمایشی)"),
                     style = MaterialTheme.typography.labelMedium,
                     color = g.textDim,
                     modifier = Modifier.padding(22.dp),
@@ -386,15 +386,15 @@ private fun BatteryCard() {
     if (exempt) return
     SectionTitle(t("کار در پس‌زمینه"))
     GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), glow = Category.ADS.tint) {
-        Text(t("گوشی ممکنه نوتیف رو بخوابونه و بعضی نوتیف‌ها ذخیره نشن."), style = MaterialTheme.typography.titleSmall, color = g.text)
+        Text(t("گوشی ممکنه شاخ گاو رو بخوابونه و بعضی پیامک‌ها و نوتیف‌ها ذخیره نشن."), style = MaterialTheme.typography.titleSmall, color = g.text)
         Text(
-            t("دکمه زیر رو بزن و «اجازه» بده. توی سامسونگ اینم بزن: تنظیمات > مراقبت از دستگاه > باتری > محدودیت‌های پس‌زمینه > «برنامه‌های هرگز در حالت خواب» و نوتیف رو اضافه کن."),
+            t("دکمه زیر رو بزن و «اجازه» بده. توی سامسونگ اینم بزن: تنظیمات > مراقبت از دستگاه > باتری > محدودیت‌های پس‌زمینه > «برنامه‌های هرگز در حالت خواب» و شاخ گاو رو اضافه کن."),
             style = MaterialTheme.typography.bodySmall,
             color = g.textDim,
             modifier = Modifier.padding(top = 4.dp),
         )
         Spacer(Modifier.height(10.dp))
-        GlassButton(t("بیدار نگه داشتن نوتیف"), onClick = {
+        GlassButton(t("بیدار نگه داشتن شاخ گاو"), onClick = {
             runCatching {
                 ask.launch(
                     android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
@@ -418,23 +418,23 @@ private fun SmsAppCard() {
     }
     GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
         if (!isDefault) {
-            Text(t("نوتیف به جای پیام‌رسان سامسونگ"), style = MaterialTheme.typography.titleSmall, color = g.text)
+            Text(t("شاخ گاو به جای پیام‌رسان سامسونگ"), style = MaterialTheme.typography.titleSmall, color = g.text)
             Spacer(Modifier.height(4.dp))
             Text(
-                t("اگه نوتیف اپ پیامک گوشی بشه: پیامک‌ها مستقیم اینجا میان و از همینجا جواب میدی، حذف واقعاً از گوشی پاک می‌کنه و تبلیغ‌ها رو میشه کامل بلاک کرد. پیام‌های MMS (عکس و صدا) باز نمیشن. هر وقت خواستی برمی‌گردی به پیام‌رسان قبلی."),
+                t("اگه شاخ گاو اپ پیامک گوشی بشه: پیامک‌ها مستقیم اینجا میان و از همینجا جواب میدی، حذف واقعاً از گوشی پاک می‌کنه و تبلیغ‌ها رو میشه کامل بلاک کرد. پیام‌های MMS (عکس و صدا) باز نمیشن. هر وقت خواستی برمی‌گردی به پیام‌رسان قبلی."),
                 style = MaterialTheme.typography.bodySmall,
                 color = g.textDim,
             )
             Spacer(Modifier.height(10.dp))
-            GlassButton(t("نوتیف رو اپ پیامک گوشی کن"), onClick = {
+            GlassButton(t("شاخ گاو رو اپ پیامک گوشی کن"), onClick = {
                 DefaultSms.requestIntent(context)?.let { roleLauncher.launch(it) }
             })
         } else {
-            Text(t("نوتیف الان اپ پیامک گوشیه."), style = MaterialTheme.typography.titleSmall, color = g.text)
+            Text(t("شاخ گاو الان اپ پیامک گوشیه."), style = MaterialTheme.typography.titleSmall, color = g.text)
             Spacer(Modifier.height(10.dp))
             ToggleRow(
                 t("حذف از گوشی هم"),
-                t("حذف و پاک‌سازی در نوتیف، پیامک رو از خود گوشی هم پاک می‌کنه. تا چند ثانیه با «برگردون» برمی‌گرده."),
+                t("حذف و پاک‌سازی در شاخ گاو، پیامک رو از خود گوشی هم پاک می‌کنه. تا چند ثانیه با «برگردون» برمی‌گرده."),
                 s.phoneDelete,
             ) { v -> repo.prefs.update { it.copy(phoneDelete = v) } }
             Spacer(Modifier.height(10.dp))
@@ -492,7 +492,7 @@ private fun DonateCard() {
     val context = LocalContext.current
     GlassCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth(), glow = g.accent) {
         Text("Donate", style = MaterialTheme.typography.titleSmall, color = g.text)
-        Text(t("اگه NotificatioN به کارت اومده، می‌تونی از ادامه ساختش حمایت کنی."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
+        Text(t("اگه شاخ گاو به کارت اومده، می‌تونی از ادامه ساختش حمایت کنی."), style = MaterialTheme.typography.bodySmall, color = g.textDim)
         Spacer(Modifier.height(10.dp))
         if (DONATE_URL.isBlank() && DONATE_CARD.isBlank()) {
             Text(t("راه حمایت به‌زودی اضافه میشه."), style = MaterialTheme.typography.bodySmall, color = g.textDim)

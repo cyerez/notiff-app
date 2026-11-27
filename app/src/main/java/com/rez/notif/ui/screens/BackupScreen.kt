@@ -153,7 +153,7 @@ fun BackupScreen(nav: Navigator) {
                             } catch (e: BackupCrypto.WrongPassword) {
                                 t("رمز اشتباهه (یا فایل خراب شده).")
                             } catch (e: BackupCrypto.NotABackup) {
-                                t("این فایل پشتیبان نوتیف نیست.")
+                                t("این فایل پشتیبان شاخ گاو نیست.")
                             } catch (e: Exception) {
                                 t("خطا: ") + (e.message ?: t("نامشخص"))
                             }

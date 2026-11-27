@@ -52,9 +52,11 @@ class NotifWidget : AppWidgetProvider() {
         private fun render(context: Context, manager: AppWidgetManager, ids: IntArray) {
             val repo = NotifApp.repo(context)
             val s = repo.prefs.current
+            // Money-manager mode: unread counts mean little, so this widget shows the calendar widget instead.
+            if (!s.notifModule) { manager.updateAppWidget(ids, CalendarWidget.views(context)); return }
             val w = repo.widgetData()
             val views = RemoteViews(context.packageName, R.layout.widget_notif)
-            views.setTextViewText(R.id.widget_title, t("نوتیف"))
+            views.setTextViewText(R.id.widget_title, t("شاخ گاو"))
             views.setTextViewText(R.id.widget_today, t("امروز") + " " + fa(w.today))
             views.setTextViewText(R.id.widget_unread, fa(w.unread) + t(" خونده‌نشده"))
             val chips = listOf(R.id.widget_c1, R.id.widget_c2, R.id.widget_c3)

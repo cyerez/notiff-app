@@ -18,6 +18,10 @@ class NotifApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.rez.notif.data.BankNames.load(this)
+        // After an app update the launcher may keep showing an old or empty widget: draw them again.
+        com.rez.notif.widget.NotifWidget.refreshSoon(this)
+        com.rez.notif.widget.CalendarWidget.refreshSoon(this)
         // "Lock when the screen turns off" needs to hear the screen going off while the app is in the background.
         registerReceiver(
             object : BroadcastReceiver() {

@@ -37,6 +37,8 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Key
@@ -103,6 +105,8 @@ enum class HomeTab(val label: String, val icon: ImageVector, val categories: Lis
     MESSAGES("پیام‌ها", Icons.Rounded.Forum, Category.entries.filter { it != Category.ADS }),
     /** The ledger: the main screen when the notification module is off. */
     LEDGER("تراکنش‌ها", Icons.Rounded.AccountBalance, emptyList()),
+    /** Persian calendar: installments, cheques, trips, reminders. */
+    CALENDAR("تقویم", Icons.Rounded.CalendarMonth, emptyList()),
     /** All the tools: money, budget, dong, wallet, stats, OCR... */
     APPS("برنامه‌ها", Icons.Rounded.Apps, emptyList()),
     SETTINGS("تنظیمات", Icons.Rounded.Settings, emptyList()),
@@ -114,7 +118,7 @@ private val currentTab = mutableStateOf(HomeTab.MONEY)
 /** Tabs shown: without the notification module, the app is the ledger, the tools and settings. */
 fun visibleTabs(notifModule: Boolean): List<HomeTab> =
     if (notifModule) listOf(HomeTab.MONEY, HomeTab.HOME, HomeTab.MESSAGES, HomeTab.LEDGER, HomeTab.APPS, HomeTab.SETTINGS)
-    else listOf(HomeTab.MONEY, HomeTab.LEDGER, HomeTab.APPS, HomeTab.SETTINGS)
+    else listOf(HomeTab.MONEY, HomeTab.LEDGER, HomeTab.CALENDAR, HomeTab.APPS, HomeTab.SETTINGS)
 
 @Composable
 fun HomeScreen(nav: Navigator) {
@@ -129,14 +133,33 @@ fun HomeScreen(nav: Navigator) {
 
     // Back from another tab goes to the first tab.
     BackHandler(enabled = tab != first) { tab = first }
+    val calm = calmMotion()
     Box(Modifier.fillMaxSize()) {
+        // Tabs slide a little toward where the tapped tab is (right to left), with a fade; none when motion is calm.
+        androidx.compose.animation.AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                if (calm) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                else {
+                    val forward = tabs.indexOf(targetState) > tabs.indexOf(initialState)
+                    val dir = if (forward) -1 else 1
+                    (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240)) +
+                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(240)) { dir * it / 10 }) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
+                }
+            },
+            label = "tabs",
+            modifier = Modifier.fillMaxSize(),
+        ) { tab ->
         when (tab) {
             HomeTab.MONEY -> MoneyHomeScreen(nav)
             HomeTab.HOME -> HomeTabContent(nav)
             HomeTab.MESSAGES -> CategoryTab(tab, nav)
             HomeTab.LEDGER -> LedgerScreen(nav, embedded = true)
+            HomeTab.CALENDAR -> CalendarScreen(nav, embedded = true)
             HomeTab.APPS -> AppsTab(nav)
             HomeTab.SETTINGS -> SettingsScreen(nav, embedded = true)
+        }
         }
         BottomTabs(
             tabs = tabs,
@@ -322,6 +345,7 @@ private fun AppsTab(nav: Navigator) {
         Tool("طلب، بدهی، چک و قلک", "تعهدها و پس‌انداز", Icons.Rounded.Savings, VipColor, Screen.Commitments),
         Tool("قسط و قبض", "خلاصه بانک، قسط و قبض", Icons.Rounded.AccountBalance, Category.BANK.tint, Screen.Money),
         Tool("دخل و خرج", "درآمد و خرج ماه", Icons.Rounded.AccountBalanceWallet, Category.PERSONAL.tint, Screen.Budget),
+        Tool("تقویم", "قسط، سفر و یادآور", Icons.Rounded.CalendarMonth, Category.SERVICES.tint, Screen.Calendar()),
         Tool("حساب دنگ", "سفر و دورهمی", Icons.Rounded.Groups, Category.SOCIAL.tint, Screen.Dong),
         Tool("کیف پسورد", "رمزها با اثر انگشت", Icons.Rounded.Key, ValuableColor, Screen.Wallet),
         Tool("متن از عکس", "بدون اینترنت", Icons.Rounded.DocumentScanner, Category.OTP.tint, Screen.Ocr()),

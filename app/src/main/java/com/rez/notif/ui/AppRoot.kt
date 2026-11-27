@@ -68,6 +68,8 @@ sealed interface Screen {
     data object Rules : Screen
     data object Money : Screen
     data object Dong : Screen
+    /** [add]: open the add dialog on today (the widget button). */
+    data class Calendar(val add: Boolean = false) : Screen
     data object Budget : Screen
     data object Ledger : Screen
     data object Commitments : Screen
@@ -126,10 +128,12 @@ fun AppRoot() {
                 Box(Modifier.fillMaxSize().statusBarsPadding()) { LockScreen() }
                 return@GlassBackground
             }
+            val calm = com.rez.notif.ui.screens.calmMotion()
             AnimatedContent(
                 targetState = nav.current,
                 transitionSpec = {
-                    (fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.97f)) togetherWith fadeOut(tween(160))
+                    if (calm) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                    else (fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.97f)) togetherWith fadeOut(tween(160))
                 },
                 label = "screens",
                 modifier = Modifier.fillMaxSize(),
@@ -158,6 +162,7 @@ fun AppRoot() {
                         Screen.Rules -> com.rez.notif.ui.screens.RulesScreen(nav)
                         Screen.Money -> com.rez.notif.ui.screens.MoneyScreen(nav)
                         Screen.Dong -> com.rez.notif.ui.screens.DongScreen(nav)
+                        is Screen.Calendar -> com.rez.notif.ui.screens.CalendarScreen(nav, startAdding = screen.add)
                         Screen.Budget -> com.rez.notif.ui.screens.BudgetScreen(nav)
                         Screen.Ledger -> com.rez.notif.ui.screens.LedgerScreen(nav)
                         Screen.Commitments -> com.rez.notif.ui.screens.CommitmentsScreen(nav)

@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- SMS: read the inbox history and receive new messages -->
+    <!-- Only for gold/dollar prices (data/PriceStore): a GET of a public price file, nothing about the user is sent. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
@@ -79,6 +81,17 @@
             </intent-filter>
         </service>
 
+        <receiver
+            android:name=".widget.CalendarWidget"
+            android:exported="false"
+            android:label="@string/widget_calendar_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_calendar_info" />
+        </receiver>
         <receiver
             android:name=".widget.NotifWidget"
             android:exported="false">

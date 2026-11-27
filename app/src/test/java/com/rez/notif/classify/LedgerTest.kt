@@ -126,4 +126,14 @@ class LedgerTest {
         val b = Ledger.balances(list, now)
         assertEquals(listOf("Sepah 1234" to 42_000_000L, "Blu" to 8_500_000L), b.map { it.account to it.rial })
     }
+
+    @Test fun totalLeavesOutBalancesOlderThanAWeek() {
+        val now = 100L * 86_400_000L
+        val b = listOf(
+            Ledger.Balance("Saman", 50_000_000, now - 17L * 86_400_000L),
+            Ledger.Balance("Tejarat 1584", 12_000_000, now - 6L * 86_400_000L),
+            Ledger.Balance("Blu", 9_000_000, now - 3_600_000L),
+        )
+        assertEquals(21_000_000L, Ledger.freshTotal(b, now))
+    }
 }

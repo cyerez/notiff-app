@@ -23,7 +23,7 @@ class Db private constructor(
     val encrypted: Boolean get() = key.isNotEmpty()
 
     companion object {
-        const val VERSION = 9
+        const val VERSION = 10
         private const val PLAIN = "notif.db"
         private const val SECURE = "notif-secure.db"
 
@@ -134,6 +134,7 @@ class Db private constructor(
         createV7(db)
         createV8(db)
         createV9(db)
+        createV10(db)
         db.execSQL("CREATE INDEX idx_items_cat_time ON items(category, timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_time ON items(timestamp DESC)")
         db.execSQL("CREATE INDEX idx_items_sender ON items(sender)")
@@ -196,6 +197,12 @@ class Db private constructor(
         db.execSQL("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, target INTEGER NOT NULL, saved INTEGER NOT NULL DEFAULT 0, monthly INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
     }
 
+    /** v10: the calendar (events, planned expenses, trips) and a start month for installments. */
+    private fun createV10(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, start INTEGER NOT NULL, end_day INTEGER NOT NULL, kind TEXT NOT NULL, toman INTEGER NOT NULL DEFAULT 0, remind_at INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', trip_id INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL)")
+        runCatching { db.execSQL("ALTER TABLE bills ADD COLUMN start INTEGER NOT NULL DEFAULT 0") }
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Never drop user data here; only add.
         if (oldVersion < 2) {
@@ -210,6 +217,7 @@ class Db private constructor(
         if (oldVersion < 7) createV7(db)
         if (oldVersion < 8) createV8(db)
         if (oldVersion < 9) createV9(db)
+        if (oldVersion < 10) createV10(db)
     }
 
     // ---------- password wallet ----------
@@ -291,12 +299,13 @@ class Db private constructor(
         }
 
     /** A bill or installment the user entered: due on Persian [day] each month; [remaining] 0 = no end. */
-    data class MyBill(val id: Long = 0, val title: String, val amount: Long, val day: Int, val remaining: Int = 0)
+    /** [startYm]: Persian yyyymm of the first installment (0 = from now). */
+    data class MyBill(val id: Long = 0, val title: String, val amount: Long, val day: Int, val remaining: Int = 0, val startYm: Int = 0)
 
     fun myBills(): List<MyBill> =
-        readableDatabase.rawQuery("SELECT id, title, amount, day, remaining FROM bills ORDER BY day", null).use { c ->
+        readableDatabase.rawQuery("SELECT id, title, amount, day, remaining, start FROM bills ORDER BY day", null).use { c ->
             val l = ArrayList<MyBill>()
-            while (c.moveToNext()) l += MyBill(c.getLong(0), c.getString(1), c.getLong(2), c.getInt(3), c.getInt(4))
+            while (c.moveToNext()) l += MyBill(c.getLong(0), c.getString(1), c.getLong(2), c.getInt(3), c.getInt(4), c.getInt(5))
             l
         }
 
@@ -304,10 +313,37 @@ class Db private constructor(
 
     fun saveMyBill(b: MyBill): Long {
         val v = ContentValues().apply {
-            put("title", b.title); put("amount", b.amount); put("day", b.day); put("remaining", b.remaining)
+            put("title", b.title); put("amount", b.amount); put("day", b.day); put("remaining", b.remaining); put("start", b.startYm)
             put("created", System.currentTimeMillis())
         }
         return if (b.id > 0) { writableDatabase.update("bills", v, "id = ?", arrayOf(b.id.toString())); b.id } else writableDatabase.insert("bills", null, v)
+    }
+
+    // ---------- calendar ----------
+
+    fun events(): List<com.rez.notif.classify.Planner.PlanEvent> =
+        readableDatabase.rawQuery("SELECT id, title, start, end_day, kind, toman, remind_at, note, trip_id FROM events ORDER BY start", null).use { c ->
+            val l = ArrayList<com.rez.notif.classify.Planner.PlanEvent>()
+            while (c.moveToNext()) l += com.rez.notif.classify.Planner.PlanEvent(
+                c.getLong(0), c.getString(1), c.getLong(2), c.getLong(3),
+                runCatching { com.rez.notif.classify.Planner.Kind.valueOf(c.getString(4)) }.getOrDefault(com.rez.notif.classify.Planner.Kind.EVENT),
+                c.getLong(5), c.getLong(6), c.getString(7), c.getLong(8),
+            )
+            l
+        }
+
+    fun event(id: Long) = events().firstOrNull { it.id == id }
+
+    fun saveEvent(e: com.rez.notif.classify.Planner.PlanEvent): Long {
+        val v = ContentValues().apply {
+            put("title", e.title); put("start", e.start); put("end_day", e.end); put("kind", e.kind.name); put("toman", e.toman)
+            put("remind_at", e.remindAt); put("note", e.note); put("trip_id", e.tripId); put("created", System.currentTimeMillis())
+        }
+        return if (e.id > 0) { writableDatabase.update("events", v, "id = ?", arrayOf(e.id.toString())); e.id } else writableDatabase.insert("events", null, v)
+    }
+
+    fun deleteEvent(id: Long) {
+        writableDatabase.delete("events", "id = ?", arrayOf(id.toString()))
     }
 
     fun deleteMyBill(id: Long) {

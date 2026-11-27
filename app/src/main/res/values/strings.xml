@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">شاخ گاو</string>
-    <string name="ocr_share">متن از عکس (نوتیف)</string>
+    <string name="ocr_share">متن از عکس (شاخ گاو)</string>
+    <string name="widget_calendar_label">تقویم شاخ گاو</string>
+    <string name="widget_calendar_description">تقویم: امروز و قسط‌ها و برنامه‌های پیش رو</string>
     <string name="widget_description">خونده‌نشده‌ها و دسته‌های اصلی</string>
     <string name="code_tile">کپی کد</string>
 </resources>
