@@ -66,6 +66,9 @@ import com.rez.notif.ui.theme.LocalGlass
 import com.rez.notif.R
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.launch
@@ -101,6 +104,9 @@ fun calmMotion(): Boolean {
 @Composable
 internal fun RollingToman(rial: Long, color: Color) {
     val calm = calmMotion()
+    // Items fade in only when the screen opens, not every time they scroll back into view.
+    val shownAt = remember { System.currentTimeMillis() }
+    fun quiet() = calm || System.currentTimeMillis() - shownAt > 1500
     val anim = remember { Animatable(0f) }
     var from by remember { androidx.compose.runtime.mutableLongStateOf(rial) }
     var to by remember { androidx.compose.runtime.mutableLongStateOf(rial) }
@@ -117,7 +123,7 @@ internal fun RollingToman(rial: Long, color: Color) {
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun MoneyHomeScreen(nav: Navigator) {
     val g = LocalGlass.current
@@ -127,7 +133,58 @@ fun MoneyHomeScreen(nav: Navigator) {
     val haptic = LocalHapticFeedback.current
     val view by rememberLoaded(repo) { repo.home() }
     val settings by repo.prefs.state.collectAsState()
+    val calm = calmMotion()
+    // Items fade in only when the screen opens, not every time they scroll back into view.
+    val shownAt = remember { System.currentTimeMillis() }
+    fun quiet() = calm || System.currentTimeMillis() - shownAt > 1500
+    // Playful motions (coin, chewing cow) are left out when money is very low.
+    val playful = view?.let { Jokes.mood(it.left?.perDay, it.left?.left) == Jokes.Mood.JOKE } ?: true
+    var flight by remember { mutableStateOf<CoinFlight?>(null) }
+    val amountAt = remember { mutableMapOf<Long, androidx.compose.ui.geometry.Offset>() }
+    val chipAt = remember { mutableMapOf<String, androidx.compose.ui.geometry.Offset>() }
+    var refreshing by remember { mutableStateOf(false) }
+    var pricesVersion by remember { mutableStateOf(0) }
+    val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
 
+    /** Sorts a spending; with motion a coin flies into the chip first and the card glides out. */
+    fun sort(e: Ledger.Entry, category: String, chipKey: String) {
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        val from = amountAt[e.id]
+        val to = chipAt[chipKey]
+        if (calm || !playful || from == null || to == null) {
+            scope.launch { repo.setLedgerCategory(e, category) }
+        } else {
+            flight = CoinFlight(from, to, System.nanoTime())
+            scope.launch {
+                kotlinx.coroutines.delay(430)
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                repo.setLedgerCategory(e, category)
+            }
+        }
+    }
+
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch {
+                val started = System.currentTimeMillis()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching { repo.syncSms() }
+                    runCatching { com.rez.notif.data.PriceStore.refreshIfOld(context, force = true) }
+                }
+                pricesVersion++
+                // Long enough to see the cow chew.
+                kotlinx.coroutines.delay((900 - (System.currentTimeMillis() - started)).coerceAtLeast(0))
+                refreshing = false
+            }
+        },
+        state = pullState,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            CowRefreshIndicator(pullState, refreshing, calm, playful, Modifier.align(Alignment.TopCenter).statusBarsPadding())
+        },
+    ) {
     LazyColumn(
         Modifier.statusBarsPadding(),
         contentPadding = PaddingValues(bottom = 130.dp),
@@ -135,71 +192,86 @@ fun MoneyHomeScreen(nav: Navigator) {
     ) {
         val v = view
         val midnight = g.style == com.rez.notif.data.AppStyle.MIDNIGHT
-        item { if (midnight) MidnightHeader(v, jokes = I18n.isFa) else Header(v, jokes = I18n.isFa) }
+        var n = 0
+        val i0 = n++
+        item { Box(Modifier.appear(i0, quiet())) { if (midnight) MidnightHeader(v, jokes = I18n.isFa) else Header(v, jokes = I18n.isFa) } }
         if (v == null) return@LazyColumn
 
         // Bank cards
+        val i1 = n++
         if (v.balances.isNotEmpty()) item {
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(Modifier.appear(i1, calm), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(v.balances, key = { it.account }) { b -> if (midnight) MidnightBankCard(b) else BankCard(b) }
             }
         }
-        if (midnight) item { MidnightActions(nav) }
+        val i2 = n++
+        if (midnight) item { Box(Modifier.appear(i2, quiet())) { MidnightActions(nav) } }
         // Gold and dollar
-        item { PricesRow() }
+        val i3 = n++
+        item { Box(Modifier.appear(i3, quiet())) { PricesRow(pricesVersion) } }
 
         // What were these?
         if (v.unsorted.isNotEmpty()) {
-            item { SectionTitle(t("این‌ها چی بودن؟") + "  ·  " + fa(v.unsorted.size)) }
+            val i4 = n++
+            item { Box(Modifier.appear(i4, quiet())) { SectionTitle(t("این‌ها چی بودن؟") + "  ·  " + fa(v.unsorted.size)) } }
             v.unsorted.take(3).forEach { e ->
+                val ie = n++
                 item(key = "ask" + e.id) {
-                    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp) {
+                    GlassCard(Modifier.animateItem().appear(ie, quiet()).fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp) {
                         Text(
                             t("این ") + shortToman(e.out) + t(" چی بود؟"),
                             style = MaterialTheme.typography.titleSmall, color = g.text,
+                            modifier = Modifier.onGloballyPositioned { amountAt[e.id] = it.boundsInWindow().center },
                         )
                         Text(bankLabel(e.account) + "  ·  " + shortTime(e.time), style = MaterialTheme.typography.bodySmall, color = g.textDim)
                         Spacer(Modifier.height(6.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             v.categories.take(4).forEach { c ->
-                                GlassChip(t(c), false, {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    scope.launch { repo.setLedgerCategory(e, c) }
-                                })
+                                val k = "${e.id}|$c"
+                                Box(Modifier.onGloballyPositioned { chipAt[k] = it.boundsInWindow().center }) {
+                                    GlassChip(t(c), false, { sort(e, c, k) })
+                                }
                             }
-                            GlassChip(t("به خودم"), false, { scope.launch { repo.setLedgerCategory(e, Ledger.OWN) } })
+                            val k = "${e.id}|own"
+                            Box(Modifier.onGloballyPositioned { chipAt[k] = it.boundsInWindow().center }) {
+                                GlassChip(t("به خودم"), false, { sort(e, Ledger.OWN, k) })
+                            }
                         }
                     }
                 }
             }
-            if (v.unsorted.size > 3) item {
-                Box(Modifier.padding(horizontal = 16.dp)) { GlassChip(t("بقیه در تراکنش‌ها"), false, { nav.go(Screen.Ledger) }) }
+            if (v.unsorted.size > 3) item(key = "more") {
+                Box(Modifier.animateItem().padding(horizontal = 16.dp)) { GlassChip(t("بقیه در تراکنش‌ها"), false, { nav.go(Screen.Ledger) }) }
             }
         }
 
         // Next 7 days
         if (v.next7.isNotEmpty()) {
-            item { SectionTitle(t("۷ روز آینده")) }
-            item {
-                GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Calendar()) }) {
+            val i5 = n++
+            item(key = "next7t") { Box(Modifier.animateItem().appear(i5, quiet())) { SectionTitle(t("۷ روز آینده")) } }
+            item(key = "next7") {
+                GlassCard(Modifier.animateItem().appear(i5 + 1, quiet()).fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Calendar()) }) {
                     v.next7.take(6).forEach { u -> UpcomingRow(u) }
                 }
             }
         }
 
         // Today
-        item { SectionTitle(t("امروز")) }
-        if (v.today.isEmpty()) item {
+        val i6 = n + 1
+        item(key = "todayt") { Box(Modifier.animateItem().appear(i6, quiet())) { SectionTitle(t("امروز")) } }
+        if (v.today.isEmpty()) item(key = "today0") {
             Text(
                 if (I18n.isFa) Jokes.pick(Jokes.EMPTY_SPENDING, System.currentTimeMillis() / 86_400_000L) else t("هنوز تراکنشی نیست."),
                 style = MaterialTheme.typography.bodyMedium, color = g.textDim,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.animateItem().appear(i6 + 1, quiet()).padding(horizontal = 20.dp, vertical = 8.dp),
             )
-        } else item {
-            GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Ledger) }) {
+        } else item(key = "today") {
+            GlassCard(Modifier.animateItem().appear(i6 + 1, quiet()).fillMaxWidth().padding(horizontal = 16.dp), contentPadding = 12.dp, onClick = { nav.go(Screen.Ledger) }) {
                 v.today.take(8).forEach { e -> TxRow(e) }
             }
         }
+    }
+    CoinFlightLayer(flight) { flight = null }
     }
 }
 
@@ -231,7 +303,7 @@ private fun Header(v: Repository.HomeView?, jokes: Boolean) {
             )
         }
         val mood = Jokes.mood(v.left?.perDay, v.left?.left)
-        if (jokes && mood == Jokes.Mood.JOKE) {
+        if (jokes && mood == Jokes.Mood.JOKE) JokeFlip(calmMotion()) {
             val day = System.currentTimeMillis() / 86_400_000L
             val joke = when {
                 v.bigToday >= 10_000_000 -> Jokes.pick(Jokes.BIG_SPEND, day)

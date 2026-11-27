@@ -128,10 +128,12 @@ fun AppRoot() {
                 Box(Modifier.fillMaxSize().statusBarsPadding()) { LockScreen() }
                 return@GlassBackground
             }
+            val calm = com.rez.notif.ui.screens.calmMotion()
             AnimatedContent(
                 targetState = nav.current,
                 transitionSpec = {
-                    (fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.97f)) togetherWith fadeOut(tween(160))
+                    if (calm) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                    else (fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.97f)) togetherWith fadeOut(tween(160))
                 },
                 label = "screens",
                 modifier = Modifier.fillMaxSize(),

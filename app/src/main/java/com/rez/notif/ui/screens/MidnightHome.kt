@@ -106,7 +106,7 @@ fun MidnightHeader(v: Repository.HomeView?, jokes: Boolean) {
                 )
             }
             val mood = Jokes.mood(v.left?.perDay, v.left?.left)
-            if (jokes && mood == Jokes.Mood.JOKE) {
+            if (jokes && mood == Jokes.Mood.JOKE) JokeFlip(calmMotion()) {
                 val day = System.currentTimeMillis() / 86_400_000L
                 val joke = when {
                     v.bigToday >= 10_000_000 -> Jokes.pick(Jokes.BIG_SPEND, day)

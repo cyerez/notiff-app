@@ -36,13 +36,13 @@ fun priceIcon(item: Prices.Item): Int = when (item) {
 
 /** Dollar, 18k gold and Emami coin on the home screen; fetched at most every 3 hours (the app's only internet use). */
 @Composable
-fun PricesRow() {
+fun PricesRow(version: Int = 0) {
     val g = LocalGlass.current
     val context = LocalContext.current
     var saved by remember { mutableStateOf(PriceStore.saved(context)) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(version) {
         val fresh = withContext(Dispatchers.IO) { runCatching { PriceStore.refreshIfOld(context) }.getOrDefault(false) }
-        if (fresh) saved = PriceStore.saved(context)
+        if (fresh || version > 0) saved = PriceStore.saved(context)
     }
     if (saved.quotes.isEmpty()) return
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

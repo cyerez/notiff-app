@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Key
@@ -132,7 +133,24 @@ fun HomeScreen(nav: Navigator) {
 
     // Back from another tab goes to the first tab.
     BackHandler(enabled = tab != first) { tab = first }
+    val calm = calmMotion()
     Box(Modifier.fillMaxSize()) {
+        // Tabs slide a little toward where the tapped tab is (right to left), with a fade; none when motion is calm.
+        androidx.compose.animation.AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                if (calm) androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                else {
+                    val forward = tabs.indexOf(targetState) > tabs.indexOf(initialState)
+                    val dir = if (forward) -1 else 1
+                    (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240)) +
+                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(240)) { dir * it / 10 }) togetherWith
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
+                }
+            },
+            label = "tabs",
+            modifier = Modifier.fillMaxSize(),
+        ) { tab ->
         when (tab) {
             HomeTab.MONEY -> MoneyHomeScreen(nav)
             HomeTab.HOME -> HomeTabContent(nav)
@@ -141,6 +159,7 @@ fun HomeScreen(nav: Navigator) {
             HomeTab.CALENDAR -> CalendarScreen(nav, embedded = true)
             HomeTab.APPS -> AppsTab(nav)
             HomeTab.SETTINGS -> SettingsScreen(nav, embedded = true)
+        }
         }
         BottomTabs(
             tabs = tabs,
