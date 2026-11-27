@@ -56,8 +56,22 @@ object Ocr {
         try {
             check(api.init(dataDir(context).absolutePath, lang.code)) { "OCR could not start" }
             api.setPageSegMode(TessBaseAPI.PageSegMode.PSM_AUTO)
-            api.setImage(prepare(bitmap))
-            val plain = api.getUTF8Text()?.trim().orEmpty()
+            // A photo taken sideways reads as noise: when the result is weak, try it turned and keep the best.
+            val prepared = prepare(bitmap)
+            api.setImage(prepared)
+            var plain = api.getUTF8Text()?.trim().orEmpty()
+            var best = api.meanConfidence()
+            if (best < 60) {
+                var bestTurn = 0
+                for (turn in listOf(90, 270, 180)) {
+                    api.setImage(rotate(prepared, turn))
+                    val text = api.getUTF8Text()?.trim().orEmpty()
+                    val conf = api.meanConfidence()
+                    if (conf > best + 5) { best = conf; bestTurn = turn; plain = text }
+                }
+                api.setImage(if (bestTurn == 0) prepared else rotate(prepared, bestTurn))
+                api.getUTF8Text()
+            }
             // Line by line with confidence, so noise can be dropped and wrapped lines joined.
             val tidy = runCatching {
                 val lines = ArrayList<com.rez.notif.classify.OcrTidy.Line>()
@@ -77,6 +91,9 @@ object Ocr {
             api.recycle()
         }
     }
+
+    private fun rotate(b: Bitmap, degrees: Int): Bitmap =
+        Bitmap.createBitmap(b, 0, 0, b.width, b.height, android.graphics.Matrix().apply { postRotate(degrees.toFloat()) }, true)
 
     /**
      * Small screenshots (a Smart select crop) are scaled up and turned gray: Tesseract reads

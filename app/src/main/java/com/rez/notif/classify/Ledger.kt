@@ -287,6 +287,14 @@ object Ledger {
         return Left(left, if (left > 0 && daysLeft > 0) left / daysLeft else 0, income, fixed, spentVariable, saving)
     }
 
+    /** A balance older than this is shown but left out of the total: it is probably not true anymore. */
+    const val FRESH_MS = 7L * 86_400_000L
+
+    fun isFresh(b: Balance, now: Long) = now - b.time <= FRESH_MS
+
+    /** Sum of the balances that are at most a week old. */
+    fun freshTotal(balances: List<Balance>, now: Long): Long = balances.filter { isFresh(it, now) }.sumOf { it.rial }
+
     /** What one account holds, from the newest SMS that printed a balance ("مانده"). */
     data class Balance(val account: String, val rial: Long, val time: Long)
 

@@ -713,7 +713,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
 
     data class HomeView(
         val balances: List<Ledger.Balance>,
-        /** Sum of all balances (rial). */
+        /** Sum of the balances at most a week old (rial); older cards are shown dimmed. */
         val total: Long,
         val left: Ledger.Left?,
         val daysLeft: Int,
@@ -754,7 +754,7 @@ class Repository(private val context: Context, private val db: Db, val prefs: Pr
                 .map { (i, b) -> Upcoming(i.sender.ifBlank { i.title }, (b.amount ?: 0) / 10, b.due, "sms") }
             val today = v.entries.filter { it.time >= dayStart() }
             HomeView(
-                balances, balances.sumOf { it.rial }, v.left, v.daysLeft,
+                balances.sortedByDescending { Ledger.isFresh(it, now) }, Ledger.freshTotal(balances, now), v.left, v.daysLeft,
                 v.entries.filter { it.needsCategory }, v.categories,
                 next.sortedBy { it.due }, today,
                 today.filter { it.counted }.maxOfOrNull { it.out } ?: 0,

@@ -872,6 +872,7 @@ internal object En {
         "یه اسم بنویس" to "Type a name",
         "بانک " to "Bank ",
         "بانکش رو نشناختم؛ فقط اسم نشون داده میشه" to "Bank not recognized; only the name will show",
-        "بزن و اسمش رو بنویس" to "Tap to name it",
+        "بزن، اسم بذار" to "Tap to name it",
+        "قدیمی؛ تو جمع نیست" to "Old; not in the total",
     )
 }

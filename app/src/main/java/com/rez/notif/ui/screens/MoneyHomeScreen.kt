@@ -66,6 +66,7 @@ import com.rez.notif.ui.theme.LocalGlass
 import com.rez.notif.R
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.launch
 
@@ -249,7 +250,8 @@ private fun BankCard(b: Ledger.Balance) {
     val g = LocalGlass.current
     var naming by remember { mutableStateOf(false) }
     if (naming) BankNameDialog(b.account) { naming = false }
-    GlassCard(Modifier.width(150.dp), contentPadding = 12.dp, onClick = { naming = true }) {
+    val fresh = Ledger.isFresh(b, System.currentTimeMillis())
+    GlassCard(Modifier.width(150.dp).alpha(if (fresh) 1f else 0.55f), contentPadding = 12.dp, onClick = { naming = true }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BankBadge(b.account, 32.dp)
             Spacer(Modifier.width(8.dp))
@@ -258,7 +260,8 @@ private fun BankCard(b: Ledger.Balance) {
         Spacer(Modifier.height(6.dp))
         Text(shortToman(b.rial), style = MaterialTheme.typography.titleMedium, color = g.text, fontWeight = FontWeight.Bold, maxLines = 1)
         Text(shortTime(b.time), style = MaterialTheme.typography.labelSmall, color = g.textDim, maxLines = 1)
-        if (bankUnknown(b.account)) Text(t("بزن و اسمش رو بنویس"), style = MaterialTheme.typography.labelSmall, color = g.accent, maxLines = 1)
+        if (!fresh) Text(t("قدیمی؛ تو جمع نیست"), style = MaterialTheme.typography.labelSmall, color = g.moneyOut, maxLines = 1)
+        else if (bankUnknown(b.account)) Text(t("بزن، اسم بذار"), style = MaterialTheme.typography.labelSmall, color = g.accent, maxLines = 1)
     }
 }
 
